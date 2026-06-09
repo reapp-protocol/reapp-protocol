@@ -5,8 +5,9 @@ agent pays for a 402-gated resource via **x402**; a Soroban contract
 (**MandateRegistry**) enforces scope, budget, expiry, and replay at consume
 time — so a compromised agent or SDK cannot exceed the mandate.
 
-> **Status:** Tranche 1 MVP — testnet vertical slice. Private until the first
-> external reproduction (see design doc §7.3).
+> **Status:** Tranche 1 / Step 1 complete — `MandateRegistry` deployed, audited,
+> and live on Stellar testnet (18/18 tests, 9/9 on-chain e2e, CI green). See
+> [example-output/step-1-contract-signoff.md](example-output/step-1-contract-signoff.md).
 
 ## The core invariant
 
