@@ -1,0 +1,11 @@
+{
+  "name": "@reapp/fulfillment-agent",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Reference merchant: a 402-gated Express API priced in USDC. First-read example of the safe pattern.",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "tsx src/server.ts"
+  }
+}

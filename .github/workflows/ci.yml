@@ -1,0 +1,37 @@
+name: ci
+
+# The §10 negative suite runs on every push from commit one — a Stellar
+# directive. It must never be "added at the end".
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  contract:
+    name: mandate-registry (Rust)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: contracts/mandate-registry
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: cargo fmt
+        run: cargo fmt --all -- --check
+      - name: cargo test (incl. negative suite)
+        run: cargo test
+
+  packages:
+    name: workspaces (TypeScript)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm ci
+      - run: npm run build
+      - run: npm test

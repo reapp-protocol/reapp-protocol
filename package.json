@@ -1,0 +1,27 @@
+{
+  "name": "reapp-protocol",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Agent-driven payments: AP2 mandates enforced on-chain by Soroban via x402.",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "tsc --build",
+    "demo": "tsx playbook/demo.ts",
+    "keys:derive-freighter": "node scripts/derive-freighter.mjs",
+    "deploy:testnet": "node scripts/deploy.mjs",
+    "e2e:testnet": "node scripts/e2e-testnet.mjs"
+  },
+  "devDependencies": {
+    "@stellar/stellar-sdk": "^13.0.0",
+    "@types/node": "^22.10.2",
+    "dotenv": "^16.4.7",
+    "stellar-hd-wallet": "^0.0.10",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
