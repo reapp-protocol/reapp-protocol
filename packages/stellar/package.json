@@ -1,7 +1,7 @@
 {
-  "name": "@reapp/sdk",
+  "name": "@reapp/stellar",
   "version": "0.0.0",
-  "description": "Thin, untrusted client for the REAPP MandateRegistry. The contract is the source of truth.",
+  "description": "Soroban client + typed MandateRegistry bindings, network config, and signing helpers for REAPP.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -13,13 +13,14 @@
   },
   "files": ["dist"],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "test": "echo \"(no sdk tests yet)\" && exit 0"
+    "build": "tsc"
   },
   "dependencies": {
-    "@reapp/stellar": "*",
     "@stellar/stellar-sdk": "^14.5.0",
     "buffer": "6.0.3"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
   },
   "license": "Apache-2.0",
   "publishConfig": {

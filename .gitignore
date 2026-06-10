@@ -10,6 +10,7 @@ dist/
 # rust / soroban
 target/
 *.wasm
+test_snapshots/
 
 # misc
 .DS_Store

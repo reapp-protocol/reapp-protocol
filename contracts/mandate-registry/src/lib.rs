@@ -94,3 +94,6 @@ impl MandateRegistry {
 
 #[cfg(test)]
 mod test;
+
+#[cfg(test)]
+mod reentry_probe;
