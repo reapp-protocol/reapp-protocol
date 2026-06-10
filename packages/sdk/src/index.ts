@@ -16,6 +16,9 @@ import { Buffer } from "buffer";
 import { Keypair, hash } from "@stellar/stellar-sdk";
 import { TESTNET, keypairSigner, registryClient, token, type NetworkConfig } from "@reapp/stellar";
 
+// Re-export the typed contract errors so apps can branch on them (e.g. Errors.BudgetExceeded).
+export { Errors } from "@reapp/stellar";
+
 export interface CreateIntentMandateInput {
   user: string;
   agent: string;
@@ -51,14 +54,25 @@ export interface SignerInput {
 
 const DEFAULT_DECIMALS = 7;
 
+/**
+ * Convert a human amount to stroops (i128). Strict by design — this is money:
+ * only a non-negative decimal like "5" or "5.00" is accepted. Negatives,
+ * multiple dots, scientific notation, garbage, or more than `decimals` fraction
+ * digits all throw rather than silently produce a wrong on-chain value.
+ */
 export function toStroops(human: string, decimals = DEFAULT_DECIMALS): bigint {
-  const parts = human.trim().split(".");
-  const whole = parts[0] ?? "0";
-  const frac = parts[1] ?? "";
+  const s = String(human).trim();
+  if (!/^\d+(\.\d+)?$/.test(s)) {
+    throw new Error(`Invalid amount ${JSON.stringify(human)}: expected a non-negative decimal like "5.00".`);
+  }
+  const dot = s.indexOf(".");
+  const whole = dot === -1 ? s : s.slice(0, dot);
+  const frac = dot === -1 ? "" : s.slice(dot + 1);
+  if (frac.length > decimals) {
+    throw new Error(`Amount ${JSON.stringify(human)} has more than ${decimals} decimal places.`);
+  }
   const fracPadded = (frac + "0".repeat(decimals)).slice(0, decimals);
-  const sign = whole.startsWith("-") ? -1n : 1n;
-  const wholeAbs = whole.replace("-", "") || "0";
-  return sign * (BigInt(wholeAbs) * 10n ** BigInt(decimals) + BigInt(fracPadded || "0"));
+  return BigInt(whole) * 10n ** BigInt(decimals) + BigInt(fracPadded || "0");
 }
 
 const asKeypair = (s: Keypair | string): Keypair =>
@@ -86,7 +100,13 @@ export class Agent {
       expected_seq: current.seq,
     });
     const sent = await at.signAndSend();
-    sent.result.unwrap();
+    try {
+      sent.result.unwrap();
+    } catch (e) {
+      throw new Error(
+        `payment rejected by contract for mandate ${this.mandate.id}: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
     return sent.sendTransactionResponse?.hash ?? "";
   }
 }
@@ -98,13 +118,19 @@ export const reapp = {
   createIntentMandate(input: CreateIntentMandateInput, net: NetworkConfig = TESTNET): IntentMandate {
     void net;
     const decimals = input.decimals ?? DEFAULT_DECIMALS;
+    // Nonce keeps ids distinct in normal use; the CONTRACT (not the SDK) is the
+    // real uniqueness authority (AlreadyExists), so timestamp+random suffices —
+    // don't "upgrade" it expecting security from it.
     const nonce = input.nonce ?? `${Date.now()}:${Math.random().toString(36).slice(2)}`;
+    const maxAmount = String(input.maxAmount).trim();
+    // CRITICAL: this field order defines the canonical hash (the mandate id).
+    // Changing order/values changes every id — keep it stable.
     const canonical = JSON.stringify({
       user: input.user,
       agent: input.agent,
       merchant: input.merchant,
       asset: input.asset,
-      maxAmount: input.maxAmount,
+      maxAmount,
       expiry: input.expiry,
       nonce,
     });
@@ -116,7 +142,7 @@ export const reapp = {
       agent: input.agent,
       merchant: input.merchant,
       asset: input.asset,
-      maxAmount: toStroops(input.maxAmount, decimals),
+      maxAmount: toStroops(maxAmount, decimals),
       expiry: input.expiry,
       decimals,
     };
