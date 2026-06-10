@@ -1,5 +1,5 @@
 /**
- * @reapp/sdk — create an agent, connect to the testnet MandateRegistry, and
+ * @reapp-sdk/core — create an agent, connect to the testnet MandateRegistry, and
  * execute a mandate-validated payment in under 10 lines.
  *
  * The SDK is UNTRUSTED infrastructure: it never holds the allowance (only the
@@ -14,10 +14,10 @@
  */
 import { Buffer } from "buffer";
 import { Keypair, hash } from "@stellar/stellar-sdk";
-import { TESTNET, keypairSigner, registryClient, token, type NetworkConfig } from "@reapp/stellar";
+import { TESTNET, keypairSigner, registryClient, token, type NetworkConfig } from "@reapp-sdk/stellar";
 
 // Re-export the typed contract errors so apps can branch on them (e.g. Errors.BudgetExceeded).
-export { Errors } from "@reapp/stellar";
+export { Errors } from "@reapp-sdk/stellar";
 
 export interface CreateIntentMandateInput {
   user: string;

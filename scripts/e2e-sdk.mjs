@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * PRODUCTION e2e through the @reapp/sdk surface — NO MOCKS, live testnet.
+ * PRODUCTION e2e through the @reapp-sdk/core surface — NO MOCKS, live testnet.
  *
  *   npm run e2e:sdk
  *
@@ -18,8 +18,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 import { Keypair } from "@stellar/stellar-sdk";
-import { reapp } from "@reapp/sdk";
-import { TESTNET, token } from "@reapp/stellar";
+import { reapp } from "@reapp-sdk/core";
+import { TESTNET, token } from "@reapp-sdk/stellar";
 
 dotenv.config({ path: path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", ".env"), quiet: true });
 
@@ -53,7 +53,7 @@ async function main() {
 
   log("");
   log(RULE(c.magenta));
-  log(`  ${c.bold(c.magenta("REAPP"))}  ${c.dim("·")}  ${c.bold("@reapp/sdk e2e")} ${c.dim("— live testnet, no mocks")}`);
+  log(`  ${c.bold(c.magenta("REAPP"))}  ${c.dim("·")}  ${c.bold("@reapp-sdk/core e2e")} ${c.dim("— live testnet, no mocks")}`);
   log(RULE(c.magenta));
   field("contract", c.yellow(TESTNET.mandateRegistryId));
   field("explorer", c.link(`https://testnet.stellarchain.io/contracts/${TESTNET.mandateRegistryId}`));

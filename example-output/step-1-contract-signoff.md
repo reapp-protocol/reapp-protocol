@@ -90,4 +90,4 @@ git remote add origin git@github.com:reapp-protocol/reapp-protocol.git
 git push -u origin main
 ```
 
-**Step 1 is closed. Next: `@reapp/sdk`.**
+**Step 1 is closed. Next: `@reapp-sdk/core`.**

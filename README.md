@@ -20,7 +20,7 @@ untrusted; the contract is the source of truth.
 
 ```
 contracts/mandate-registry/   Rust / soroban-sdk — the enforcement contract
-packages/sdk/                 @reapp/sdk — thin, untrusted client
+packages/sdk/                 @reapp-sdk/core — thin, untrusted client
 apps/fulfillment-agent/       402-gated Express server (the merchant)
 apps/consumer-agent/          ResearchAgent that pays via the SDK
 playbook/demo.ts              the 15-minute "aha": happy path + 4 rejections
