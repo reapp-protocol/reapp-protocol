@@ -1,7 +1,19 @@
 {
   "name": "@reapp-sdk/core",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Thin, untrusted client for the REAPP MandateRegistry. The contract is the source of truth.",
+  "keywords": [
+    "stellar",
+    "soroban",
+    "reapp",
+    "agent-payments",
+    "x402",
+    "ap2",
+    "mandate",
+    "payments",
+    "ai-agents",
+    "sdk"
+  ],
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
