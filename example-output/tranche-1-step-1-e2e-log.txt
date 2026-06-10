@@ -1,0 +1,162 @@
+
+> reapp-protocol@0.0.0 e2e:testnet
+> node scripts/e2e-testnet.mjs
+
+
+────────────────────────────────────────────────────────────────
+  REAPP  ·  on-chain e2e — testnet, NO MOCKS
+────────────────────────────────────────────────────────────────
+  The thesis: an autonomous agent cannot be trusted to police its own
+  spending — so the limit lives BELOW the agent, in a Soroban contract
+  that sits in the money path. This script proves it on live testnet.
+
+  Actors
+    user     your deployer wallet — owns the funds, signs the mandate
+    agent    autonomous spender — the ONLY one allowed to call execute_payment
+    merchant the payee — receives funds
+
+     · contract       CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL
+     · explorer       https://testnet.stellarchain.io/contracts/CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL
+     · user           GBE3PH4ZYVYUXZWZL4YJP22H5J46U6VQVF6SYNJ3GGU3RHBN4M77VNBG
+     · vc_hash        3534816034efd573a460a89657ef7312aed01e62613b58f94f4b0619d1cb958a
+
+▸ Accounts (friendbot-funded)
+     ℹ Creating two brand-new testnet accounts and funding them via Friendbot.
+     ℹ The agent will SIGN payments; the merchant only RECEIVES. Both are real.
+     · agent          GA2B3YY27OY6AWT2VXMXUDBSAHVOLU2ST6QWJJJLOIGDQHJDXO4RL4XH
+     · merchant       GC3SJB7BNO3M7COY73DLIHHNXGNZPWHMQTYDGBONVAY6E3HLFQUQQ2DG
+
+▸ Native SEP-41 token (XLM asset contract)
+     ℹ Using Stellar's native XLM as a REAL SEP-41 token via its asset contract.
+     ℹ No mock token anywhere — actual on-chain balances will move.
+     $ stellar contract asset deploy --asset native --source-account SCC3…JTXQ --rpc-url https://soroban-testnet.stellar.org --network-passphrase Test SDF Network ; September 2015
+     ℹ native asset contract already deployed — reusing it (expected).
+     · asset (SAC)    CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC
+
+▸ User grants SEP-41 allowance to the contract
+     ℹ The USER approves the CONTRACT (never the agent) as spender. This is the
+     ℹ custody model: funds stay in the user's wallet until the contract pulls
+     ℹ them — and the agent has NO allowance, so it can't move money directly.
+     · amount         50000000 (5.0000 XLM)
+     · spender        CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL
+     · expiry ledger  3039222
+     $ stellar contract invoke --id CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC --source-account SCC3…JTXQ --rpc-url https://soroban-testnet.stellar.org --network-passphrase Test SDF Network ; September 2015 -- approve --from GBE3PH4ZYVYUXZWZL4YJP22H5J46U6VQVF6SYNJ3GGU3RHBN4M77VNBG --spender CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL --amount 50000000 --expiration_ledger 3039222
+       ℹ️  Simulating transaction…
+       ℹ️  Signing transaction: bf3db709d2724b42565fb569b9c130e23c32642645eecde3cfaaaf42d8106b8d
+       🌎 Sending transaction…
+       ✅ Transaction submitted successfully!
+       🔗 https://testnet.stellarchain.io/tx/bf3db709d2724b42565fb569b9c130e23c32642645eecde3cfaaaf42d8106b8d
+       📅 CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC - Success - Event: Approve (approve), from: "GBE3PH4ZYVYUXZWZL4YJP22H5J46U6VQVF6SYNJ3GGU3RHBN4M77VNBG", spender: "CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL", amount: "50000000", expiration_ledger: 3039222
+     ✓ pass approve
+
+▸ 1/5 · register_mandate  (user-signed)
+     ℹ The user signs the authorization: 'agent may spend up to 5 XLM at this
+     ℹ merchant until expiry.' The contract stores it with spent=0, status=Active.
+     ✔ proves a caller cannot set spent/status — the contract initializes them.
+     $ stellar contract invoke --id CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL --source-account SCC3…JTXQ --rpc-url https://soroban-testnet.stellar.org --network-passphrase Test SDF Network ; September 2015 -- register_mandate --user GBE3PH4ZYVYUXZWZL4YJP22H5J46U6VQVF6SYNJ3GGU3RHBN4M77VNBG --agent GA2B3YY27OY6AWT2VXMXUDBSAHVOLU2ST6QWJJJLOIGDQHJDXO4RL4XH --merchant GC3SJB7BNO3M7COY73DLIHHNXGNZPWHMQTYDGBONVAY6E3HLFQUQQ2DG --asset CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC --max_amount 50000000 --expiry 1781125540 --vc_hash 3534816034efd573a460a89657ef7312aed01e62613b58f94f4b0619d1cb958a
+       ℹ️  Simulating transaction…
+       ℹ️  Signing transaction: fba8d71bcb95ef71d7e01dec583491d0790b599136e8a45fb18dd0bb30c38f42
+       🌎 Sending transaction…
+       ✅ Transaction submitted successfully!
+       🔗 https://testnet.stellarchain.io/tx/fba8d71bcb95ef71d7e01dec583491d0790b599136e8a45fb18dd0bb30c38f42
+       📅 CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL - Success - Event: [{"symbol":"register"},{"address":"GBE3PH4ZYVYUXZWZL4YJP22H5J46U6VQVF6SYNJ3GGU3RHBN4M77VNBG"}] = {"bytes":"3534816034efd573a460a89657ef7312aed01e62613b58f94f4b0619d1cb958a"}
+       "3534816034efd573a460a89657ef7312aed01e62613b58f94f4b0619d1cb958a"
+     ✓ pass register_mandate
+
+▸ 2/5 · get_mandate
+     ℹ Read the mandate back from the chain — confirms it's stored and Active.
+     $ stellar contract invoke --id CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL --source-account SCC3…JTXQ --rpc-url https://soroban-testnet.stellar.org --network-passphrase Test SDF Network ; September 2015 -- get_mandate --mandate_id 3534816034efd573a460a89657ef7312aed01e62613b58f94f4b0619d1cb958a
+       ℹ️  Simulation identified as read-only. Send by rerunning with `--send=yes`.
+       {"agent":"GA2B3YY27OY6AWT2VXMXUDBSAHVOLU2ST6QWJJJLOIGDQHJDXO4RL4XH","asset":"CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC","expiry":1781125540,"max_amount":"50000000","merchant":"GC3SJB7BNO3M7COY73DLIHHNXGNZPWHMQTYDGBONVAY6E3HLFQUQQ2DG","seq":0,"spent":"0","status":"Active","user":"GBE3PH4ZYVYUXZWZL4YJP22H5J46U6VQVF6SYNJ3GGU3RHBN4M77VNBG","vc_hash":"3534816034efd573a460a89657ef7312aed01e62613b58f94f4b0619d1cb958a"}
+     ✓ pass get_mandate
+
+▸ 3/5 · validate_and_consume  (read-only preflight)
+     ℹ Dry-run: would a 1 XLM payment to this merchant be allowed right now?
+     ℹ Mutates nothing — it's the clean error the SDK checks before paying.
+     $ stellar contract invoke --id CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL --source-account SCC3…JTXQ --rpc-url https://soroban-testnet.stellar.org --network-passphrase Test SDF Network ; September 2015 -- validate_and_consume --mandate_id 3534816034efd573a460a89657ef7312aed01e62613b58f94f4b0619d1cb958a --amount 10000000 --merchant GC3SJB7BNO3M7COY73DLIHHNXGNZPWHMQTYDGBONVAY6E3HLFQUQQ2DG
+       ℹ️  Simulation identified as read-only. Send by rerunning with `--send=yes`.
+       null
+     ✓ pass validate_and_consume
+
+▸ 4 · execute_payment  (AGENT-signed — real funds move)
+     ℹ The AGENT signs this — NOT the user. The contract re-validates everything,
+     ℹ checks the sequence (replay guard), then pulls 1 XLM via the allowance.
+     ✔ proves the agent moves the user's funds only within the signed mandate.
+     $ stellar contract invoke --id CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC --source-account SCC3…JTXQ --rpc-url https://soroban-testnet.stellar.org --network-passphrase Test SDF Network ; September 2015 -- balance --id GC3SJB7BNO3M7COY73DLIHHNXGNZPWHMQTYDGBONVAY6E3HLFQUQQ2DG
+       ℹ️  Simulation identified as read-only. Send by rerunning with `--send=yes`.
+       "100070000000"
+     · merchant before 10007.0000 XLM
+     $ stellar contract invoke --id CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL --source-account reapp-agent --rpc-url https://soroban-testnet.stellar.org --network-passphrase Test SDF Network ; September 2015 -- execute_payment --mandate_id 3534816034efd573a460a89657ef7312aed01e62613b58f94f4b0619d1cb958a --amount 10000000 --expected_seq 0
+       ℹ️  Simulating transaction…
+       ℹ️  Signing transaction: d4814ab9baa927f2276116e57f3b0384e1b21e67a3aa6ea1907869efcff910ab
+       🌎 Sending transaction…
+       ✅ Transaction submitted successfully!
+       🔗 https://testnet.stellarchain.io/tx/d4814ab9baa927f2276116e57f3b0384e1b21e67a3aa6ea1907869efcff910ab
+       📅 CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC - Success - Event: [{"symbol":"transfer"},{"address":"GBE3PH4ZYVYUXZWZL4YJP22H5J46U6VQVF6SYNJ3GGU3RHBN4M77VNBG"},{"address":"GC3SJB7BNO3M7COY73DLIHHNXGNZPWHMQTYDGBONVAY6E3HLFQUQQ2DG"},{"string":"native"}] = {"i128":"10000000"}
+       📅 CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL - Success - Event: [{"symbol":"payment"},{"address":"GC3SJB7BNO3M7COY73DLIHHNXGNZPWHMQTYDGBONVAY6E3HLFQUQQ2DG"}] = {"vec":[{"bytes":"3534816034efd573a460a89657ef7312aed01e62613b58f94f4b0619d1cb958a"},{"i128":"10000000"}]}
+       null
+     $ stellar contract invoke --id CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC --source-account SCC3…JTXQ --rpc-url https://soroban-testnet.stellar.org --network-passphrase Test SDF Network ; September 2015 -- balance --id GC3SJB7BNO3M7COY73DLIHHNXGNZPWHMQTYDGBONVAY6E3HLFQUQQ2DG
+       ℹ️  Simulation identified as read-only. Send by rerunning with `--send=yes`.
+       "100080000000"
+     · merchant after 10008.0000 XLM
+     · delta          +1.0000 XLM  (expected +1.0000 XLM)
+     ✓ pass execute_payment
+
+▸ ROGUE · overspend — agent tries to exceed the budget
+     ℹ A hostile agent asks for far more than the mandate allows (correct seq).
+     ✔ proves budget cap is enforced on-chain → BudgetExceeded.
+     $ stellar contract invoke --id CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL --source-account reapp-agent --rpc-url https://soroban-testnet.stellar.org --network-passphrase Test SDF Network ; September 2015 -- execute_payment --mandate_id 3534816034efd573a460a89657ef7312aed01e62613b58f94f4b0619d1cb958a --amount 100000000 --expected_seq 1
+       ❌ error: transaction simulation failed: HostError: Error(Contract, #6)
+       Event log (newest first):
+          0: [Diagnostic Event] contract:CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL, topics:[error, Error(Contract, #6)], data:"escalating Ok(ScErrorType::Contract) frame-exit to Err"
+          1: [Diagnostic Event] topics:[fn_call, CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL, execute_payment], data:[Bytes(3534816034efd573a460a89657ef7312aed01e62613b58f94f4b0619d1cb958a), 100000000, 1]
+     ✓ pass rogue overspend rejected
+
+▸ ROGUE · replay — agent resubmits an already-consumed sequence
+     ℹ The agent replays seq 0 after it was spent. The mandate-layer guard refuses.
+     ✔ proves replay protection on-chain → BadSequence.
+     $ stellar contract invoke --id CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL --source-account reapp-agent --rpc-url https://soroban-testnet.stellar.org --network-passphrase Test SDF Network ; September 2015 -- execute_payment --mandate_id 3534816034efd573a460a89657ef7312aed01e62613b58f94f4b0619d1cb958a --amount 10000000 --expected_seq 0
+       ❌ error: transaction simulation failed: HostError: Error(Contract, #8)
+       Event log (newest first):
+          0: [Diagnostic Event] contract:CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL, topics:[error, Error(Contract, #8)], data:"escalating Ok(ScErrorType::Contract) frame-exit to Err"
+          1: [Diagnostic Event] topics:[fn_call, CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL, execute_payment], data:[Bytes(3534816034efd573a460a89657ef7312aed01e62613b58f94f4b0619d1cb958a), 10000000, 0]
+     ✓ pass rogue replay rejected
+
+▸ 5 · revoke_mandate  (user-signed)
+     ℹ The user withdraws consent — the contract marks the mandate Revoked.
+     $ stellar contract invoke --id CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL --source-account SCC3…JTXQ --rpc-url https://soroban-testnet.stellar.org --network-passphrase Test SDF Network ; September 2015 -- revoke_mandate --mandate_id 3534816034efd573a460a89657ef7312aed01e62613b58f94f4b0619d1cb958a
+       ℹ️  Simulating transaction…
+       ℹ️  Signing transaction: 4ea9f8b1e4fea05afc7526ffebeceb88804f18541c529db67745f1ba1f4a6132
+       🌎 Sending transaction…
+       ✅ Transaction submitted successfully!
+       🔗 https://testnet.stellarchain.io/tx/4ea9f8b1e4fea05afc7526ffebeceb88804f18541c529db67745f1ba1f4a6132
+       📅 CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL - Success - Event: [{"symbol":"revoke"}] = {"bytes":"3534816034efd573a460a89657ef7312aed01e62613b58f94f4b0619d1cb958a"}
+       null
+     ✓ pass revoke_mandate
+
+▸ PUNCHLINE · revoked mandate blocks payment
+     ℹ The same agent tries to pay again on a revoked mandate. The contract REJECTS
+     ℹ it on-chain. The limit lives in the contract, not the SDK — a rogue agent
+     ℹ changes nothing. A passing ✓ here means the rejection happened.
+     ✔ proves enforcement is protocol-level: revoked = no payment, period.
+     $ stellar contract invoke --id CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL --source-account reapp-agent --rpc-url https://soroban-testnet.stellar.org --network-passphrase Test SDF Network ; September 2015 -- execute_payment --mandate_id 3534816034efd573a460a89657ef7312aed01e62613b58f94f4b0619d1cb958a --amount 10000000 --expected_seq 1
+       ❌ error: transaction simulation failed: HostError: Error(Contract, #5)
+       Event log (newest first):
+          0: [Diagnostic Event] contract:CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL, topics:[error, Error(Contract, #5)], data:"escalating Ok(ScErrorType::Contract) frame-exit to Err"
+          1: [Diagnostic Event] topics:[fn_call, CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL, execute_payment], data:[Bytes(3534816034efd573a460a89657ef7312aed01e62613b58f94f4b0619d1cb958a), 10000000, 1]
+     ✓ pass revoked blocks payment
+
+────────────────────────────────────────────────────────────────
+  ✦ SUMMARY  9/9 on-chain steps passed
+────────────────────────────────────────────────────────────────
+  ✓ approve
+  ✓ register_mandate
+  ✓ get_mandate
+  ✓ validate_and_consume
+  ✓ execute_payment
+  ✓ rogue overspend rejected
+  ✓ rogue replay rejected
+  ✓ revoke_mandate
+  ✓ revoked blocks payment
+────────────────────────────────────────────────────────────────
+

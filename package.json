@@ -22,6 +22,7 @@
     "@stellar/stellar-sdk": "^14.5.0",
     "@types/node": "^22.10.2",
     "dotenv": "^16.4.7",
+    "playwright": "^1.60.0",
     "stellar-hd-wallet": "^0.0.10",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
