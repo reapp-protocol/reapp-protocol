@@ -1,0 +1,4 @@
+#!/bin/sh
+# REAPP pre-push gate: run the full CI-equivalent locally so no push can fail CI.
+# Enable once with:  git config core.hooksPath .githooks
+exec npm run verify
