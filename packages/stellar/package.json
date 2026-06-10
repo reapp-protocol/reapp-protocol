@@ -1,7 +1,19 @@
 {
   "name": "@reapp-sdk/stellar",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Soroban client + typed MandateRegistry bindings, network config, and signing helpers for REAPP.",
+  "keywords": [
+    "stellar",
+    "soroban",
+    "reapp",
+    "mandate",
+    "agent-payments",
+    "x402",
+    "ap2",
+    "sep-41",
+    "micropayments",
+    "ai-agents"
+  ],
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
