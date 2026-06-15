@@ -48,6 +48,24 @@ The flow has three signers and one contract. The user authorizes, the agent spen
 3. `approveBudget` grants a SEP-41 allowance up to the budget. The allowance goes to the **contract**, never to the agent or the SDK. This is the custody boundary: the agent can ask the contract to move money, but only the contract holds the right to pull from the user.
 4. `pay` calls `execute_payment`, signed by the agent. The contract re-checks the agent, the sequence, the merchant scope, the expiry, and the remaining budget, then advances `spent` and `seq` and transfers the funds from user to merchant in one atomic step. If any check fails, the whole call reverts and `pay` throws.
 
+## Paying for a resource (x402)
+
+`agent.fetch(url)` is the x402 client. It makes the request, and if the server answers
+`402 Payment Required` it pays on-chain through the same `execute_payment` path as
+`pay`, retries with a settlement proof, and returns the served response. The contract
+still enforces the limit, so `fetch` cannot bypass it: a revoked, expired, over-budget,
+or out-of-scope request is rejected on-chain and `fetch` throws.
+
+```ts
+const agent = reapp.agent({ mandate, signer: agentKey });
+const res = await agent.fetch("https://merchant.example/report");
+const data = await res.json(); // served only after the merchant verified the on-chain payment
+```
+
+The x402 wire format lives in its own module, so it tracks the evolving x402 spec
+without touching the mandate or the contract. A reference 402-gated merchant that
+verifies the payment on-chain ships in the repo.
+
 ## API
 
 ### `reapp.createIntentMandate(input, net?)`
@@ -78,6 +96,10 @@ Grants the contract a SEP-41 allowance up to the mandate budget. Signed by the u
 ### `reapp.agent({ mandate, signer }, net?).pay(amount)`
 
 Reads the current mandate sequence, then calls `execute_payment` for `amount` (a decimal string), signed by the agent. Returns the transaction hash. Throws if the contract rejects the payment.
+
+### `reapp.agent({ mandate, signer }, net?).fetch(url, init?)`
+
+The x402 client. GETs `url`; on a `402` it reads the payment requirement, checks the merchant and asset against the mandate, pays on-chain (the same path as `pay`), and retries with an `X-PAYMENT` settlement proof. Returns the final `Response`. Throws if the contract rejects the payment. A non-402 response is returned unchanged, with no payment.
 
 ### `reapp.revokeMandate(mandate, { signer }, net?)`
 
