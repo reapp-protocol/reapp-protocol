@@ -1,5 +1,11 @@
 # Tranche 1, Step 1: MandateRegistry on Stellar Testnet
 
+![Network](https://img.shields.io/badge/network-Stellar%20testnet-7b3fe4)
+![Step 1](https://img.shields.io/badge/Tranche%201%20Step%201-complete-2ea44f)
+![Tests](https://img.shields.io/badge/tests-19%2F19%20passing-2ea44f)
+![Audit](https://img.shields.io/badge/internal%20audit-airtight--ship-2ea44f)
+![Bytecode](https://img.shields.io/badge/bytecode-hash%20verified-1f6feb)
+
 > **Deliverable.** MandateRegistry Soroban contract deployed on testnet. Contract
 > live on testnet with `register_mandate`, `validate_and_consume`,
 > `execute_payment`, and `revoke_mandate` callable. Integration tests passing,
@@ -189,6 +195,13 @@ stateDiagram-v2
     Exhausted --> Revoked: revoke_mandate
     Revoked --> [*]
     Exhausted --> [*]
+
+    classDef active fill:#10b981,stroke:#065f46,color:#ffffff
+    classDef exhausted fill:#f59e0b,stroke:#92400e,color:#ffffff
+    classDef revoked fill:#ef4444,stroke:#7f1d1d,color:#ffffff
+    class Active active
+    class Exhausted exhausted
+    class Revoked revoked
 ```
 
 ## Integration tests
