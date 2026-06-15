@@ -24,9 +24,9 @@ treated as untrusted. The contract is the source of truth.
 | Fact | Value |
 |---|---|
 | Network | Stellar testnet |
-| Contract id | `CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL` |
+| Contract id | [`CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL`](https://stellar.expert/explorer/testnet/contract/CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL) |
 | WASM hash | `59298a08…cf80a1ce` |
-| Deployed | 2026-06-09 22:50:57 UTC by `GBE3…VNBG` |
+| Deployed | 2026-06-09 22:50:57 UTC by [`GBE3…VNBG`](https://stellar.expert/explorer/testnet/account/GBE3PH4ZYVYUXZWZL4YJP22H5J46U6VQVF6SYNJ3GGU3RHBN4M77VNBG) |
 | Explorer | [stellar.expert contract page](https://stellar.expert/explorer/testnet/contract/CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL) |
 
 The contract is small on purpose. A small interface is an auditable interface.
@@ -40,7 +40,7 @@ Each mandate is one record, stored under its own id (a 32-byte hash). It holds:
 | `user` | The person who owns the funds and signs the mandate |
 | `agent` | The only account allowed to spend against this mandate |
 | `merchant` | The single account that may be paid |
-| `asset` | The SEP-41 token to spend. The contract accepts any token; the live testnet runs use native XLM (its Stellar Asset Contract, `CDLZ…CYSC`) |
+| `asset` | The SEP-41 token to spend. The contract accepts any token; the live testnet runs use native XLM (its Stellar Asset Contract, [`CDLZ…CYSC`](https://stellar.expert/explorer/testnet/contract/CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC)) |
 | `max_amount` | The total budget the agent may spend |
 | `spent` | How much has been spent so far (starts at 0) |
 | `expiry` | A time after which the mandate is dead |
@@ -56,58 +56,76 @@ A mandate's `status` moves through three states:
 
 ## The methods, one by one
 
-Five methods. Two change state and need a signature (`register_mandate`,
-`revoke_mandate`), one moves money and needs the agent's signature
-(`execute_payment`), and two are read-only (`validate_and_consume`, `get_mandate`).
+The contract has five methods. Two are read-only and need no signature; three
+change state and require a specific signer.
+
+| Method | Signer | Changes state | What it does |
+|---|---|---|---|
+| `register_mandate` | User | Yes | Creates a mandate |
+| `validate_and_consume` | None | No | Preflight check before paying |
+| `execute_payment` | Agent | Yes | The only path that moves money |
+| `revoke_mandate` | User | Yes | Cancels a mandate |
+| `get_mandate` | None | No | Reads a mandate |
 
 ### `register_mandate(user, agent, merchant, asset, max_amount, expiry, vc_hash)`
 
-Creates a new mandate.
+Creates a new mandate. Moves no money.
 
-- **Who signs:** the user.
-- **Checks:** budget is positive (else `InvalidAmount`), expiry is in the future (else `MandateExpired`), and the id is not already taken (else `AlreadyExists`).
-- **Sets:** `spent = 0`, `seq = 0`, `status = Active`. The contract sets these itself, so a caller cannot seed a fake balance or status.
-- **Returns:** the mandate id.
-- **Note:** registering moves no money. The user separately signs a SEP-41 `approve` so the contract can later pull funds.
+| | |
+|---|---|
+| **Signer** | the user |
+| **Checks** | budget is positive (`InvalidAmount`), expiry is in the future (`MandateExpired`), the id is not already taken (`AlreadyExists`) |
+| **Sets** | `spent = 0`, `seq = 0`, `status = Active`, set by the contract so a caller cannot seed a fake balance or status |
+| **Returns** | the mandate id |
+| **After** | the user separately signs a SEP-41 `approve` so the contract can later pull funds |
 
 ### `validate_and_consume(mandate_id, amount, merchant)`
 
 A read-only dry run that answers one question: would a payment of `amount` to
 `merchant` be allowed right now?
 
-- **Who signs:** no one. Anyone can call it.
-- **Effect:** none. It changes nothing on-chain.
-- **Use:** the SDK calls it for a clean typed answer before paying.
-- **Note:** despite the name it consumes nothing. The real consume happens only in `execute_payment`.
+| | |
+|---|---|
+| **Signer** | none, anyone can call it |
+| **Effect** | none, it changes nothing on-chain |
+| **Use** | the SDK calls it for a clean typed answer before paying |
+| **Note** | despite the name it consumes nothing; the real consume happens only in `execute_payment` |
 
 ### `execute_payment(mandate_id, amount, expected_seq)`
 
-The only path that moves money. Only the mandate's **agent** may call it, enforced
-by Soroban's `require_auth`. Any other caller is rejected by the network before the
-contract logic even runs. In one atomic transaction it:
+The only path that moves money.
 
-1. requires the agent's signature
-2. checks `expected_seq` equals the mandate's current `seq`, else `BadSequence` (this blocks replays and out-of-order spends)
-3. re-checks amount, status, expiry, merchant scope, and budget against stored state
-4. adds `amount` to `spent`, raises `seq` by one, and flips status to `Exhausted` if the budget is now fully used
-5. moves `amount` from user to merchant with the token's `transfer_from`
+| | |
+|---|---|
+| **Signer** | the agent only, enforced by Soroban's `require_auth`; any other caller's transaction is reverted at the host level, so no funds move |
+| **Atomicity** | the steps below run in one transaction; if any step fails the whole transaction reverts, so there is no partial spend |
 
-If any step fails, the whole transaction reverts. There is no partial spend.
+Steps:
+
+1. require the agent's signature
+2. check `expected_seq` equals the mandate's current `seq`, else `BadSequence` (blocks replays and out-of-order spends)
+3. re-check amount, status, expiry, merchant scope, and budget against stored state
+4. add `amount` to `spent`, raise `seq` by one, and flip status to `Exhausted` if the budget is now fully used
+5. move `amount` from user to merchant with the token's `transfer_from`
 
 ### `revoke_mandate(mandate_id)`
 
 The user's kill switch.
 
-- **Who signs:** the user.
-- **Effect:** marks the mandate `Revoked`. After this, every `execute_payment` is rejected with `MandateRevoked`.
+| | |
+|---|---|
+| **Signer** | the user |
+| **Effect** | marks the mandate `Revoked`; after this, every `execute_payment` is rejected with `MandateRevoked` |
 
 ### `get_mandate(mandate_id)`
 
 A read-only lookup.
 
-- **Who signs:** no one. Anyone can call it.
-- **Returns:** the stored mandate (status, spent, seq, and the rest).
-- **Use:** audit, and reading the current `seq` before paying.
+| | |
+|---|---|
+| **Signer** | none, anyone can call it |
+| **Returns** | the stored mandate (status, spent, seq, and the rest) |
+| **Use** | audit, and reading the current `seq` before paying |
 
 ## What it refuses
 
@@ -176,8 +194,9 @@ stateDiagram-v2
 ## Integration tests
 
 The contract ships with a Rust test suite that runs against a Soroban test
-environment. It passes 19 of 19, with `cargo clippy` clean. The suite runs in CI on
-every push, so a change that breaks any check cannot land.
+environment. It passes 19 of 19, and `cargo clippy` is clean. GitHub Actions runs
+`cargo fmt` and the test suite (the negatives included) on every push, so a change
+that breaks them cannot land.
 
 ```
 cd contracts/mandate-registry && cargo test
@@ -220,35 +239,35 @@ at the end.
 ## Every transaction on-chain
 
 Read from the [stellar.expert contract activity](https://stellar.expert/explorer/testnet/contract/CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL),
-oldest first. Amounts are shown in XLM (1 XLM = 10,000,000 stroops). Mandate ids
-are shortened.
+oldest first; each call links to its transaction on stellar.expert. Amounts are in
+XLM (1 XLM = 10,000,000 stroops). Mandate ids are shortened.
 
 | Time (UTC) | Caller | Call | What happened |
 |---|---|---|---|
-| 2026-06-09 22:50:57 | `GBE3…VNBG` | create contract | Deployed MandateRegistry from WASM `59298a08…` |
-| 2026-06-09 22:51:37 | `GBE3…VNBG` | register_mandate | New mandate `cqRd…`: agent `GA2B…`, merchant `GC3S…`, budget 5 XLM |
-| 2026-06-09 22:51:47 | `GA2B…L4XH` | execute_payment | Agent paid 1 XLM on `cqRd…` (seq 0) |
-| 2026-06-09 22:51:57 | `GBE3…VNBG` | revoke_mandate | User revoked `cqRd…` |
-| 2026-06-10 01:55:42 | `GBE3…VNBG` | register_mandate | New mandate `e+j1…`: agent `GBLO…`, merchant `GCQP…`, budget 5 XLM |
-| 2026-06-10 01:55:52 | `GBLO…CIGB` | execute_payment | Agent paid 1 XLM on `e+j1…` (seq 0) |
-| 2026-06-10 01:55:57 | `GBE3…VNBG` | revoke_mandate | User revoked `e+j1…` |
-| 2026-06-10 04:58:51 | `GD52…JVB6` | register_mandate | Independent account: new mandate `UrGa…`, agent `GBJO…`, budget 3 XLM |
-| 2026-06-10 04:59:11 | `GBJO…WOZ6` | execute_payment | Agent paid 1 XLM on `UrGa…` (seq 0) |
-| 2026-06-10 14:39:20 | `GDJU…YICB` | register_mandate | Independent account: new mandate `Rwu/…`, agent `GDZN…`, budget 3 XLM |
-| 2026-06-10 14:44:51 | `GCHM…J6KX` | register_mandate | Independent account: new mandate `2E23…`, agent `GBAN…`, budget 3 XLM |
-| 2026-06-10 14:49:36 | `GAZM…TAVO` | register_mandate | Independent account: new mandate `tbkM…`, agent `GDEK…`, budget 3 XLM |
-| 2026-06-10 14:50:31 | `GDEK…CUFO` | execute_payment | Agent paid 1 XLM on `tbkM…` (seq 0) |
-| 2026-06-10 14:50:51 | `GDEK…CUFO` | execute_payment | Agent paid 1 XLM on `tbkM…` (seq 1) |
-| 2026-06-10 14:51:11 | `GDEK…CUFO` | execute_payment | Agent paid 1 XLM on `tbkM…` (seq 2). Budget now fully used |
-| 2026-06-10 19:51:28 | `GBE3…VNBG` | register_mandate | New mandate `dKGH…`: agent `GA2B…`, merchant `GC3S…`, budget 5 XLM |
-| 2026-06-10 19:51:38 | `GA2B…L4XH` | execute_payment | Agent paid 1 XLM on `dKGH…` (seq 0) |
-| 2026-06-10 19:51:48 | `GBE3…VNBG` | revoke_mandate | User revoked `dKGH…` |
-| 2026-06-10 20:05:44 | `GBE3…VNBG` | register_mandate | New mandate `NTSB…`: agent `GA2B…`, merchant `GC3S…`, budget 5 XLM |
-| 2026-06-10 20:05:54 | `GA2B…L4XH` | execute_payment | Agent paid 1 XLM on `NTSB…` (seq 0) |
-| 2026-06-10 20:06:04 | `GBE3…VNBG` | revoke_mandate | User revoked `NTSB…` |
-| 2026-06-10 20:08:14 | `GBE3…VNBG` | register_mandate | New mandate `4Asq…`: agent set to the user, budget 1 XLM (set up for the unauthorized test) |
-| 2026-06-10 20:08:24 | `GBE3…VNBG` | validate_and_consume | Read-only preflight on `4Asq…` for 0.5 XLM. Nothing moved |
-| 2026-06-10 20:11:15 | `GDNV…5ARS` | execute_payment | An account that is not the agent tried to pay on `4Asq…`. Rejected on-chain by `require_auth`. The transaction failed |
+| 2026-06-09 22:50:57 | `GBE3…VNBG` | [create contract](https://stellar.expert/explorer/testnet/tx/13d24673384c60a84433d1b818e3ade28cd2f175712c821a3519b0ab09880fcf) | Deployed MandateRegistry from WASM `59298a08…` |
+| 2026-06-09 22:51:37 | `GBE3…VNBG` | [register_mandate](https://stellar.expert/explorer/testnet/tx/1cfbbd1936c703f165541bcd30b78d8b1d0c8b5fcdf4c8c70b270e5ee9d627d9) | New mandate `cqRd…`: agent `GA2B…`, merchant `GC3S…`, budget 5 XLM |
+| 2026-06-09 22:51:47 | `GA2B…L4XH` | [execute_payment](https://stellar.expert/explorer/testnet/tx/bb3380e5000b01b0f630c4395e2c796d1df09d87ec60ab3c588833b698c39945) | Agent paid 1 XLM on `cqRd…` (seq 0) |
+| 2026-06-09 22:51:57 | `GBE3…VNBG` | [revoke_mandate](https://stellar.expert/explorer/testnet/tx/ce581ea9506bfa9b0cc11f025dcf2a6ddfccd3013d4798727812cacc400b5da2) | User revoked `cqRd…` |
+| 2026-06-10 01:55:42 | `GBE3…VNBG` | [register_mandate](https://stellar.expert/explorer/testnet/tx/4f894a8774105a84517e0d00f78049ade93a4baf733c35bc05bbbb905628b88a) | New mandate `e+j1…`: agent `GBLO…`, merchant `GCQP…`, budget 5 XLM |
+| 2026-06-10 01:55:52 | `GBLO…CIGB` | [execute_payment](https://stellar.expert/explorer/testnet/tx/3f0e98d664176699fb0de952ec7d95b4258f518687f74ea6c7c2414b90f99492) | Agent paid 1 XLM on `e+j1…` (seq 0) |
+| 2026-06-10 01:55:57 | `GBE3…VNBG` | [revoke_mandate](https://stellar.expert/explorer/testnet/tx/7c814f3bf9c3fd4354796f25e412e89ffd90a077295a86a77be50a5bb1e9abfe) | User revoked `e+j1…` |
+| 2026-06-10 04:58:51 | `GD52…JVB6` | [register_mandate](https://stellar.expert/explorer/testnet/tx/5446266fc1b3519507b00e026cbe2fe3084924fa893a4a41ca9a94daaf917eab) | Independent account: new mandate `UrGa…`, agent `GBJO…`, budget 3 XLM |
+| 2026-06-10 04:59:11 | `GBJO…WOZ6` | [execute_payment](https://stellar.expert/explorer/testnet/tx/da6e0423ec763a880f3f6198780389355f02fa044fb6a3163a22c5b5f8bd1ed4) | Agent paid 1 XLM on `UrGa…` (seq 0) |
+| 2026-06-10 14:39:20 | `GDJU…YICB` | [register_mandate](https://stellar.expert/explorer/testnet/tx/b74bcb12d9f3785e44600dc9346bac67bbbe9c3b185fc55becce6208c0ad85fe) | Independent account: new mandate `Rwu/…`, agent `GDZN…`, budget 3 XLM |
+| 2026-06-10 14:44:51 | `GCHM…J6KX` | [register_mandate](https://stellar.expert/explorer/testnet/tx/97caf10a83af57d7d8ec56983d2a3cea1dcdae95075cc35eec0027ff2678184c) | Independent account: new mandate `2E23…`, agent `GBAN…`, budget 3 XLM |
+| 2026-06-10 14:49:36 | `GAZM…TAVO` | [register_mandate](https://stellar.expert/explorer/testnet/tx/a6d852025bec635c4ebc283c7f001b0e3a3a8f2e03942f63954dc026de7b7063) | Independent account: new mandate `tbkM…`, agent `GDEK…`, budget 3 XLM |
+| 2026-06-10 14:50:31 | `GDEK…CUFO` | [execute_payment](https://stellar.expert/explorer/testnet/tx/25c2a87fcb84628d4e89f3b55ab7a618b1c7623c2721650aba9b46ee34370ec4) | Agent paid 1 XLM on `tbkM…` (seq 0) |
+| 2026-06-10 14:50:51 | `GDEK…CUFO` | [execute_payment](https://stellar.expert/explorer/testnet/tx/26be6281a225b1dce7ca7f51e49cfff547af94ec971d6b45bdfadc330f54b09d) | Agent paid 1 XLM on `tbkM…` (seq 1) |
+| 2026-06-10 14:51:11 | `GDEK…CUFO` | [execute_payment](https://stellar.expert/explorer/testnet/tx/8392b1d57663589717ec2e3396764ba6557bf443cbdc540f9a3456d097d8b636) | Agent paid 1 XLM on `tbkM…` (seq 2). Budget now fully used |
+| 2026-06-10 19:51:28 | `GBE3…VNBG` | [register_mandate](https://stellar.expert/explorer/testnet/tx/4cf339408e45c6052e0ceaac2b529568a26926645c0eee5039a7cbbb9c18e80e) | New mandate `dKGH…`: agent `GA2B…`, merchant `GC3S…`, budget 5 XLM |
+| 2026-06-10 19:51:38 | `GA2B…L4XH` | [execute_payment](https://stellar.expert/explorer/testnet/tx/b5fa9f408df9a3e1ac7a95afbf225ebcbbbe52ea65cfc399381140a179958fef) | Agent paid 1 XLM on `dKGH…` (seq 0) |
+| 2026-06-10 19:51:48 | `GBE3…VNBG` | [revoke_mandate](https://stellar.expert/explorer/testnet/tx/a649b41264b645c1343228b6be6a3a574010649df7a39aa3f494794ccea98493) | User revoked `dKGH…` |
+| 2026-06-10 20:05:44 | `GBE3…VNBG` | [register_mandate](https://stellar.expert/explorer/testnet/tx/fba8d71bcb95ef71d7e01dec583491d0790b599136e8a45fb18dd0bb30c38f42) | New mandate `NTSB…`: agent `GA2B…`, merchant `GC3S…`, budget 5 XLM |
+| 2026-06-10 20:05:54 | `GA2B…L4XH` | [execute_payment](https://stellar.expert/explorer/testnet/tx/d4814ab9baa927f2276116e57f3b0384e1b21e67a3aa6ea1907869efcff910ab) | Agent paid 1 XLM on `NTSB…` (seq 0) |
+| 2026-06-10 20:06:04 | `GBE3…VNBG` | [revoke_mandate](https://stellar.expert/explorer/testnet/tx/4ea9f8b1e4fea05afc7526ffebeceb88804f18541c529db67745f1ba1f4a6132) | User revoked `NTSB…` |
+| 2026-06-10 20:08:14 | `GBE3…VNBG` | [register_mandate](https://stellar.expert/explorer/testnet/tx/a95ff1e7353ce78ba6f88d8a2ef927ac075d19b0a3bd97663a2b9513caa5392a) | New mandate `4Asq…`: agent set to the user, budget 1 XLM (set up for the unauthorized test) |
+| 2026-06-10 20:08:24 | `GBE3…VNBG` | [validate_and_consume](https://stellar.expert/explorer/testnet/tx/50c8f482e8f809eb5bc076e5d5ad286f8dc33cb9d03f9935ca0de72230c893c0) | Read-only preflight on `4Asq…` for 0.5 XLM. Nothing moved |
+| 2026-06-10 20:11:15 | `GDNV…5ARS` | [execute_payment](https://stellar.expert/explorer/testnet/tx/18214372c9b13d3679808101773d8c372a2438cf2ab96e336c35e1753b0eadd2) | An account that is not the agent tried to pay on `4Asq…`. Rejected on-chain by `require_auth`. The transaction failed (the explorer shows the failed call) |
 
 ### What this history shows
 
@@ -281,10 +300,11 @@ shasum -a 256 onchain.wasm target/wasm32v1-none/release/mandate_registry.wasm
 
 ## Security audit
 
-Independently audited on 2026-06-10: a 12-agent adversarial sweep across six attack
+Internal adversarial audit on 2026-06-10: a 12-agent sweep across six attack
 surfaces (arithmetic and overflow, authorization, replay and sequencing, token
 interaction and reentrancy, state and storage, and logic and economics), with every
-finding re-verified against the code.
+finding independently re-verified against the code. This is the project's own review
+gate, not a third-party audit.
 
 **Verdict: airtight-ship, 0 confirmed defects.**
 
