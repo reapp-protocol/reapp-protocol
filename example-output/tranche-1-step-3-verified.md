@@ -90,7 +90,7 @@ layer.
 
 ## Independent on-chain confirmation
 
-- **Horizon** (`horizon-testnet.stellar.org/transactions/<hash>`): the four method transactions return `successful: true` at ledgers 3,108,631 to 3,108,636. The register and approve were signed by the user (`GAHG…TORQ`); the three payments were signed by the agent (`GCZN…EZOC`), a different key.
+- **Horizon** (`horizon-testnet.stellar.org/transactions/<hash>`): the five method transactions return `successful: true` at ledgers 3,108,631 to 3,108,636. The register and approve were signed by the user (`GAHG…TORQ`); the three payments were signed by the agent (`GCZN…EZOC`), a different key.
 - **Balance check:** the merchant account read back exactly `10003.0000000` XLM, confirming the `+3 XLM` settlement independent of any SDK, merchant, or explorer claim.
 
 ## Security audit
