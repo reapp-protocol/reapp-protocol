@@ -1,10 +1,7 @@
 # Tranche 1, Step 1: MandateRegistry on Stellar Testnet
 
-![Network](https://img.shields.io/badge/network-Stellar%20testnet-7b3fe4)
-![Step 1](https://img.shields.io/badge/Tranche%201%20Step%201-complete-2ea44f)
-![Tests](https://img.shields.io/badge/tests-19%2F19%20passing-2ea44f)
-![Audit](https://img.shields.io/badge/internal%20audit-airtight--ship-2ea44f)
-![Bytecode](https://img.shields.io/badge/bytecode-hash%20verified-1f6feb)
+[![tests](https://github.com/reapp-protocol/reapp-protocol/actions/workflows/ci.yml/badge.svg)](https://github.com/reapp-protocol/reapp-protocol/actions/workflows/ci.yml)
+[![testnet: MandateRegistry](https://img.shields.io/badge/testnet-MandateRegistry-7b3fe4)](https://stellar.expert/explorer/testnet/contract/CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL)
 
 > **Deliverable.** MandateRegistry Soroban contract deployed on testnet. Contract
 > live on testnet with `register_mandate`, `validate_and_consume`,

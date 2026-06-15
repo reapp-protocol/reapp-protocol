@@ -1,4 +1,4 @@
-# Step 1 — MandateRegistry: Audited & Airtight ✅
+# Step 1: MandateRegistry: Audited & Airtight ✅
 
 > **Deliverable:** *MandateRegistry Soroban contract deployed on testnet with
 > `register_mandate`, `validate_and_consume`, `execute_payment`, and
@@ -8,19 +8,19 @@
 **Status: complete, independently audited, and verified live on testnet.** This
 is the close-out for Step 1; the SDK is next.
 
-## Honest record: the first pass did *not* clear — this version does
+## Honest record: the first pass did *not* clear. This version does
 
 We held ourselves to an airtight bar, and the **first pass had real gaps**. We
 found them, fixed them, then had the contract independently audited:
 
 | First pass (rejected) | Now (airtight) |
 |---|---|
-| Replay protection was **dead code** — `seq` incremented but was never checked; `BadSequence` unused | ✅ `execute_payment(expected_seq)` enforces the sequence; replay → `BadSequence`, proven on-chain |
+| Replay protection was **dead code**, `seq` incremented but was never checked; `BadSequence` unused | ✅ `execute_payment(expected_seq)` enforces the sequence; replay → `BadSequence`, proven on-chain |
 | `NotAuthorized` was a dead typed error | ✅ removed; unauthorized = Soroban host `require_auth` revert (correct pattern) |
 | `cargo fmt` failed; CI couldn't go green | ✅ fmt clean, **0 clippy warnings**, tests 16 → **18** |
-| The "aha" demo (`playbook/demo.ts`) was a stub | ✅ real runnable — `npm run demo` runs the full on-chain flow |
+| The "aha" demo (`playbook/demo.ts`) was a stub | ✅ real runnable: `npm run demo` runs the full on-chain flow |
 
-## Independent audit — verdict: `airtight-ship`
+## Independent audit: verdict: `airtight-ship`
 
 A **12-agent adversarial sweep** across 6 attack surfaces (arithmetic/overflow,
 authorization, replay/sequencing, token-reentrancy, state/storage,
@@ -35,12 +35,12 @@ Auditor-confirmed strengths:
 
 _(Full record: [`security/audit-2026-06-10.md`](../security/audit-2026-06-10.md). The 3 deferred items are mainnet-hardening notes, not testnet blockers.)_
 
-## Proof — live on testnet, no mocks (9/9)
+## Proof: live on testnet, no mocks (9/9)
 
 Contract [`CA3X76MR…BQCL`](https://testnet.stellarchain.io/contracts/CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL).
 Native XLM as a real SEP-41 token; friendbot-funded agent + merchant.
 
-> **9/9 on-chain — fully airtight.** The rogue replay returned `Error(Contract, #8) = BadSequence` (the guard we built, working live), and the post-revoke payment returned `#5 = MandateRevoked`.
+> **9/9 on-chain, fully airtight.** The rogue replay returned `Error(Contract, #8) = BadSequence` (the guard we built, working live), and the post-revoke payment returned `#5 = MandateRevoked`.
 
 ```mermaid
 sequenceDiagram
@@ -49,7 +49,7 @@ sequenceDiagram
     actor Agent
     participant Merchant
 
-    User->>Contract: approve — contract may pull ≤5 XLM
+    User->>Contract: approve, contract may pull ≤5 XLM
     User->>Contract: register_mandate (agent, merchant, limit, expiry)
     Note over Contract: stored: spent=0, seq=0, Active
     Agent->>Contract: execute_payment (1 XLM, seq 0)
@@ -83,8 +83,8 @@ cd ../.. && npm run e2e:testnet                          # 9/9 live on testnet
 
 ```bash
 git init
-git add -A                       # .env is git-ignored — no secrets committed
-git commit -m "Tranche 1 / Step 1: MandateRegistry — audited, airtight on testnet"
+git add -A                       # .env is git-ignored, no secrets committed
+git commit -m "Tranche 1 / Step 1: MandateRegistry: audited, airtight on testnet"
 git branch -M main
 git remote add origin git@github.com:reapp-protocol/reapp-protocol.git
 git push -u origin main
