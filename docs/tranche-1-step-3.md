@@ -13,6 +13,8 @@ merchant that verifies payment on-chain, the ResearchAgent that buys data with i
 and the full round-trip running live on testnet. Every on-chain claim links to its
 transaction and was re-checked against Horizon.
 
+> **Published.** `@reapp-sdk/core` 0.2.0 is live on [npm](https://www.npmjs.com/package/@reapp-sdk/core) with `Agent.fetch`. `npm install @reapp-sdk/core @stellar/stellar-sdk` is all a reviewer needs to use the x402 client; the full ResearchAgent scenario also reproduces from source (see Reproduce).
+
 ## What it is
 
 x402 is HTTP 402 Payment Required, used as a real payment handshake: an agent asks
@@ -37,7 +39,7 @@ Two properties make this safe, and they map directly to the Stellar feedback:
 |---|---|
 | Network | Stellar testnet |
 | Contract | [`CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL`](https://stellar.expert/explorer/testnet/contract/CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL) (the Step 1 MandateRegistry, unchanged) |
-| SDK | `@reapp-sdk/core` `Agent.fetch(url)`, built on the Step 2 `pay` path |
+| SDK | `@reapp-sdk/core` 0.2.0 on npm, adds `Agent.fetch(url)`, built on the Step 2 `pay` path |
 | Asset | native XLM (a real SEP-41 token via its SAC) |
 
 ## The round-trip
