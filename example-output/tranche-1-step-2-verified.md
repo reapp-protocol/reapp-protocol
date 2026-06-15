@@ -5,7 +5,8 @@
 > execute a mandate-validated payment in under 10 lines of code.*
 
 Every clause is proven below: the packages are live on npm, and the under-10-line
-flow ran live on testnet through the published SDK surface. Real XLM moved, and the
+flow ran live on testnet through the SDK surface (the workspace build of the exact
+code published as 0.1.2). Real XLM moved, and the
 rejections happened on the real network. No mocks, no local sandbox.
 
 - **Run:** 2026-06-15, 09:03:27 to 09:03:42 UTC (ledgers 3,100,287 to 3,100,290)

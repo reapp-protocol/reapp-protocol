@@ -1,11 +1,7 @@
 # Tranche 1, Step 2: The REAPP SDK on npm
 
-![Network](https://img.shields.io/badge/network-Stellar%20testnet-7b3fe4)
-![Step 2](https://img.shields.io/badge/Tranche%201%20Step%202-complete-2ea44f)
-![npm core](https://img.shields.io/badge/npm-%40reapp--sdk%2Fcore-cb3837)
-![npm stellar](https://img.shields.io/badge/npm-%40reapp--sdk%2Fstellar-cb3837)
-![SDK e2e](https://img.shields.io/badge/SDK%20e2e-8%2F8%20live%20on%20testnet-2ea44f)
-![Audit](https://img.shields.io/badge/SDK%20audit-airtight%20for%20testnet-2ea44f)
+[![tests](https://github.com/reapp-protocol/reapp-protocol/actions/workflows/ci.yml/badge.svg)](https://github.com/reapp-protocol/reapp-protocol/actions/workflows/ci.yml)
+[![testnet: MandateRegistry](https://img.shields.io/badge/testnet-MandateRegistry-7b3fe4)](https://stellar.expert/explorer/testnet/contract/CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL)
 
 > **Deliverable.** REAPP SDK core package published to npm. Package installable
 > via npm. Developers can create an agent, connect to the testnet contract, and

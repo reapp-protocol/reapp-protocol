@@ -56,7 +56,7 @@ async function main() {
   log(`  ${c.bold(c.magenta("REAPP"))}  ${c.dim("·")}  ${c.bold("@reapp-sdk/core e2e")} ${c.dim("— live testnet, no mocks")}`);
   log(RULE(c.magenta));
   field("contract", c.yellow(TESTNET.mandateRegistryId));
-  field("explorer", c.link(`https://testnet.stellarchain.io/contracts/${TESTNET.mandateRegistryId}`));
+  field("explorer", c.link(`https://stellar.expert/explorer/testnet/contract/${TESTNET.mandateRegistryId}`));
   field("user", c.yellow(user.publicKey()));
   field("agent", c.yellow(agent.publicKey()));
   field("merchant", c.yellow(merchant.publicKey()));
@@ -79,13 +79,13 @@ async function main() {
 
   step("registerMandate  (SDK, user-signed)");
   const regHash = await reapp.registerMandate(mandate, { signer: user });
-  field("tx", c.link(`https://testnet.stellarchain.io/tx/${regHash}`));
+  field("tx", c.link(`https://stellar.expert/explorer/testnet/tx/${regHash}`));
   record("registerMandate", Boolean(regHash));
 
   step("approveBudget  (SDK, user-signed SEP-41)");
   note("User grants the CONTRACT (not the agent) a 5 XLM allowance.");
   const apprHash = await reapp.approveBudget(mandate, { signer: user });
-  field("tx", c.link(`https://testnet.stellarchain.io/tx/${apprHash}`));
+  field("tx", c.link(`https://stellar.expert/explorer/testnet/tx/${apprHash}`));
   record("approveBudget", Boolean(apprHash));
 
   const a = reapp.agent({ mandate, signer: agent });
@@ -95,7 +95,7 @@ async function main() {
   field("merchant before", c.dim(xlm(before)));
   const payHash = await a.pay("1.00");
   const after = await token.balance(TESTNET, asset, merchant.publicKey());
-  field("tx", c.link(`https://testnet.stellarchain.io/tx/${payHash}`));
+  field("tx", c.link(`https://stellar.expert/explorer/testnet/tx/${payHash}`));
   field("merchant after", c.green(xlm(after)));
   field("delta", c.green(`+${xlm(after - before)}`));
   record("agent.pay moved exactly 1 XLM", after - before === 10000000n);
@@ -108,7 +108,7 @@ async function main() {
 
   step("revokeMandate  (SDK, user-signed)");
   const revHash = await reapp.revokeMandate(mandate, { signer: user });
-  field("tx", c.link(`https://testnet.stellarchain.io/tx/${revHash}`));
+  field("tx", c.link(`https://stellar.expert/explorer/testnet/tx/${revHash}`));
   record("revokeMandate", Boolean(revHash));
 
   step("PUNCHLINE · agent.pay('1.00') after revoke (must be rejected)");

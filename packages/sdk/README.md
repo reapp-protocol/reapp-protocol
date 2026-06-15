@@ -52,7 +52,7 @@ The flow has three signers and one contract. The user authorizes, the agent spen
 
 ### `reapp.createIntentMandate(input, net?)`
 
-Builds an AP2-style mandate and its on-chain id. Pure and local: no chain call.
+Builds an AP2-style mandate and its on-chain id locally, with no chain call. The default nonce makes each id unique; pass an explicit `nonce` for a deterministic id.
 
 | Field | Type | Meaning |
 |---|---|---|

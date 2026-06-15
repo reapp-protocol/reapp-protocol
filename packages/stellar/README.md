@@ -1,6 +1,6 @@
 # @reapp-sdk/stellar
 
-The Soroban layer for **REAPP** — agent-driven payments on Stellar, enforced
+The Soroban layer for **REAPP**, agent-driven payments on Stellar, enforced
 on-chain by the **MandateRegistry** contract.
 
 This package is the low-level building block: a **typed MandateRegistry client**
@@ -21,16 +21,16 @@ npm install @reapp-sdk/stellar @stellar/stellar-sdk
 
 | Export | What it is |
 |---|---|
-| `TESTNET` | `NetworkConfig` for Stellar testnet — RPC, passphrase, live MandateRegistry id, native asset |
+| `TESTNET` | `NetworkConfig` for Stellar testnet: RPC, passphrase, live MandateRegistry id, native asset |
 | `registryClient(net, signer)` | Factory for the typed MandateRegistry client |
-| `Client`, `Mandate`, `Errors` | Typed contract bindings — methods, the mandate struct, and typed error codes |
+| `Client`, `Mandate`, `Errors` | Typed contract bindings: methods, the mandate struct, and typed error codes |
 | `keypairSigner(keypair, passphrase)` | Adapt a Stellar `Keypair` into a transaction signer |
 | `token.approve(...)`, `token.balance(...)` | Minimal SEP-41 token helpers |
 
 The live, audited contract is `TESTNET.mandateRegistryId` =
 `CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL`.
 
-## Example — read a mandate straight from the contract
+## Example: read a mandate straight from the contract
 
 ```ts
 import { TESTNET, keypairSigner, registryClient } from "@reapp-sdk/stellar";
