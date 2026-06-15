@@ -1,0 +1,206 @@
+# Tranche 1, Step 3: x402 Payment Round-Trip on Testnet
+
+[![tests](https://img.shields.io/badge/tests-19%2F19%20passing-2ea44f)](https://github.com/reapp-protocol/reapp-protocol/actions/workflows/ci.yml)
+[![testnet: MandateRegistry](https://img.shields.io/badge/testnet-MandateRegistry-7b3fe4)](https://stellar.expert/explorer/testnet/contract/CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL)
+
+> **Deliverable.** x402 testnet payment round-trip working end to end.
+> `Agent.fetch(url)` receives a 402, validates the mandate, signs the XDR, pays,
+> and receives the resource. Reviewers can reproduce the full ResearchAgent
+> scenario on testnet using the SDK.
+
+This document shows the new `Agent.fetch` x402 client, the reference 402-gated
+merchant that verifies payment on-chain, the ResearchAgent that buys data with it,
+and the full round-trip running live on testnet. Every on-chain claim links to its
+transaction and was re-checked against Horizon.
+
+## What it is
+
+x402 is HTTP 402 Payment Required, used as a real payment handshake: an agent asks
+for a resource, the server answers "pay first", the agent pays, and the server
+serves the resource. Step 3 wires that handshake to REAPP, so the payment is a
+mandate-validated, on-chain `execute_payment` rather than a trusted off-chain claim.
+
+The round-trip, end to end:
+
+1. The agent calls `agent.fetch(url)`.
+2. The merchant answers `402` with an x402 challenge: the price, the asset, and the merchant to pay.
+3. The SDK pays on-chain through `MandateRegistry.execute_payment` (agent-signed), exactly as `pay` does. The contract enforces scope, budget, expiry, and replay.
+4. The SDK retries the request with an `X-PAYMENT` settlement proof (the transaction hash).
+5. The merchant verifies that payment on-chain before serving the resource.
+
+Two properties make this safe, and they map directly to the Stellar feedback:
+
+- **The SDK cannot bypass the contract.** `fetch` never treats the 402 as authorization. The payment always routes through `execute_payment`, so a revoked, expired, over-budget, or out-of-scope request is rejected on-chain and `fetch` throws. The budget is enforced through the HTTP layer, not around it.
+- **The wire format is decoupled.** All x402 HTTP shape lives in one module (`packages/sdk/src/x402.ts`). The mandate logic and the contract know nothing about x402, so the protocol can track x402 v0.2 and v0.3 by changing only that file.
+
+| Fact | Value |
+|---|---|
+| Network | Stellar testnet |
+| Contract | [`CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL`](https://stellar.expert/explorer/testnet/contract/CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL) (the Step 1 MandateRegistry, unchanged) |
+| SDK | `@reapp-sdk/core` `Agent.fetch(url)`, built on the Step 2 `pay` path |
+| Asset | native XLM (a real SEP-41 token via its SAC) |
+
+## The round-trip
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant SDK as REAPP SDK
+    participant Merchant
+    participant Registry as MandateRegistry
+    actor Agent
+
+    rect rgb(219, 234, 254)
+    Note over User,Registry: Authorize once (user signs)
+    User->>Registry: registerMandate + approveBudget (3 XLM budget)
+    end
+
+    rect rgb(220, 252, 231)
+    Note over Agent,Merchant: Buy a source (agent signs)
+    Agent->>SDK: fetch(/source/market)
+    SDK->>Merchant: GET /source/market
+    Merchant-->>SDK: 402 Payment Required (pay 1 XLM to the merchant)
+    SDK->>Registry: execute_payment (agent-signed, 1 XLM)
+    Registry-->>SDK: transaction hash
+    SDK->>Merchant: GET /source/market + X-PAYMENT proof
+    Merchant->>Registry: verify the payment event on-chain (to me, at least the price)
+    Merchant-->>SDK: 200 and the resource
+    end
+
+    rect rgb(254, 226, 226)
+    Note over Agent,Registry: Fourth source, budget already spent
+    Agent->>SDK: fetch(/source/patents)
+    SDK->>Registry: execute_payment (1 XLM)
+    Registry-->>SDK: rejected, BudgetExceeded
+    SDK-->>Agent: throws, no resource served
+    end
+```
+
+## `Agent.fetch`
+
+```ts
+import { reapp } from "@reapp-sdk/core";
+
+const agent = reapp.agent({ mandate, signer: agentKey });
+const res = await agent.fetch("https://merchant.example/source/market");
+const data = await res.json(); // the resource, paid for on-chain
+```
+
+| Behavior | Detail |
+|---|---|
+| Not a 402 | `fetch` returns the response unchanged. No payment happens. |
+| A 402 | parse the requirement, check the merchant and asset against the mandate, pay on-chain, retry with the `X-PAYMENT` proof, return the served response. |
+| Contract rejects the payment | `fetch` throws (the 4th purchase above). No resource. |
+| The merchant rejects the proof | the served response is whatever the merchant returns (a second 402). |
+
+The pre-pay checks in `fetch` (merchant, asset) are a convenience to fail fast. They
+are not the security boundary: the contract re-validates merchant scope and budget
+on-chain, and the merchant independently re-verifies the payment.
+
+## The reference merchant (the safe pattern)
+
+`apps/fulfillment-agent` is a 402-gated HTTP API written to be the first thing a
+developer reads. Its rule: **never trust the client's claim; verify on-chain.** Given
+an `X-PAYMENT` proof it reads the transaction from Soroban RPC and confirms, before
+serving anything, that:
+
+1. the transaction succeeded;
+2. it carries a `payment` event **emitted by the real MandateRegistry contract** (not some other contract);
+3. that event paid **this** merchant;
+4. the amount is at least the price;
+5. the proof has not been redeemed before (replay protection, reserved before the async check).
+
+The file also names the unsafe shortcuts a developer might invent (trusting the
+header, checking only "a tx succeeded", skipping the contract-id or merchant check,
+not tracking spent proofs) and rejects each one.
+
+## The ResearchAgent
+
+`apps/consumer-agent` buys premium sources to answer a question. It holds no budget
+and moves no money itself: every purchase is `agent.fetch(sourceUrl)`. The mandate
+caps the spend at 3 XLM, so the agent buys three sources and the contract blocks the
+fourth. The agent then works with what it could afford. The agent is untrusted; the
+contract is the leash.
+
+## Proof: the round-trip live on testnet, no mocks
+
+`npm run e2e:x402` funds fresh actors, signs a 3 XLM mandate, starts the merchant,
+and runs the ResearchAgent. The run below is the canonical evidence.
+
+- **Run:** 2026-06-16, ledgers 3,108,631 to 3,108,636
+- **Mandate:** `b608dde3…1126`, budget 3 XLM
+- **Actors:** user [`GAHG…TORQ`](https://stellar.expert/explorer/testnet/account/GAHGD3Q6ZKKJFM4FM5M6DSDNTT6KGCEZRZ2NLBBGILZFSKNUFT7VTORQ) · agent [`GCZN…EZOC`](https://stellar.expert/explorer/testnet/account/GCZNWR64DOYJKQYSBO2D7LQQQ7UXJ57PF7JPHAVKH5EWAC5BIFC7EZOC) · merchant [`GDQ3…VSOA`](https://stellar.expert/explorer/testnet/account/GDQ3U23ZNRO3D5NGIH52BE2LT2RGSL5VD6Z3JXG2LOY5F3JQTOUJVSOA)
+
+| Step | x402 | On-chain |
+|---|---|---|
+| Authorize | user signs the 3 XLM mandate | register [tx `88d4462c…`](https://stellar.expert/explorer/testnet/tx/88d4462c8f15827a77af71a2f3c091f7c0ada5ed05e2dcdae2a23ebf8fead822), approve [tx `a42f1dba…`](https://stellar.expert/explorer/testnet/tx/a42f1dba6590deb585b52ab367bce3ebd387882055cae4b7ccf36145070ad0ec) |
+| `fetch(/source/market)` | 402, pay 1 XLM, resource served | **agent-signed** [tx `f6abd0c1…`](https://stellar.expert/explorer/testnet/tx/f6abd0c11ca9b1e2f856e92aa013bfbd456c2d9363728741799e51d7792e5b90) |
+| `fetch(/source/academic)` | 402, pay 1 XLM, resource served | [tx `4be38b50…`](https://stellar.expert/explorer/testnet/tx/4be38b500da29b69900ef9cd2ba5d2c9a9f51a832929012532f471c468dc4284) |
+| `fetch(/source/news)` | 402, pay 1 XLM, resource served | [tx `90723f4b…`](https://stellar.expert/explorer/testnet/tx/90723f4bc810f677b07fb5299b2bc2155f0ba7d36c5bd43c4eb8e8cd9bcabe41) |
+| `fetch(/source/patents)` | 402, payment **rejected on-chain** | `BudgetExceeded`, no transaction, no resource |
+
+**Result: 3 of 4 sources served, the 4th blocked by the contract, merchant earned
+exactly 3 XLM.** The budget held through the HTTP layer.
+
+### Independent confirmation
+
+Every transaction was re-verified against Horizon. The four method transactions
+return `successful: true` at ledgers 3,108,631 to 3,108,636. The register and approve
+were signed by the user (`GAHG…TORQ`); the three payments were signed by the agent
+(`GCZN…EZOC`), a different key. The merchant account read back exactly
+`10003.0000000` XLM, a clean `+3` over its 10,000 XLM friendbot start.
+
+## Security audit
+
+A BulletproofBar adversarial sweep on 2026-06-16: 23 agents across six attack
+surfaces (merchant on-chain verification, replay and double-spend, `fetch` cannot
+bypass the contract, x402 wire-format parsing, the consumer agent pattern, and
+correctness), every finding independently re-verified against the code.
+
+The audit found and we fixed a **critical** access-control bug before sign-off, an
+honest record kept here on purpose:
+
+| Found by the audit | Fixed |
+|---|---|
+| The merchant verified the `payment` event's topic and amount but not which contract emitted it. Any contract could publish a forged `("payment", merchant, price)` event and unlock the resource for free. | The merchant now requires the event to be emitted by the MandateRegistry (`StrKey.encodeContract(ev.contractId()) == mandateRegistryId`). Verified on-chain: the token's `transfer` event is correctly ignored, only the registry's `payment` event is honored. |
+| Replay check ran before the async on-chain verification, leaving a TOCTOU window for concurrent reuse. | The proof is reserved synchronously before the await, and released only on a verification failure. |
+
+Full record: [`security/x402-audit-2026-06-16.md`](../security/x402-audit-2026-06-16.md).
+After the fixes the surface re-audited clean for testnet. The remaining items
+(per-call price ceiling, binding a payment to a specific resource, deriving the price
+from the asset decimals) are mainnet-hardening notes, not testnet blockers.
+
+## Deliverable checklist
+
+| Clause | Status | Evidence |
+|---|---|---|
+| x402 round-trip working end to end | Met | `npm run e2e:x402`, 3 of 4 sources served live, [tx `f6abd0c1…`](https://stellar.expert/explorer/testnet/tx/f6abd0c11ca9b1e2f856e92aa013bfbd456c2d9363728741799e51d7792e5b90) and the table above |
+| `Agent.fetch(url)` receives a 402 | Met | the merchant answers 402; `fetch` parses it (`x402.ts` `parse402`) |
+| validates the mandate | Met | `fetch` checks merchant and asset; the contract re-validates scope, budget, expiry, replay on-chain |
+| signs the XDR and pays | Met | agent-signed `execute_payment`, three payments confirmed on Horizon |
+| receives the resource | Met | three sources served after the merchant verified each payment on-chain |
+| reproducible ResearchAgent scenario on testnet via the SDK | Met | `npm run e2e:x402`, fresh friendbot actors, zero setup |
+
+## Mapping to Stellar's feedback
+
+| Feedback | Targets | Status now |
+|---|---|---|
+| 1. Decouple mandate logic from the x402 wire format | Tranche 1 | Addressed. All x402 HTTP shape is isolated in `x402.ts`; the mandate and contract know nothing about it, so x402 v0.2 or v0.3 touches only that file. |
+| 5. The SDK cannot bypass the on-chain check | Tranche 1 | Addressed and audited. `fetch` always settles through `execute_payment`; the merchant independently verifies the payment on-chain (and the emitting contract). |
+| 6. Reference agents exemplary, warn against unsafe patterns | Tranche 1 | Addressed. The merchant and ResearchAgent are commented as first-read examples and name the unsafe shortcuts they reject. The audit hardened the merchant's verification. |
+| 4. Negative tests in CI from Tranche 1 | Tranche 1 | The contract negative suite runs in CI on every push; the x402 e2e proves the budget block live. |
+| 7. Live failure-mode drills | Tranche 3 | Partial. The over-budget drill (4th purchase rejected) runs live. Merchant downtime and expiry-mid-flow drills, with a UX writeup, are Tranche 3. |
+| 2, 3. Threat model and DFDs, multisig and key management | Tranche 3 | Future work, as before. |
+
+## Reproduce it yourself
+
+```bash
+git clone https://github.com/reapp-protocol/reapp-protocol && cd reapp-protocol
+npm install && npm run build
+npm run e2e:x402
+```
+
+The run funds fresh testnet actors, signs a 3 XLM mandate, starts the 402-gated
+merchant, and drives the ResearchAgent through the full round-trip, printing a fresh
+explorer link for every on-chain payment. Three sources are served and the fourth is
+rejected on-chain.

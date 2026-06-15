@@ -5,15 +5,17 @@ agent pays for a 402-gated resource via **x402**, and a Soroban contract
 (**MandateRegistry**) enforces scope, budget, expiry, and replay at consume
 time, so a compromised agent or SDK cannot exceed the mandate.
 
-> **Status:** Tranche 1 complete through Step 2.
+> **Status:** Tranche 1 complete (Steps 1, 2, 3).
 > **Step 1.** `MandateRegistry` deployed, audited, and live on Stellar testnet
 > (19/19 tests, 9/9 on-chain e2e, CI green). See
 > [docs/tranche-1-step-1.md](docs/tranche-1-step-1.md).
 > **Step 2.** `@reapp-sdk/core` and `@reapp-sdk/stellar` published to npm; the
-> under-10-line flow runs 8/8 live on testnet through the SDK; SDK independently
-> audited (0 defects). See [docs/tranche-1-step-2.md](docs/tranche-1-step-2.md).
-> The reference consumer and fulfillment agents and the x402 HTTP flow are
-> Tranche 2 and not built yet.
+> under-10-line flow runs 8/8 live on testnet; SDK independently audited (0 defects).
+> See [docs/tranche-1-step-2.md](docs/tranche-1-step-2.md).
+> **Step 3.** The x402 round-trip works end to end on testnet: `Agent.fetch(url)`
+> receives a 402, pays on-chain, and gets the resource, with the budget enforced
+> through the HTTP layer. Reference merchant and ResearchAgent, independently
+> audited. See [docs/tranche-1-step-3.md](docs/tranche-1-step-3.md).
 
 ## The core invariant
 
@@ -26,22 +28,19 @@ untrusted; the contract is the source of truth.
 
 ```
 contracts/mandate-registry/   Rust / soroban-sdk, the enforcement contract (live, audited)
-packages/sdk/                 @reapp-sdk/core, thin untrusted client (published)
-packages/stellar/             @reapp-sdk/stellar, typed Soroban layer (published)
+packages/sdk/                 @reapp-sdk/core, thin untrusted client + Agent.fetch (x402)
+packages/stellar/             @reapp-sdk/stellar, typed Soroban layer
+apps/fulfillment-agent/       reference 402-gated merchant: verifies payment on-chain before serving
+apps/consumer-agent/          reference ResearchAgent: buys sources via agent.fetch, budget enforced on-chain
 scripts/audit-mandate.mjs     npm run audit, independent on-chain mandate auditor
 playbook/demo.ts              npm run demo, the on-chain "aha" (happy path + rogue rejections)
-security/                     contract and SDK audit records
-apps/fulfillment-agent/       402-gated merchant server (Tranche 2, stub today)
-apps/consumer-agent/          agent that buys a gated resource via the SDK (Tranche 2, stub today)
+security/                     contract, SDK, and x402 audit records
 ```
 
-## The demo today
+## Run it
 
-`npm run demo` runs the canonical on-chain flow against testnet: a user authorizes
-a mandate, the agent pays, 1 XLM moves, and then the rogue cases the contract
-refuses (overspend, replay, pay-after-revoke). The SDK is untrusted; the limit
-lives in the contract, so a hostile agent changes nothing.
+- `npm run demo` runs the on-chain flow on testnet: a user authorizes a mandate, the agent pays, 1 XLM moves, and the contract refuses the rogue cases (overspend, replay, pay-after-revoke).
+- `npm run e2e:x402` runs the full x402 round-trip: the ResearchAgent buys sources from the 402-gated merchant via `agent.fetch`, three settle on-chain, and the fourth is rejected by the budget.
 
-The 402-gated HTTP version of this story (a consumer agent buying a gated resource
-from the fulfillment server via x402) is the Tranche 2 deliverable. Setup, version
-pins, and the command sequence live in the build skill so they update in one place.
+The SDK is untrusted; the limit lives in the contract, so a hostile agent changes
+nothing.

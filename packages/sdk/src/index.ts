@@ -15,9 +15,12 @@
 import { Buffer } from "buffer";
 import { Keypair, hash } from "@stellar/stellar-sdk";
 import { TESTNET, keypairSigner, registryClient, token, type NetworkConfig } from "@reapp-sdk/stellar";
+import { X_PAYMENT_HEADER, parse402, encodePaymentProof } from "./x402.js";
 
 // Re-export the typed contract errors so apps can branch on them (e.g. Errors[6] is BudgetExceeded).
 export { Errors } from "@reapp-sdk/stellar";
+// Re-export the x402 wire-format adapter (parse402, proof encode/decode, header, types).
+export * from "./x402.js";
 
 export interface CreateIntentMandateInput {
   user: string;
@@ -122,6 +125,52 @@ export class Agent {
       );
     }
     return sent.sendTransactionResponse?.hash ?? "";
+  }
+
+  /**
+   * x402 round-trip. GET `url`; if the server answers 402 Payment Required, read
+   * the payment requirement, settle it on-chain via `execute_payment` (the same
+   * path as `pay`), and retry the request with an `X-PAYMENT` settlement proof.
+   * Returns the final `Response`.
+   *
+   * The contract is the enforcer; `fetch` never bypasses it. The payment always
+   * goes through `pay` -> `execute_payment`, so a revoked, expired, out-of-scope,
+   * or over-budget request is rejected on-chain and `fetch` throws. The 402 body
+   * is only a hint: the merchant independently verifies the on-chain payment
+   * before serving the resource.
+   */
+  async fetch(url: string, init?: RequestInit): Promise<Response> {
+    const first = await fetch(url, init);
+    if (first.status !== 402) return first;
+
+    const required = await parse402(first);
+    // Fail fast on an obviously-wrong challenge before spending. This is a
+    // convenience check, NOT the security boundary: the contract re-validates
+    // merchant scope and budget on-chain, and the merchant re-verifies the payment.
+    if (required.payTo !== this.mandate.merchant) {
+      throw new Error(
+        `x402: the 402 names merchant ${required.payTo}, not this mandate's merchant ${this.mandate.merchant}`,
+      );
+    }
+    if (required.asset && required.asset !== this.mandate.asset) {
+      throw new Error(`x402: the 402 names a different asset than this mandate's`);
+    }
+
+    // Settle on-chain. Throws if the contract rejects (budget, expiry, revoke, scope).
+    const txHash = await this.pay(required.amount);
+
+    const headers = new Headers(init?.headers);
+    headers.set(
+      X_PAYMENT_HEADER,
+      encodePaymentProof({
+        scheme: required.scheme,
+        network: required.network,
+        txHash,
+        mandateId: this.mandate.id,
+        amount: required.amount,
+      }),
+    );
+    return fetch(url, { ...init, method: init?.method ?? "GET", headers });
   }
 }
 

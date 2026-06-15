@@ -2,10 +2,15 @@
   "name": "@reapp-sdk/fulfillment-agent",
   "version": "0.0.0",
   "private": true,
-  "description": "Reference merchant: a 402-gated Express API priced in USDC. First-read example of the safe pattern.",
+  "description": "Reference merchant: a 402-gated HTTP API that verifies on-chain payment before serving. First-read example of the safe REAPP pattern.",
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "start": "tsx src/server.ts"
+  },
+  "dependencies": {
+    "@reapp-sdk/core": "*",
+    "@reapp-sdk/stellar": "*",
+    "@stellar/stellar-sdk": "^14.5.0"
   }
 }
