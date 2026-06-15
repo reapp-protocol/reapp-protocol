@@ -236,9 +236,13 @@ cd ../.. && npm install && npm run e2e:testnet
 
 ```bash
 stellar contract fetch --id CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL --network testnet --out-file onchain.wasm
-shasum -a 256 onchain.wasm
+stellar contract build --manifest-path contracts/mandate-registry/Cargo.toml
+shasum -a 256 onchain.wasm target/wasm32v1-none/release/mandate_registry.wasm
 ```
 
 The first block runs the 19 contract tests and then the full on-chain e2e against
 the live contract (it prints fresh explorer links for every step). The second block
-fetches the deployed bytecode so you can compare its hash against a local build.
+fetches the deployed bytecode and rebuilds it from source, then hashes both; the two
+sha256 values match at `59298a08…cf80a1ce`. Build with `stellar contract build` (the
+same command the deploy uses). Raw `cargo build` produces a different hash because it
+skips Soroban's metadata embedding and the wasm-opt step.
