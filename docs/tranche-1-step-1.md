@@ -19,8 +19,8 @@ spend at one merchant. The contract checks every payment against that budget,
 on-chain, before any funds move. If the check fails, no money moves.
 
 The limit lives inside the contract, in the money path. It is not in the app and
-not in the SDK. That is the whole point: a limit checked in app or SDK code is only
-as trustworthy as that code, but a limit checked inside the contract holds even if
+not in the SDK. That is the whole point. A limit checked in app or SDK code is only
+as trustworthy as that code, but a limit checked inside the contract holds even when
 the app is wrong, the SDK has a bug, or the agent's key is stolen. The SDK is
 treated as untrusted. The contract is the source of truth.
 
@@ -78,7 +78,7 @@ Creates a new mandate. Moves no money.
 |---|---|
 | **Signer** | the user |
 | **Checks** | budget is positive (`InvalidAmount`), expiry is in the future (`MandateExpired`), the id is not already taken (`AlreadyExists`) |
-| **Sets** | `spent = 0`, `seq = 0`, `status = Active`, set by the contract so a caller cannot seed a fake balance or status |
+| **Sets** | `spent = 0`, `seq = 0`, `status = Active` (set by the contract, so a caller cannot seed a fake balance or status) |
 | **Returns** | the mandate id |
 | **After** | the user separately signs a SEP-41 `approve` so the contract can later pull funds |
 
@@ -100,8 +100,8 @@ The only path that moves money.
 
 | | |
 |---|---|
-| **Signer** | the agent only, enforced by Soroban's `require_auth`; any other caller's transaction is reverted at the host level, so no funds move |
-| **Atomicity** | the steps below run in one transaction; if any step fails the whole transaction reverts, so there is no partial spend |
+| **Signer** | the agent only, enforced by Soroban's `require_auth`. Any other caller's transaction is reverted at the host level, so no funds move |
+| **Atomicity** | the steps below run in one transaction. If any step fails the whole transaction reverts, so there is no partial spend |
 
 Steps:
 
@@ -326,8 +326,9 @@ Why it holds:
 - `overflow-checks` is on in the release profile, so the `spent` and `seq` arithmetic panic-reverts rather than wraps.
 - `register_mandate` forces `spent = 0`, `seq = 0`, `status = Active`, so a caller cannot seed tampered state.
 
-Deferred to mainnet hardening, and not testnet blockers: an asset allowlist, aligning
-storage TTL with the mandate expiry, and revisiting the `validate_and_consume` name.
+Three items are deferred to mainnet hardening and are not testnet blockers: an asset
+allowlist, aligning storage TTL with the mandate expiry, and revisiting the
+`validate_and_consume` name.
 
 ## Deliverable checklist
 
@@ -335,7 +336,7 @@ Every clause of the Tranche 1 Step 1 deliverable, with where it is proven.
 
 | Clause | Status | Evidence |
 |---|---|---|
-| MandateRegistry deployed and live on testnet | Met | Contract `CA3X76MR…BQCL`, WASM `59298a08…`, deployed 2026-06-09. The same id is hard-coded in the SDK config (`packages/stellar`). The activity table lists 23 live calls, including from independent third-party accounts |
+| MandateRegistry deployed and live on testnet | Met | Contract `CA3X76MR…BQCL`, WASM `59298a08…`, deployed 2026-06-09. The same id is hard-coded in the SDK config (`packages/stellar`). The activity table lists 24 transactions (the deploy plus 23 calls), including from independent third-party accounts |
 | `register_mandate` callable | Met | Live on-chain; tests `happy_path_runs_every_method`, `register_requires_user_auth` |
 | `validate_and_consume` callable | Met | Live on-chain (2026-06-10 20:08:24). Read-only dry run by design, as documented above |
 | `execute_payment` callable | Met | Live on-chain, 1 XLM moved (confirmed on Horizon); tests `happy_path_runs_every_method`, `property_spent_equals_transferred` |

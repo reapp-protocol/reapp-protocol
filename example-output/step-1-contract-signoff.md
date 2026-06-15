@@ -11,21 +11,21 @@ is the close-out for Step 1; the SDK is next.
 ## Honest record: the first pass did *not* clear. This version does
 
 We held ourselves to an airtight bar, and the **first pass had real gaps**. We
-found them, fixed them, then had the contract independently audited:
+found them, fixed them, and then had the contract independently audited.
 
 | First pass (rejected) | Now (airtight) |
 |---|---|
 | Replay protection was **dead code**, `seq` incremented but was never checked; `BadSequence` unused | ✅ `execute_payment(expected_seq)` enforces the sequence; replay → `BadSequence`, proven on-chain |
 | `NotAuthorized` was a dead typed error | ✅ removed; unauthorized = Soroban host `require_auth` revert (correct pattern) |
-| `cargo fmt` failed; CI couldn't go green | ✅ fmt clean, **0 clippy warnings**, tests 16 → **18** |
+| `cargo fmt` failed; CI couldn't go green | ✅ fmt clean, **0 clippy warnings**, tests 16 → **19** |
 | The "aha" demo (`playbook/demo.ts`) was a stub | ✅ real runnable: `npm run demo` runs the full on-chain flow |
 
-## Independent audit: verdict: `airtight-ship`
+## Independent audit: verdict `airtight-ship`
 
-A **12-agent adversarial sweep** across 6 attack surfaces (arithmetic/overflow,
-authorization, replay/sequencing, token-reentrancy, state/storage,
-logic/economic). **Every finding was independently re-verified against the code.**
-Result: **5 candidates, 0 confirmed defects.**
+We ran a **12-agent adversarial sweep** across 6 attack surfaces: arithmetic/overflow,
+authorization, replay/sequencing, token-reentrancy, state/storage, and
+logic/economic. **Every finding was independently re-verified against the code.**
+The result was **5 candidates and 0 confirmed defects.**
 
 Auditor-confirmed strengths:
 - `require_auth` binds to the **stored** agent, never a caller argument.
@@ -37,8 +37,8 @@ _(Full record: [`security/audit-2026-06-10.md`](../security/audit-2026-06-10.md)
 
 ## Proof: live on testnet, no mocks (9/9)
 
-Contract [`CA3X76MR…BQCL`](https://testnet.stellarchain.io/contracts/CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL).
-Native XLM as a real SEP-41 token; friendbot-funded agent + merchant.
+Contract [`CA3X76MR…BQCL`](https://stellar.expert/explorer/testnet/contract/CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL).
+It uses native XLM as a real SEP-41 token, with a friendbot-funded agent and merchant.
 
 > **9/9 on-chain, fully airtight.** The rogue replay returned `Error(Contract, #8) = BadSequence` (the guard we built, working live), and the post-revoke payment returned `#5 = MandateRevoked`.
 
@@ -74,7 +74,7 @@ sequenceDiagram
 ## Reproduce it yourself
 
 ```bash
-cd contracts/mandate-registry && cargo test --release   # 18/18
+cd contracts/mandate-registry && cargo test --release   # 19/19
 cargo clippy --all-targets                               # 0 warnings
 cd ../.. && npm run e2e:testnet                          # 9/9 live on testnet
 ```

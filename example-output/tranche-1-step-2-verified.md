@@ -4,10 +4,10 @@
 > via npm. Developers can create an agent, connect to the testnet contract, and
 > execute a mandate-validated payment in under 10 lines of code.*
 
-Every clause is proven below: the packages are live on npm, and the under-10-line
-flow ran live on testnet through the SDK surface (the workspace build of the exact
-code published as 0.1.2). Real XLM moved, and the
-rejections happened on the real network. No mocks, no local sandbox.
+Every clause is proven below. The packages are live on npm, and the under-10-line
+flow ran on testnet through the SDK surface, using the workspace build of the exact
+code published as 0.1.2. Real XLM moved, and the rejections happened on the real
+network. No mocks, no local sandbox.
 
 - **Run:** 2026-06-15, 09:03:27 to 09:03:42 UTC (ledgers 3,100,287 to 3,100,290)
 - **Contract:** [`CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL`](https://stellar.expert/explorer/testnet/contract/CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL) (deployed and audited in Step 1)
@@ -72,7 +72,7 @@ Each method call is a real testnet transaction, re-verified on Horizon.
 
 - [tx `29dc4d72…`](https://stellar.expert/explorer/testnet/tx/29dc4d724e59c0b7a34c10b7d4e8c4c1038035026859f256163fecb3be5bb4d9), **agent-signed** (`GDKT…KLBH`), ledger 3,100,289, Horizon `successful: true`
 - Real funds moved: the merchant balance read back as exactly `10001.0000000` XLM, a clean `+1` over its 10,000 XLM friendbot start.
-- The pay operation is an agent-signed `invoke_host_function` against the MandateRegistry. The signer is the agent, a different key from the user who authorized the mandate.
+- The pay operation is an agent-signed `invoke_host_function` against the MandateRegistry. The signer is the agent's key, which is distinct from the user key that authorized the mandate.
 
 ### 4 · `revokeMandate`: the user's kill switch
 
@@ -123,7 +123,7 @@ npm run audit -- 2e7c7b8746beb91486fce40685a2656616851c07a93087146e6f0f8b5b5d451
      · mandate is REVOKED
 ```
 
-Four XLM of budget and four of allowance remain, yet the agent can move nothing,
+Four XLM of budget and four of allowance remain, yet the agent can move nothing
 because the contract revoked it. The limit lives in the contract, and anyone can read
 that fact on-chain.
 

@@ -5,10 +5,10 @@
 > and `revoke_mandate` callable. Integration tests passing, including negative cases
 > for unauthorized callers and overspend attempts.*
 
-Every clause of that deliverable is proven below with **live on-chain evidence**,
-real transactions on the deployed contract, each one verifiable on the explorer and
-independently confirmed via Horizon (Stellar's canonical API). No mocks, no local
-sandboxes: real XLM moved, and every rejection happened on the real network.
+Every clause of that deliverable is proven below with **live on-chain evidence**.
+These are real transactions on the deployed contract. Each one is verifiable on the
+explorer and independently confirmed via Horizon (Stellar's canonical API). No mocks,
+no local sandboxes: real XLM moved, and every rejection happened on the real network.
 
 - **Verification run:** 2026-06-10, 20:05 to 20:11 UTC (ledgers 3,021,944 to 3,022,011)
 - **Contract:** [`CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL`](https://testnet.stellarchain.io/contracts/CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL) (deployed 2026-06-09)
@@ -87,9 +87,9 @@ mandate live and uses its `seq` for the payment's replay guard:
 > *Contract spec:* read-only dry-run that mutates nothing; the authoritative consume
 > happens only inside `execute_payment`. (Named per the protocol spec.)
 
-Used as a free preflight in the e2e (`✓ pass validate_and_consume`), **and**
-additionally submitted as a real transaction so reviewers have an on-chain record
-of the method executing successfully:
+Used as a free preflight in the e2e (`✓ pass validate_and_consume`), **and** also
+submitted as a real transaction so reviewers have an on-chain record of the method
+executing successfully:
 
 - ✅ [tx `50c8f482…`](https://testnet.stellarchain.io/tx/50c8f482e8f809eb5bc076e5d5ad286f8dc33cb9d03f9935ca0de72230c893c0): ledger 3,021,977, Horizon `successful: true`
 
@@ -222,8 +222,8 @@ Use the per-transaction links in this document; they are the authoritative view.
 
 ## Security audit
 
-Independently audited 2026-06-10, a 12-agent adversarial sweep across 6 attack
-surfaces, every finding re-verified against the code. **Verdict: airtight-ship,
+Independently audited 2026-06-10 with a 12-agent adversarial sweep across 6 attack
+surfaces, with every finding re-verified against the code. **Verdict: airtight-ship,
 0 confirmed defects.** Full record: [`security/audit-2026-06-10.md`](../security/audit-2026-06-10.md).
 
 ## Reproduce it yourself

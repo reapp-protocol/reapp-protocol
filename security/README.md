@@ -9,8 +9,8 @@ reviewed.
   lifecycle. _(Tranche 3 gating; outline grows from T1.)_
 - `data-flow.md`: trust boundaries and data entities. _(Tranche 3 gating.)_
 - `key-management.md`: 2-of-3 multisig holders, rotation, lost-key recovery.
-  _(Authored in Tranche 3, no key holders exist at MVP. The skill's testnet
-  hot-key discipline is the dress rehearsal.)_
+  _(Authored in Tranche 3, since no key holders exist at MVP. The skill's
+  testnet hot-key discipline is the dress rehearsal.)_
 - `scan-results/`: dependency audit + Soroban/WASM-aware contract scanner
   output, published with all findings remediated. _(Tranche 3.)_
 

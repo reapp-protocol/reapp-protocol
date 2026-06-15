@@ -189,7 +189,7 @@ re-checked against Horizon in the next section.
 | `revokeMandate` | [tx `299f88f9…`](https://stellar.expert/explorer/testnet/tx/299f88f9090e956cd5e02873cf85fefa0aaf9ae60a1e11de45a4f22db94510e2) | user-signed, ledger 3,100,290, `successful: true` |
 | `agent.pay("1.00")` after revoke | rejected at simulation | `MandateRevoked`, no tx |
 
-**8/8 steps passed.** The single most important line: the payment was signed by the
+**The e2e harness passed all 8 of its checks.** The single most important line: the payment was signed by the
 agent (`GDKT…KLBH`), a different key from the user (`GBE3…VNBG`) who authorized the
 mandate. The user grants the allowance to the contract, and the agent can only ask
 the contract to spend within the mandate. Overspend and post-revoke payment are

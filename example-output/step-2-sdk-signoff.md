@@ -17,15 +17,15 @@ on-chain proof is [`tranche-1-step-2-verified.md`](tranche-1-step-2-verified.md)
 | `@reapp-sdk/stellar` | [live](https://www.npmjs.com/package/@reapp-sdk/stellar) | Low-level Soroban layer: typed bindings, network config, signing, SEP-41 helpers. |
 
 Both are public scope, Apache-2.0, ESM with TypeScript types, and ship `dist` only.
-The under-10-line flow runs against the live, audited MandateRegistry from Step 1 with
-no configuration.
+The under-10-line flow runs against the live, audited MandateRegistry from Step 1, and
+it needs no configuration to do so.
 
 Published and installable today: `@reapp-sdk/core` 0.1.2 (the audited build) and
 `@reapp-sdk/stellar` 0.1.1. The audit below hardened `core` with two low-severity
 input bounds; 0.1.2 is live on npm, confirmed by a clean-install smoke test against
 the registry.
 
-## Honest record: the audit found two real gaps, this version fixes them
+## Honest record: the audit found two real gaps; this version fixes them
 
 We held the SDK to the same airtight bar as the contract and ran an independent
 adversarial audit before calling it done. The audit confirmed the architecture is
@@ -37,17 +37,17 @@ sound, and it found two real low-severity input-bound gaps. Both are now fixed i
 | `toStroops` returned an unbounded `BigInt`; an amount past i128 max would silently wrap at the ScVal encoder | `toStroops` rejects any amount that does not fit i128, failing loudly instead |
 | `createIntentMandate` did not validate `expiry`; a NaN, fractional, or out-of-range value threw cryptically or wrapped at the u64 encoder | `createIntentMandate` requires `expiry` to be a positive integer of Unix seconds no greater than `Number.MAX_SAFE_INTEGER` (well within u64) |
 
-Neither was exploitable, because the contract already rejects the dangerous outcomes,
-but the fix makes the SDK honor the strictness it promises and fail on its own.
+Neither was exploitable. The contract already rejects the dangerous outcomes. The fix
+just makes the SDK honor the strictness it promises and fail on its own.
 
 ## Independent audit: verdict airtight for testnet
 
-A BulletproofBar adversarial sweep on 2026-06-15: 31 agents across 8 attack surfaces
-(amount and money math, custody boundary, SDK-cannot-bypass-the-contract, mandate-id
-canonicalization, network-config integrity, secret and signer handling, error
-surfacing, supply-chain hygiene). Every finding was independently re-verified against
-the source, several reproduced empirically, then a completeness critic checked for
-missed surfaces.
+We ran a BulletproofBar adversarial sweep on 2026-06-15: 31 agents across 8 attack
+surfaces (amount and money math, custody boundary, SDK-cannot-bypass-the-contract,
+mandate-id canonicalization, network-config integrity, secret and signer handling,
+error surfacing, supply-chain hygiene). Every finding was independently re-verified
+against the source, several were reproduced empirically, and a completeness critic
+then checked for missed surfaces.
 
 **Result: 22 candidates, 0 confirmed defects, 0 testnet blockers.**
 

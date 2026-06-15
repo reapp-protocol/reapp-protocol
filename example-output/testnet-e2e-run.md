@@ -5,10 +5,10 @@
 > and `revoke_mandate` callable. Integration tests passing, including negative cases
 > for unauthorized callers and overspend attempts.*
 
-Every line is done, and hardened to the full TDD §4 spec. The big idea: an AI agent
+Every line is done, hardened to the full TDD §4 spec. The big idea: an AI agent
 can't be trusted to police its own spending, so the limit lives **inside a smart
-contract in the money path**, not in the app or SDK. A hacked or rogue agent simply
-can't overspend, replay, or pay after the user revokes.
+contract in the money path**, not in the app or SDK. A hacked or rogue agent has no
+way to overspend, replay, or pay after the user revokes.
 
 ## Deliverable, point by point
 
