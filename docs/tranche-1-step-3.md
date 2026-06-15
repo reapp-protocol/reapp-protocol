@@ -45,6 +45,7 @@ Two properties make this safe, and they map directly to the Stellar feedback:
 ## The round-trip
 
 ```mermaid
+%%{init: {'theme':'base','themeVariables':{'actorBkg':'#1e293b','actorBorder':'#0f172a','actorTextColor':'#ffffff','actorLineColor':'#94a3b8','signalColor':'#1e293b','signalTextColor':'#0f172a','labelBoxBkgColor':'#1e293b','labelBoxBorderColor':'#0f172a','labelTextColor':'#ffffff','noteBkgColor':'#1e293b','noteBorderColor':'#0f172a','noteTextColor':'#ffffff'}}}%%
 sequenceDiagram
     actor User
     participant SDK as REAPP SDK

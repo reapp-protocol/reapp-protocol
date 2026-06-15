@@ -30,6 +30,7 @@ and the over-budget request was rejected on the real network.
 ## The flow that ran on-chain
 
 ```mermaid
+%%{init: {'theme':'base','themeVariables':{'actorBkg':'#1e293b','actorBorder':'#0f172a','actorTextColor':'#ffffff','actorLineColor':'#94a3b8','signalColor':'#1e293b','signalTextColor':'#0f172a','labelBoxBkgColor':'#1e293b','labelBoxBorderColor':'#0f172a','labelTextColor':'#ffffff','noteBkgColor':'#1e293b','noteBorderColor':'#0f172a','noteTextColor':'#ffffff'}}}%%
 sequenceDiagram
     actor User as User GAHG…TORQ
     participant SDK as REAPP SDK
