@@ -16,7 +16,7 @@ import { Buffer } from "buffer";
 import { Keypair, hash } from "@stellar/stellar-sdk";
 import { TESTNET, keypairSigner, registryClient, token, type NetworkConfig } from "@reapp-sdk/stellar";
 
-// Re-export the typed contract errors so apps can branch on them (e.g. Errors.BudgetExceeded).
+// Re-export the typed contract errors so apps can branch on them (e.g. Errors[6] is BudgetExceeded).
 export { Errors } from "@reapp-sdk/stellar";
 
 export interface CreateIntentMandateInput {
@@ -53,12 +53,19 @@ export interface SignerInput {
 }
 
 const DEFAULT_DECIMALS = 7;
+/** The contract stores amounts as i128. Anything larger cannot fit. */
+const I128_MAX = 2n ** 127n - 1n;
+/** expiry is Unix seconds (a JS number). Bound it to the largest integer a
+ *  number represents exactly, which is astronomically beyond any real timestamp
+ *  yet well under u64 — so the value the SDK hashes and sends is never lossy. */
+const MAX_EXPIRY = Number.MAX_SAFE_INTEGER;
 
 /**
  * Convert a human amount to stroops (i128). Strict by design — this is money:
  * only a non-negative decimal like "5" or "5.00" is accepted. Negatives,
- * multiple dots, scientific notation, garbage, or more than `decimals` fraction
- * digits all throw rather than silently produce a wrong on-chain value.
+ * multiple dots, scientific notation, garbage, more than `decimals` fraction
+ * digits, or a value too large for i128 all throw rather than silently produce a
+ * wrong on-chain value.
  */
 export function toStroops(human: string, decimals = DEFAULT_DECIMALS): bigint {
   const s = String(human).trim();
@@ -72,7 +79,14 @@ export function toStroops(human: string, decimals = DEFAULT_DECIMALS): bigint {
     throw new Error(`Amount ${JSON.stringify(human)} has more than ${decimals} decimal places.`);
   }
   const fracPadded = (frac + "0".repeat(decimals)).slice(0, decimals);
-  return BigInt(whole) * 10n ** BigInt(decimals) + BigInt(fracPadded || "0");
+  const stroops = BigInt(whole) * 10n ** BigInt(decimals) + BigInt(fracPadded || "0");
+  // The ScVal i128 encoder does NOT range-check — an over-large value would
+  // silently two's-complement wrap into a wrong (even negative) on-chain amount.
+  // Reject it here so the SDK fails loudly instead.
+  if (stroops > I128_MAX) {
+    throw new Error(`Amount ${JSON.stringify(human)} is too large to fit the contract's i128 amount field.`);
+  }
+  return stroops;
 }
 
 const asKeypair = (s: Keypair | string): Keypair =>
@@ -117,6 +131,12 @@ export const reapp = {
   /** Build an AP2-style IntentMandate and its canonical id (no chain calls). */
   createIntentMandate(input: CreateIntentMandateInput, net: NetworkConfig = TESTNET): IntentMandate {
     void net;
+    // expiry is sent on-chain as u64. Validate it here so a NaN, fractional, or
+    // out-of-range value fails loudly with a clear message instead of throwing
+    // cryptically at BigInt() or silently wrapping at the u64 encoder.
+    if (!Number.isInteger(input.expiry) || input.expiry <= 0 || input.expiry > MAX_EXPIRY) {
+      throw new Error(`expiry must be a positive integer of Unix seconds (got ${input.expiry}).`);
+    }
     const decimals = input.decimals ?? DEFAULT_DECIMALS;
     // Nonce keeps ids distinct in normal use; the CONTRACT (not the SDK) is the
     // real uniqueness authority (AlreadyExists), so timestamp+random suffices —

@@ -1,6 +1,6 @@
 {
   "name": "@reapp-sdk/core",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Thin, untrusted client for the REAPP MandateRegistry. The contract is the source of truth.",
   "keywords": [
     "stellar",
@@ -26,7 +26,7 @@
   "files": ["dist"],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "echo \"(no sdk tests yet)\" && exit 0"
+    "test": "node --test"
   },
   "dependencies": {
     "@reapp-sdk/stellar": "^0.1.0",

@@ -12,7 +12,7 @@ The SDK is untrusted by design. It never custodies funds and it never enforces t
 npm install @reapp-sdk/core @stellar/stellar-sdk
 ```
 
-`@stellar/stellar-sdk` is a peer you import directly for `Keypair`. The package ships its own ESM build with TypeScript types.
+`@stellar/stellar-sdk` is a direct dependency you also import yourself for `Keypair`. The package ships its own ESM build with TypeScript types.
 
 ## Quick start (Stellar testnet)
 
