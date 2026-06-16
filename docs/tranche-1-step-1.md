@@ -62,15 +62,19 @@ A mandate's `status` moves through three states:
 The contract has five methods. Two are read-only and need no signature; three
 change state and require a specific signer.
 
+> **Key:** 🟢 read-only, no signature · 🔵 user-signed · 🟠 agent-signed, moves money
+
 | Method | Signer | Changes state | What it does |
 |---|---|---|---|
-| `register_mandate` | User | Yes | Creates a mandate |
-| `validate_and_consume` | None | No | Preflight check before paying |
-| `execute_payment` | Agent | Yes | The only path that moves money |
-| `revoke_mandate` | User | Yes | Cancels a mandate |
-| `get_mandate` | None | No | Reads a mandate |
+| 🔵 `register_mandate` | User | ✅ | Creates a mandate |
+| 🟢 `validate_and_consume` | None | ➖ | Preflight check before paying |
+| 🟠 `execute_payment` | Agent | ✅ | The only path that moves money |
+| 🔵 `revoke_mandate` | User | ✅ | Cancels a mandate |
+| 🟢 `get_mandate` | None | ➖ | Reads a mandate |
 
-### `register_mandate(user, agent, merchant, asset, max_amount, expiry, vc_hash)`
+---
+
+### 🔵 `register_mandate(user, agent, merchant, asset, max_amount, expiry, vc_hash)`
 
 Creates a new mandate. Moves no money.
 
@@ -82,7 +86,9 @@ Creates a new mandate. Moves no money.
 | **Returns** | the mandate id |
 | **After** | the user separately signs a SEP-41 `approve` so the contract can later pull funds |
 
-### `validate_and_consume(mandate_id, amount, merchant)`
+---
+
+### 🟢 `validate_and_consume(mandate_id, amount, merchant)`
 
 A read-only dry run that answers one question: would a payment of `amount` to
 `merchant` be allowed right now?
@@ -94,7 +100,9 @@ A read-only dry run that answers one question: would a payment of `amount` to
 | **Use** | the SDK calls it for a clean typed answer before paying |
 | **Note** | despite the name it consumes nothing; the real consume happens only in `execute_payment` |
 
-### `execute_payment(mandate_id, amount, expected_seq)`
+---
+
+### 🟠 `execute_payment(mandate_id, amount, expected_seq)`
 
 The only path that moves money.
 
@@ -111,7 +119,9 @@ Steps:
 4. add `amount` to `spent`, raise `seq` by one, and flip status to `Exhausted` if the budget is now fully used
 5. move `amount` from user to merchant with the token's `transfer_from`
 
-### `revoke_mandate(mandate_id)`
+---
+
+### 🔵 `revoke_mandate(mandate_id)`
 
 The user's kill switch.
 
@@ -120,7 +130,9 @@ The user's kill switch.
 | **Signer** | the user |
 | **Effect** | marks the mandate `Revoked`; after this, every `execute_payment` is rejected with `MandateRevoked` |
 
-### `get_mandate(mandate_id)`
+---
+
+### 🟢 `get_mandate(mandate_id)`
 
 A read-only lookup.
 
