@@ -34,6 +34,22 @@ treated as untrusted. The contract is the source of truth.
 
 The contract is small on purpose. A small interface is an auditable interface.
 
+## How it works, in plain English
+
+Picture an AI assistant that shops for you. You never hand it your wallet. Instead you set rules at the bank: "my assistant can spend up to 5 coins, only at this one store, until Friday." The **bank is the smart contract**: it holds the rules and is the only thing allowed to actually move your money. The assistant can ask, but the bank decides.
+
+The five methods are just the things people can ask the bank:
+
+- 🔵 **`register_mandate`** sets the rules: who can spend, how much, where, and until when. You also tell the bank it may pull up to that amount from your account, so the assistant never holds the keys to your money; the bank does.
+- 🟠 **`execute_payment`** is the assistant asking the bank to pay the store. The bank re-checks every rule first (right assistant? right store? under budget? not expired? not a repeat?) and only then moves the money. This is the only way a single coin ever moves.
+- 🟢 **`validate_and_consume`** is a "would this be allowed?" dry run, like checking your balance before you swipe. Nothing actually happens.
+- 🔵 **`revoke_mandate`** is your kill switch: cancel the assistant's spending at any time, and every later attempt is denied.
+- 🟢 **`get_mandate`** lets anyone look up the rules and how much has been spent, like reading the card statement.
+
+The point: the assistant never holds your money and never controls the limit. The bank does, and it enforces the rules on every single payment. So even if the assistant goes rogue, or the app running it is hacked, it cannot overspend, pay the wrong store, or drain your account. The bank simply says no.
+
+In REAPP terms: you are the **user**, the assistant is the **agent**, the bank is the **MandateRegistry** contract, the store is the **merchant**, and the rules are the **mandate**.
+
 ## What it stores: the Mandate
 
 Each mandate is one record, stored under its own id (a 32-byte hash). It holds:
