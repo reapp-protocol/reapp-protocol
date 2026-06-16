@@ -73,6 +73,118 @@ function challenge(resource: string, merchant: string) {
   };
 }
 
+/** Pull contract events out of a transaction's result meta across protocol
+ *  versions: V4 (protocol 23+) carries them per operation, V3 nests them under
+ *  sorobanMeta. Returns an empty array if neither shape is present. */
+export function extractContractEvents(meta: xdr.TransactionMeta): xdr.ContractEvent[] {
+  try {
+    return meta.v4().operations().flatMap((op) => op.events());
+  } catch {
+    try {
+      return meta.v3().sorobanMeta()?.events() ?? [];
+    } catch {
+      return [];
+    }
+  }
+}
+
+/** A contract event flattened to a network-free shape, so the matching logic can
+ *  be tested without constructing XDR by hand. */
+export interface DecodedEvent {
+  /** Strkey contract id of the emitter, or null if the event carries none. */
+  contractId: string | null;
+  /** First topic; the registry's payment event uses the symbol "payment". */
+  topic0: unknown;
+  /** Second topic; the registry's payment event uses the merchant address. */
+  topic1: unknown;
+  /** The i128 amount from the event data ([mandate_id, amount]), or null. */
+  amount: bigint | null;
+}
+
+/** Decode raw contract events into {@link DecodedEvent}s. This is the only place
+ *  that touches XDR; it is kept thin so the security decision below stays pure. */
+export function interpretEvents(events: xdr.ContractEvent[]): DecodedEvent[] {
+  return events.map((ev) => {
+    const cid = ev.contractId();
+    const contractId = cid ? StrKey.encodeContract(cid as unknown as Buffer) : null;
+    let topic0: unknown;
+    let topic1: unknown;
+    let amount: bigint | null = null;
+    try {
+      const v0 = ev.body().v0();
+      const topics = v0.topics();
+      if (topics[0]) topic0 = scValToNative(topics[0]);
+      if (topics[1]) topic1 = scValToNative(topics[1]);
+      const data = scValToNative(v0.data()) as unknown;
+      if (Array.isArray(data) && data.length >= 2) {
+        amount = BigInt(data[1] as bigint | number | string);
+      }
+    } catch {
+      // A malformed event leaves the fields unset; selectPayment skips it.
+    }
+    return { contractId, topic0, topic1, amount };
+  });
+}
+
+/** What a valid payment must satisfy for this merchant. */
+export interface PaymentCheck {
+  /** The merchant address that must be paid. */
+  merchant: string;
+  /** Strkey of the trusted MandateRegistry. Events from any other contract are ignored. */
+  registryId: string;
+  /** Minimum amount (stroops) that unlocks the resource. */
+  priceStroops: bigint;
+}
+
+/** The security decision, pure and fully testable: is there a `payment` event,
+ *  emitted by the trusted registry, that paid THIS merchant at least the price?
+ *  Every way a forged or wrong payment is rejected lives here. */
+export function selectPayment(
+  decoded: DecodedEvent[],
+  cfg: PaymentCheck,
+): { ok: true; amount: bigint } | { ok: false; reason: string } {
+  if (decoded.length === 0) {
+    return { ok: false, reason: "transaction carried no Soroban contract events" };
+  }
+  for (const ev of decoded) {
+    // SAFETY (the load-bearing check): only honor events emitted by the real
+    // MandateRegistry. Topics and data are attacker-controllable, so a forged
+    // ("payment", merchant, amount) event from any other contract (for example
+    // the token's own "transfer" event in the same transaction) must be ignored.
+    if (ev.contractId !== cfg.registryId) continue;
+    if (ev.topic0 !== "payment") continue;
+    if (String(ev.topic1) !== cfg.merchant) continue; // paid someone else: not our sale
+    if (ev.amount === null) continue;
+    if (ev.amount < cfg.priceStroops) {
+      return { ok: false, reason: `paid ${ev.amount} stroops, below the price` };
+    }
+    return { ok: true, amount: ev.amount };
+  }
+  return { ok: false, reason: "no payment event to this merchant in that transaction" };
+}
+
+/** Tracks redeemed payment proofs and reserves them atomically. `reserve` is
+ *  synchronous so two concurrent requests with the same proof cannot both pass
+ *  during an await window (TOCTOU); a failed verification `release`s the proof so
+ *  a transient RPC lag does not permanently burn a real payment. */
+export class ProofLedger {
+  private readonly redeemed = new Set<string>();
+  /** Reserve `txHash`. Returns false if it was already reserved. */
+  reserve(txHash: string): boolean {
+    if (this.redeemed.has(txHash)) return false;
+    this.redeemed.add(txHash);
+    return true;
+  }
+  /** Release a previously reserved `txHash` (used when verification fails). */
+  release(txHash: string): void {
+    this.redeemed.delete(txHash);
+  }
+  /** Whether `txHash` is currently reserved. */
+  has(txHash: string): boolean {
+    return this.redeemed.has(txHash);
+  }
+}
+
 export function startServer(opts: ServerOptions): { server: Server; port: number; url: string } {
   const merchant = opts.merchant.trim();
   if (!merchant.startsWith("G")) {
@@ -81,14 +193,20 @@ export function startServer(opts: ServerOptions): { server: Server; port: number
   const port = opts.port ?? 8402;
   const soroban = new rpc.Server(TESTNET.rpcUrl, { allowHttp: TESTNET.rpcUrl.startsWith("http://") });
 
-  // Proofs already redeemed. A real merchant persists this; in-memory is fine for a
+  // Redeemed proofs. A real merchant persists this; in-memory is fine for a
   // single-process demo. Without it, one on-chain payment could unlock forever.
-  const redeemed = new Set<string>();
+  const ledger = new ProofLedger();
+  const check: PaymentCheck = {
+    merchant,
+    registryId: TESTNET.mandateRegistryId,
+    priceStroops: PRICE_STROOPS,
+  };
 
   /** Independently verify, against the chain, that `txHash` is a successful
    *  `execute_payment` that paid THIS merchant at least the price. Never trusts
-   *  the caller: it reads the transaction and decodes the contract's payment event
-   *  (topics: "payment", merchant; data: mandate_id, amount). */
+   *  the caller: it reads the transaction, then matches the registry's payment
+   *  event (topics: "payment", merchant; data: mandate_id, amount) through the
+   *  pure {@link selectPayment} so the security decision is unit-tested. */
   async function verifyOnChain(txHash: string): Promise<{ ok: true; amount: bigint } | { ok: false; reason: string }> {
     if (!/^[0-9a-f]{64}$/i.test(txHash)) return { ok: false, reason: "proof is not a transaction hash" };
 
@@ -100,40 +218,7 @@ export function startServer(opts: ServerOptions): { server: Server; port: number
     }
     if (tx.status !== "SUCCESS") return { ok: false, reason: `transaction is ${tx.status}, not SUCCESS` };
 
-    // Contract events live per-operation in TransactionMetaV4 (protocol 23+) and
-    // nested under sorobanMeta in V3. Try V4 first, then fall back to V3.
-    let events: xdr.ContractEvent[] = [];
-    try {
-      events = tx.resultMetaXdr.v4().operations().flatMap((op) => op.events());
-    } catch {
-      try {
-        events = tx.resultMetaXdr.v3().sorobanMeta()?.events() ?? [];
-      } catch {
-        events = [];
-      }
-    }
-    if (events.length === 0) return { ok: false, reason: "transaction carried no Soroban contract events" };
-    for (const ev of events) {
-      // SAFETY (the load-bearing check): only honor events emitted by the real
-      // MandateRegistry. Topics and data are attacker-controllable — any contract
-      // can publish a ("payment", merchant, amount) event — so without binding the
-      // emitting contract, a forged event would unlock the resource for free.
-      const cid = ev.contractId();
-      if (!cid || StrKey.encodeContract(cid as unknown as Buffer) !== TESTNET.mandateRegistryId) continue;
-      const v0 = ev.body().v0();
-      const topics = v0.topics();
-      const t0 = topics[0];
-      const t1 = topics[1];
-      if (!t0 || !t1) continue;
-      if (scValToNative(t0) !== "payment") continue;
-      const paidMerchant = String(scValToNative(t1));
-      if (paidMerchant !== merchant) continue; // paid someone else: not our sale
-      const data = scValToNative(v0.data()) as unknown[]; // [mandate_id, amount]
-      const amount = BigInt(data[1] as bigint | number | string);
-      if (amount < PRICE_STROOPS) return { ok: false, reason: `paid ${amount} stroops, below the price` };
-      return { ok: true, amount };
-    }
-    return { ok: false, reason: "no payment event to this merchant in that transaction" };
+    return selectPayment(interpretEvents(extractContractEvents(tx.resultMetaXdr)), check);
   }
 
   async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -159,17 +244,16 @@ export function startServer(opts: ServerOptions): { server: Server; port: number
     } catch {
       return send(res, 402, { error: "malformed X-PAYMENT proof", ...challenge(url.pathname, merchant) });
     }
-    if (redeemed.has(txHash)) {
+    // Reserve the proof synchronously, BEFORE the async verification, so two
+    // concurrent requests with the same proof cannot both pass during the await
+    // window (TOCTOU). A verification failure releases it, so a transient RPC lag
+    // does not permanently burn a real payment.
+    if (!ledger.reserve(txHash)) {
       return send(res, 402, { error: "this payment was already redeemed", ...challenge(url.pathname, merchant) });
     }
-    // Reserve the proof synchronously, BEFORE the async verification, so two
-    // concurrent requests with the same proof cannot both pass the has() check
-    // during the await window (TOCTOU). On a verification failure we release it,
-    // so a transient RPC lag does not permanently burn a real payment.
-    redeemed.add(txHash);
     const verdict = await verifyOnChain(txHash);
     if (!verdict.ok) {
-      redeemed.delete(txHash);
+      ledger.release(txHash);
       return send(res, 402, { error: `payment not verified on-chain: ${verdict.reason}`, ...challenge(url.pathname, merchant) });
     }
 

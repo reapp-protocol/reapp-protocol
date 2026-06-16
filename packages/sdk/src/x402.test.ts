@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Buffer } from "buffer";
-import { decodePaymentProof, encodePaymentProof, type PaymentProof } from "@reapp-sdk/core";
+import { decodePaymentProof, encodePaymentProof, parse402, type PaymentProof } from "@reapp-sdk/core";
 
 /** A complete, well-formed settlement proof. */
 const PROOF: PaymentProof = {
@@ -65,4 +65,76 @@ test("rejects each missing required field in turn", () => {
       `expected a throw when ${field} is absent`,
     );
   }
+});
+
+// ---------------------------------------------------------------------------
+// parse402: the other half of the wire format. It reads a server's 402 body and
+// extracts the first payment requirement, or throws a clear x402 error. Every
+// throw branch and the default-filling are exercised here.
+
+/** Build a 402 Response with the given body (object is JSON-encoded). */
+const res402 = (body: unknown): Response =>
+  new Response(typeof body === "string" ? body : JSON.stringify(body), {
+    status: 402,
+    headers: { "content-type": "application/json" },
+  });
+
+test("parse402 parses a full challenge", async () => {
+  const req = await parse402(
+    res402({
+      x402Version: 1,
+      accepts: [
+        {
+          scheme: "reapp-soroban",
+          network: "stellar-testnet",
+          maxAmountRequired: "1.00",
+          asset: "CASSET",
+          payTo: "GMERCHANT",
+          resource: "/source/market",
+          extra: { contract: "CREGISTRY" },
+        },
+      ],
+    }),
+  );
+  assert.deepEqual(req, {
+    scheme: "reapp-soroban",
+    network: "stellar-testnet",
+    amount: "1.00",
+    asset: "CASSET",
+    payTo: "GMERCHANT",
+    resource: "/source/market",
+    contract: "CREGISTRY",
+  });
+});
+
+test("parse402 applies defaults for a minimal challenge", async () => {
+  const req = await parse402(res402({ accepts: [{ maxAmountRequired: "2.50", payTo: "GMERCHANT" }] }));
+  assert.equal(req.scheme, "reapp-soroban");
+  assert.equal(req.network, "stellar-testnet");
+  assert.equal(req.amount, "2.50");
+  assert.equal(req.asset, "");
+  assert.equal(req.resource, "");
+  assert.equal(req.contract, undefined);
+});
+
+test("parse402 accepts `amount` as an alias for maxAmountRequired", async () => {
+  const req = await parse402(res402({ accepts: [{ amount: "3.00", payTo: "GMERCHANT" }] }));
+  assert.equal(req.amount, "3.00");
+});
+
+test("parse402 rejects a non-JSON body", async () => {
+  await assert.rejects(() => parse402(res402("this is not json")), /not valid JSON/);
+});
+
+test("parse402 rejects a body with no `accepts` requirement", async () => {
+  await assert.rejects(() => parse402(res402({ x402Version: 1 })), /accepts/);
+  await assert.rejects(() => parse402(res402({ accepts: [] })), /accepts/);
+});
+
+test("parse402 rejects a requirement missing an amount", async () => {
+  await assert.rejects(() => parse402(res402({ accepts: [{ payTo: "GMERCHANT" }] })), /missing an amount/);
+});
+
+test("parse402 rejects a requirement missing payTo (the merchant)", async () => {
+  await assert.rejects(() => parse402(res402({ accepts: [{ maxAmountRequired: "1.00" }] })), /payTo/);
 });
