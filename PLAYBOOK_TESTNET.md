@@ -71,20 +71,20 @@ sequenceDiagram
 
 This is the most important section for understanding the testnet vs mainnet
 split. Different parts of the system reach testnet in different ways. Some read
-the network from your `.env`, and some are hardwired to the SDK's `TESTNET`
-constant and will ignore `.env` entirely. Know which is which before you touch
+the network from your local env file, and some are hardwired to the SDK's `TESTNET`
+constant and will ignore the local env file entirely. Know which is which before you touch
 anything network related.
 
 | Surface | How it reaches testnet | What changes for mainnet |
 |---|---|---|
-| Contract deploy (`scripts/deploy.mjs`, `npm run deploy:testnet`) | Reads `SOROBAN_RPC_URL` and `NETWORK_PASSPHRASE` from `.env`. Hardcodes testnet explorer links (`testnet.stellarchain.io`). Assumes a funded testnet account. | Point `.env` at mainnet RPC and passphrase, swap the explorer base, and deploy from a hardware-backed key rather than a burner. The script name itself (`deploy:testnet`) signals scope. |
-| `npm run e2e:testnet` (`scripts/e2e-testnet.mjs`) | Reads RPC, passphrase, contract id, and keys from `.env`. Funds fresh accounts via **friendbot**. | Friendbot does not exist on mainnet. Real accounts must be funded with real XLM. There is no auto-funding. |
+| Contract deploy (`scripts/deploy.mjs`, `npm run deploy:testnet`) | Reads `SOROBAN_RPC_URL` and `NETWORK_PASSPHRASE` from the local env file. Hardcodes testnet explorer links (`testnet.stellarchain.io`). Assumes a funded testnet account. | Point the local env file at mainnet RPC and passphrase, swap the explorer base, and deploy from a hardware-backed key rather than a burner. The script name itself (`deploy:testnet`) signals scope. |
+| `npm run e2e:testnet` (`scripts/e2e-testnet.mjs`) | Reads RPC, passphrase, contract id, and keys from the local env file. Funds fresh accounts via **friendbot**. | Friendbot does not exist on mainnet. Real accounts must be funded with real XLM. There is no auto-funding. |
 | SDK network config (`packages/stellar/src/config.ts`, the `TESTNET` constant) | Hardcodes the testnet contract id, native SAC, RPC, and passphrase. | Add a `MAINNET` `NetworkConfig` and pass it explicitly as the last argument to `reapp.*` calls, or publish an SDK build that defaults to it. |
-| `npm run e2e:sdk`, `npm run e2e:x402`, `npm run audit` | Import the SDK `TESTNET` constant directly. **They ignore the network values in `.env`** and always hit the testnet contract baked into the SDK. They fund via friendbot. | These must select the `MAINNET` config. Updating `.env` alone does nothing for them. |
+| `npm run e2e:sdk`, `npm run e2e:x402`, `npm run audit` | Import the SDK `TESTNET` constant directly. **They ignore the network values in the local env file** and always hit the testnet contract baked into the SDK. They fund via friendbot. | These must select the `MAINNET` config. Updating the local env file alone does nothing for them. |
 | `npm run keys:derive-freighter` | Network agnostic. Pure BIP39 key derivation. | Same mechanism, but never reuse a testnet burner secret on mainnet. |
 
 The practical trap: if you deploy a **new** contract and update
-`MANDATE_REGISTRY_CONTRACT_ID` in `.env`, only `npm run e2e:testnet` picks it up.
+`MANDATE_REGISTRY_CONTRACT_ID` in the local env file, only `npm run e2e:testnet` picks it up.
 `npm run e2e:sdk`, `npm run e2e:x402`, and `npm run audit` will keep hitting the
 old contract id baked into the published SDK until you update
 `packages/stellar/src/config.ts`, rebuild, and (if you want others to get it)
@@ -159,12 +159,12 @@ Create your local testnet environment file from the template:
 cp .env.example .env
 ```
 
-The `.env` file is git-ignored and is for **hot testnet keys only**. Never reuse
+The local env file is git-ignored and is for **hot testnet keys only**. Never reuse
 a testnet key on mainnet and never commit real values. The template already
 carries the testnet RPC and passphrase.
 
 Derive your testnet burner secret key from a Freighter seed phrase. Set
-`REAPP_BURNER_PUBLIC_KEY` in `.env` first, then run:
+`REAPP_BURNER_PUBLIC_KEY` in the local env file first, then run:
 
 ```bash
 npm run keys:derive-freighter
@@ -189,7 +189,7 @@ curl "https://friendbot.stellar.org/?addr=YOUR_G_ADDRESS"
 Friendbot is a testnet-only faucet. On mainnet there is no equivalent; you fund
 with real XLM.
 
-After this, `MANDATE_REGISTRY_CONTRACT_ID` in `.env` should point at the live
+After this, `MANDATE_REGISTRY_CONTRACT_ID` in the local env file should point at the live
 testnet contract (see "Smart contract" below). The current testnet value is
 `CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL`.
 
@@ -197,7 +197,7 @@ testnet contract (see "Smart contract" below). The current testnet value is
 
 ## Environment variables (testnet)
 
-All scripts read a single `.env` at the repo root. The "Read by" column tells
+All scripts read a single env file at the repo root. The "Read by" column tells
 you exactly which scripts consume each variable, so you know what actually
 matters. Several variables are read only by the env-driven scripts (deploy and
 the testnet e2e); the SDK-driven scripts use the baked-in `TESTNET` constant.
@@ -299,16 +299,16 @@ flowchart LR
   Src["contract source"] --> Build["stellar contract build (wasm32v1-none)"]
   Build --> Wasm["mandate_registry.wasm"]
   Wasm --> Deploy["npm run deploy:testnet"]
-  Deploy --> Env["read RPC + passphrase from .env"]
+  Deploy --> Env["read RPC + passphrase from the local env file"]
   Env --> Sign["sign with REAPP_BURNER_SECRET_KEY"]
   Sign --> Chain["Stellar testnet"]
-  Chain --> Id["contract id written to .env"]
+  Chain --> Id["contract id written to the local env file"]
   Id --> Cfg["update SDK TESTNET config, republish (see SDK section)"]
 ```
 
 How `scripts/deploy.mjs` targets testnet, in detail:
 
-- It resolves `.env` from the repo root (cwd-proof), then reads
+- It resolves the local env file from the repo root (cwd-proof), then reads
   `SOROBAN_RPC_URL` and `NETWORK_PASSPHRASE`. Those two values are what actually
   point the deploy at testnet, so they must be the testnet RPC and passphrase.
   The script aborts if either is unset.
@@ -321,13 +321,13 @@ How `scripts/deploy.mjs` targets testnet, in detail:
 - It runs `stellar contract deploy --wasm <wasm> --source-account <secret>
   --rpc-url <rpc> --network-passphrase <passphrase>`, captures stdout, and takes
   the last `C...` match as the contract id.
-- It writes that id back into `.env` as `MANDATE_REGISTRY_CONTRACT_ID` and
+- It writes that id back into the local env file as `MANDATE_REGISTRY_CONTRACT_ID` and
   prints a `testnet.stellarchain.io` explorer link. The explorer base and the
   link rewriting are hardcoded to testnet inside the script.
 - The deployer account must already be funded with **testnet** XLM (use
   friendbot during setup).
 
-This is why a mainnet deploy is a separate path, not just a different `.env`:
+This is why a mainnet deploy is a separate path, not just a different env file:
 the explorer links, the funding assumption, and the script name are all testnet
 shaped. The mainnet playbook will document the mainnet deploy procedure.
 
@@ -482,13 +482,13 @@ persist them to prevent replay.
 ## End to end and demo (testnet)
 
 Everything below runs against live testnet with no mocks. Note which scripts
-read `.env` and which use the SDK `TESTNET` constant:
+read the local env file and which use the SDK `TESTNET` constant:
 
 - `npm run demo` and `npm run e2e:testnet` read the contract id and network from
-  `.env`. The contract must be deployed and `MANDATE_REGISTRY_CONTRACT_ID` set,
+  the local env file. The contract must be deployed and `MANDATE_REGISTRY_CONTRACT_ID` set,
   or they fail with a "contract not set" error.
 - `npm run e2e:sdk` and `npm run e2e:x402` use the published SDK `TESTNET`
-  constant and ignore the network values in `.env`. They always hit the testnet
+  constant and ignore the network values in the local env file. They always hit the testnet
   contract baked into the SDK.
 
 All of them fund their fresh accounts via friendbot, which is testnet only.
@@ -528,7 +528,7 @@ milestone closes, not after deploy. Two layers:
 its spending limits. It trusts no app or SDK claim. It is read only and never
 signs or sends a transaction. It is hardwired to the SDK `TESTNET` constant
 (`const net = TESTNET` in `scripts/audit-mandate.mjs`), so it always reads from
-the testnet deployment regardless of your `.env` network values. Auditing a
+the testnet deployment regardless of your env file network values. Auditing a
 mainnet mandate will require a `MAINNET` config and a script change.
 
 ```bash
@@ -683,7 +683,7 @@ flowchart LR
 3. `stellar contract build --manifest-path contracts/mandate-registry/Cargo.toml`.
 4. `npm run verify`.
 5. `npm run deploy:testnet` (this rewrites `MANDATE_REGISTRY_CONTRACT_ID` in
-   `.env`).
+   the local env file).
 6. Update `packages/stellar/src/config.ts` `TESTNET.mandateRegistryId` to the
    new id, then bump and republish `@reapp-sdk/stellar` and `@reapp-sdk/core`.
    Remember: `e2e:sdk`, `e2e:x402`, and `audit` will keep using the old id until
@@ -738,10 +738,10 @@ get rejected on-chain is the fastest way to understand the invariant.
 |---|---|
 | `which stellar` finds nothing | Install the Stellar CLI and ensure `~/.cargo/bin` or `/opt/homebrew/bin` is on PATH. The deploy script points at `brew install stellar-cli`. |
 | Build produces no WASM / wrong target | Use `stellar contract build`, not `cargo build`. Add the target with `rustup target add wasm32v1-none`. |
-| Deploy aborts: RPC or passphrase unset | `SOROBAN_RPC_URL` and `NETWORK_PASSPHRASE` must be set in `.env` (testnet values). |
+| Deploy aborts: RPC or passphrase unset | `SOROBAN_RPC_URL` and `NETWORK_PASSPHRASE` must be set in the local env file (testnet values). |
 | Deploy exits immediately on the secret | `REAPP_BURNER_SECRET_KEY` must start with `S` and be exactly 56 chars. |
-| `e2e:testnet` / `demo` fail with "contract not set" | Deploy first; `MANDATE_REGISTRY_CONTRACT_ID` must be filled in `.env`. |
-| `e2e:sdk` / `e2e:x402` / `audit` still hit the old contract | They use the SDK `TESTNET` constant, not `.env`. Update `config.ts`, rebuild, and (for others) republish. |
+| `e2e:testnet` / `demo` fail with "contract not set" | Deploy first; `MANDATE_REGISTRY_CONTRACT_ID` must be filled in the local env file. |
+| `e2e:sdk` / `e2e:x402` / `audit` still hit the old contract | They use the SDK `TESTNET` constant, not the local env file. Update `config.ts`, rebuild, and (for others) republish. |
 | e2e:x402 fails on startup | Port 8402 is in use. Free it. |
 | Funding fails intermittently | Friendbot rate limit. Wait and retry; the scripts sleep to let the ledger confirm. |
 | `npm run verify` fails before any build | `node_modules` missing. Run `npm install` (verify does not run `npm ci`). |
@@ -782,9 +782,9 @@ Concretely, the mainnet bring-up will require:
   native SAC. `e2e:sdk`, `e2e:x402`, and `audit` must select it instead of
   `TESTNET`.
 - A mainnet deploy path (the current `deploy.mjs` is testnet shaped: testnet
-  explorer links, friendbot funding assumption, and a burner secret in `.env`).
+  explorer links, friendbot funding assumption, and a burner secret in the local env file).
   Mainnet should deploy from a hardware-backed or otherwise hardened key, not a
-  hot burner sitting in `.env`.
+  hot burner sitting in the local env file.
 - Real funding. There is no friendbot on mainnet. Accounts hold real XLM.
 - The deferred hardening items from the audit records closed and re-audited (the
   asset allowlist, the per-call price ceiling, stored dedup of x402 proofs, and
