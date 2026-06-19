@@ -27,8 +27,9 @@ npm install @reapp-sdk/stellar @stellar/stellar-sdk
 | `keypairSigner(keypair, passphrase)` | Adapt a Stellar `Keypair` into a transaction signer |
 | `token.approve(...)`, `token.balance(...)` | Minimal SEP-41 token helpers |
 
-The live, audited contract is `TESTNET.mandateRegistryId` =
-`CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL`.
+The live, source-verified contract is `TESTNET.mandateRegistryId` =
+[`CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA`](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA),
+its source verified on StellarExpert.
 
 ## Example: read a mandate straight from the contract
 

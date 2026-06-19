@@ -40,7 +40,7 @@ fn check(env: &Env, m: &Mandate, amount: i128, merchant: &Address) -> Result<(),
 /// permitted right now? Mutates nothing, requires no auth — the SDK calls this
 /// for a clean typed error before paying. The authoritative consume + transfer
 /// happens only in `execute_payment`.
-pub fn validate_and_consume(
+pub fn validate_mandate(
     env: &Env,
     mandate_id: BytesN<32>,
     amount: i128,

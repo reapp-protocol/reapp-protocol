@@ -1,6 +1,6 @@
 {
   "name": "@reapp-sdk/stellar",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Soroban client + typed MandateRegistry bindings, network config, and signing helpers for REAPP.",
   "keywords": [
     "stellar",

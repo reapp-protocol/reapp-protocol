@@ -12,7 +12,7 @@
  *   merchant (fresh) — receives the funds
  *
  * Flow: ensure native SAC → fund agent+merchant → user approves contract →
- *       register_mandate → get_mandate → validate_and_consume →
+ *       register_mandate → get_mandate → validate_mandate →
  *       execute_payment (agent-signed, XLM actually moves) → balances →
  *       revoke_mandate → confirm revoked.
  *
@@ -25,6 +25,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
+import { TESTNET } from "@reapp-sdk/stellar";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const CARGO_BIN = path.join(os.homedir(), ".cargo", "bin");
@@ -57,7 +58,7 @@ const proves = (s) => console.log(`     ${c.green("✔ proves")} ${c.dim(s)}`);
 const die = (m) => { console.error(`\n${c.red("✖")} ${c.red(m)}`); exit(1); };
 
 // ── config ─────────────────────────────────────────────────────────────────
-const CONTRACT = process.env.MANDATE_REGISTRY_CONTRACT_ID?.trim();
+const CONTRACT = TESTNET.mandateRegistryId;
 const RPC = process.env.SOROBAN_RPC_URL?.trim();
 const PASS = process.env.NETWORK_PASSPHRASE?.trim();
 const USER_SECRET = process.env.REAPP_BURNER_SECRET_KEY?.trim();
@@ -206,11 +207,11 @@ async function main() {
   record("get_mandate", invoke({ source: USER_SECRET, mask: USER_SECRET,
     method: { name: "get_mandate" }, args: ["--mandate_id", VC_HASH] }).okExit);
 
-  step("3/5 · validate_and_consume  (read-only preflight)");
+  step("3/5 · validate_mandate  (read-only preflight)");
   note("Dry-run: would a 1 XLM payment to this merchant be allowed right now?");
   note("Mutates nothing — it's the clean error the SDK checks before paying.");
-  record("validate_and_consume", invoke({ source: USER_SECRET, mask: USER_SECRET,
-    method: { name: "validate_and_consume" },
+  record("validate_mandate", invoke({ source: USER_SECRET, mask: USER_SECRET,
+    method: { name: "validate_mandate" },
     args: ["--mandate_id", VC_HASH, "--amount", SPEND, "--merchant", MERCHANT] }).okExit);
 
   step("4 · execute_payment  (AGENT-signed — real funds move)");

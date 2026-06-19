@@ -15,7 +15,7 @@
 //!  - `mandate`  — the `Mandate` type (pure data).
 //!  - `storage`  — `DataKey` + all get/set/TTL (the ONLY module touching env.storage).
 //!  - `registry` — register / revoke (allowance funding model).
-//!  - `payment`  — validate_and_consume + execute_payment + the token transfer.
+//!  - `payment`  — validate_mandate + execute_payment + the token transfer.
 //!  - `error`    — typed errors.
 //!  - `events`   — emitted events.
 
@@ -57,14 +57,14 @@ impl MandateRegistry {
 
     /// Read-only preflight — would this spend be permitted right now? Mutates
     /// nothing and requires no auth; the authoritative consume happens only in
-    /// `execute_payment`. (Named per the protocol spec; it is a dry-run.)
-    pub fn validate_and_consume(
+    /// `execute_payment`. (It is a dry-run; it consumes nothing.)
+    pub fn validate_mandate(
         env: Env,
         mandate_id: BytesN<32>,
         amount: i128,
         merchant: Address,
     ) -> Result<(), Error> {
-        payment::validate_and_consume(&env, mandate_id, amount, merchant)
+        payment::validate_mandate(&env, mandate_id, amount, merchant)
     }
 
     /// The only money path. Atomic: require_auth(agent) → replay guard

@@ -663,6 +663,154 @@ not. Green CI is required to merge.
 
 ---
 
+## Source-verified deploys and contract cutover (internal runbook)
+
+INTERNAL. This is the canonical process for redeploying the contract while keeping
+the StellarExpert "verified source" link, and cutting the change through the SDK,
+npm, and the live demo. Use it any time a redeploy is required: a contract method
+rename, an SDK rename or republish, or any change to the contract source.
+
+### Why this is its own process
+
+The local-build deploy in "I changed the contract" below produces an UNVERIFIED
+contract. StellarExpert only shows the source link when the on-chain WASM hash
+equals the hash produced by its build workflow, and that match is fragile:
+
+- The WASM hash is `sha256` of the compiled bytes. It depends only on the source
+  and the build toolchain (Rust, soroban-sdk, the `stellar` CLI version, target,
+  optimize). It does not depend on the repo name, the folder, or GitHub. Copying
+  the same source elsewhere builds the same hash.
+- The official build workflow pins a specific `stellar` CLI version. Building the
+  identical source with a different CLI version locally yields a different hash.
+  We hit exactly this: a local CLI 26.x build and the workflow's 25.1.0 build of
+  the same source produced different hashes.
+- The contract has no upgrade entrypoint, so its bytecode is immutable. Any
+  source change means a new deploy and a new contract id. You cannot re-verify an
+  already-deployed contract that was deployed from a local build.
+
+The golden rule that falls out of this: **deploy the exact artifact the workflow
+built** (download it from the GitHub release). Never deploy a local rebuild.
+
+Source lives in a dedicated PUBLIC repo, `reapp-protocol-contracts`, so the
+private monorepo history stays private while only the contract source is exposed.
+StellarExpert matches by hash regardless of which repo built it, so a dedicated
+public repo is clean and sufficient.
+
+### Flow
+
+```mermaid
+flowchart TD
+  A["edit contract in reapp-protocol-contracts<br/>(e.g. rename method) + cargo test"] --> B["push v* tag"]
+  B --> C["release.yml builds, publishes release,<br/>reports hash+repo+commit to StellarExpert"]
+  C --> D["download the exact release WASM<br/>verify sha256 == run hash"]
+  D --> E["stellar contract deploy --wasm <artifact><br/>=> NEW contract id"]
+  E --> F["confirm on-chain hash == artifact hash<br/>StellarExpert validation.status = verified"]
+  F --> G["SDK: update id in config.ts + client.ts<br/>regenerate bindings if a method was renamed"]
+  G --> H["fix tests pinned to old contract<br/>npm run verify green"]
+  H --> I["bump + npm publish @reapp-sdk/stellar"]
+  I --> J["reapp-protocol-live: bump dep, reinstall (no --force), build"]
+  J --> K["e2e payment on NEW contract: watch money move"]
+  K --> L["BulletproofBar gate"]
+  L --> M["redeploy live (Railway) + validate submission"]
+```
+
+### Phase 1, build and verify the new contract (public repo)
+
+1. In `reapp-protocol-contracts/contracts/mandate-registry`, make the change. For
+   a method rename, update `src` and the contract tests, then run `cargo test`.
+2. Commit and push to the public repo.
+3. Push a `v*` tag. The `release.yml` (StellarExpert `soroban-build-workflow`)
+   compiles, publishes a GitHub release with the optimized WASM, and reports the
+   hash, repo, and commit to StellarExpert. Read the run log for the line
+   `Wasm Hash:` and record it.
+4. Download the exact artifact and confirm its hash:
+
+   ```bash
+   gh release download <tag> --repo reapp-protocol/reapp-protocol-contracts --pattern '*.wasm' --dir release-artifact
+   shasum -a 256 release-artifact/*.wasm
+   ```
+
+   The hash must equal the run's `Wasm Hash`.
+5. Deploy that artifact with a funded testnet identity:
+
+   ```bash
+   stellar contract deploy --wasm release-artifact/<file>.wasm --source <key> --network testnet
+   ```
+
+   Record the new contract id it prints. The deploy log will confirm it used the
+   same wasm hash.
+6. Verify on-chain. Fetch the deployed WASM and confirm its hash equals the
+   artifact, then confirm StellarExpert shows it verified:
+
+   ```bash
+   stellar contract info interface --id <new-id> --network testnet
+   curl -s https://api.stellar.expert/explorer/testnet/contract/<new-id>
+   ```
+
+   The StellarExpert response must show `validation.status: verified` with the
+   repo and commit, and the interface must expose the renamed method (and no
+   longer expose the old name).
+
+### Phase 2, cut the change through consumers
+
+7. SDK id. Update `packages/stellar/src/config.ts` `mandateRegistryId` and
+   `packages/stellar/src/client.ts` `contractId` to the new id. If a method was
+   renamed, regenerate the TypeScript bindings against the new contract so the
+   binding name matches the on-chain name, otherwise calls to the old binding
+   name fail at runtime:
+
+   ```bash
+   stellar contract bindings typescript --contract-id <new-id> --network testnet --output-dir packages/stellar/src
+   ```
+
+   Then `npm run build`.
+8. Fix tests pinned to the old contract. Golden fixtures recorded from the old
+   contract will not match a new id. Either regenerate the fixture from a real tx
+   on the new contract, or assert the golden tests against a clearly labeled
+   historical-emitter constant while synthetic tests keep using the live config
+   id. Run `npm run verify` until green.
+9. Publish. Bump `@reapp-sdk/stellar` (you cannot republish an existing version),
+   `cd packages/stellar`, `npm publish`. `@reapp-sdk/core` only needs a republish
+   if it embeds the id or the renamed method; if it reads the id from stellar at
+   runtime, it does not.
+10. Live demo. In `reapp-protocol-live`, bump the `@reapp-sdk/stellar` dependency
+    and reinstall. Never use `npm install --force` here, it downgrades Next 15 to
+    9. Then `npm run build`.
+11. Prove it works. A fresh deploy has zero transaction history, so "it compiles"
+    is not "it works". Run a real `register` then `execute_payment` against the
+    new contract (`npm run e2e:testnet`, `npm run e2e:sdk`) and confirm funds move
+    and the payment event is emitted by the new registry.
+12. Run the BulletproofBar gate on every changed surface and fix findings.
+13. Only then redeploy the live site (Railway) and validate end to end.
+
+### Gotchas we hit, and the fix
+
+| Symptom | Cause and fix |
+|---|---|
+| Release workflow ends in `startup_failure` (0s) | The caller workflow needs a `permissions:` block (`id-token`, `contents`, `attestations` write). The repo's default token is read-only. |
+| Build dir is literally `[contracts/mandate-registry]` | `relative_path` must be a plain string for a single-contract call, not a JSON array. The array form is only for the matrix variant. |
+| Attestation step fails, "feature not available, make repo public" | The source repo must be PUBLIC. It also must be public for verification to mean anything. |
+| Workflow hash does not match a local build | Toolchain drift (different `stellar` CLI version). Deploy the workflow's artifact, not a local rebuild. |
+| `npm publish` rejects "cannot publish over existing version" | Bump the version first. |
+| Live demo still hits the old contract | It resolves the SDK from its lockfile. Bump the dep and reinstall (no `--force`). |
+| Golden or e2e tests fail right after cutover | They were pinned to the old contract id or method. Update or regenerate them. |
+
+### Greenlight gate before submitting
+
+Do not flip the live site or call the cutover done until all of these are green:
+
+1. BulletproofBar audit passes on every changed surface, zero confirmed blockers.
+2. New contract verified on StellarExpert, on-chain hash equals the artifact hash,
+   interface exposes the new method name.
+3. A real `register` then `execute_payment` on the new contract succeeded: money
+   moved and the payment event came from the new registry.
+4. Nothing at runtime calls a renamed binding; the published package carries the
+   new id.
+5. The live demo builds against the new SDK and its money path uses only methods
+   whose signatures did not change.
+
+---
+
 ## Recipes
 
 ### I changed the contract

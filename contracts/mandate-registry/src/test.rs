@@ -100,8 +100,8 @@ fn happy_path_runs_every_method() {
     assert_eq!(m.max_amount, MAX);
     assert_eq!(m.seq, 0);
 
-    // validate_and_consume (read-only preflight)
-    c.validate_and_consume(&w.id, &SPEND, &w.merchant);
+    // validate_mandate (read-only preflight)
+    c.validate_mandate(&w.id, &SPEND, &w.merchant);
 
     // execute_payment — funds actually move (seq starts at 0)
     c.execute_payment(&w.id, &SPEND, &0);
@@ -216,8 +216,7 @@ fn out_of_scope_merchant_rejected() {
     w.register();
     let attacker = Address::generate(&w.env);
     assert_eq!(
-        w.client()
-            .try_validate_and_consume(&w.id, &SPEND, &attacker),
+        w.client().try_validate_mandate(&w.id, &SPEND, &attacker),
         Err(Ok(Error::MerchantOutOfScope))
     );
 }
