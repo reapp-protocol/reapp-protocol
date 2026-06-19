@@ -19,7 +19,7 @@ API.
 
 The REAPP SDK is the client a developer uses to drive agent payments on Stellar.
 It does one job: it lets a user author a spending mandate, and lets an agent spend
-against that mandate, while the [MandateRegistry contract](tranche-1-step-1.md)
+against that mandate, while the [MandateRegistry contract](https://github.com/reapp-protocol/reapp-protocol/blob/main/docs/tranche-1-step-1.md)
 enforces every limit on-chain.
 
 The SDK is untrusted by design. It never holds funds, and it never enforces the
