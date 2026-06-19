@@ -3,6 +3,10 @@ on:
   push:
     tags:
       - 'v*'
+permissions:
+  id-token: write
+  contents: write
+  attestations: write
 jobs:
   release-mandate-registry:
     uses: stellar-expert/soroban-build-workflow/.github/workflows/release.yml@main
