@@ -70,13 +70,13 @@
        {"agent":"GA2B3YY27OY6AWT2VXMXUDBSAHVOLU2ST6QWJJJLOIGDQHJDXO4RL4XH","asset":"CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC","expiry":1781125540,"max_amount":"50000000","merchant":"GC3SJB7BNO3M7COY73DLIHHNXGNZPWHMQTYDGBONVAY6E3HLFQUQQ2DG","seq":0,"spent":"0","status":"Active","user":"GBE3PH4ZYVYUXZWZL4YJP22H5J46U6VQVF6SYNJ3GGU3RHBN4M77VNBG","vc_hash":"3534816034efd573a460a89657ef7312aed01e62613b58f94f4b0619d1cb958a"}
      ✓ pass get_mandate
 
-▸ 3/5 · validate_and_consume  (read-only preflight)
+▸ 3/5 · validate_mandate  (read-only preflight)
      ℹ Dry-run: would a 1 XLM payment to this merchant be allowed right now?
      ℹ Mutates nothing — it's the clean error the SDK checks before paying.
-     $ stellar contract invoke --id CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL --source-account SCC3…JTXQ --rpc-url https://soroban-testnet.stellar.org --network-passphrase Test SDF Network ; September 2015 -- validate_and_consume --mandate_id 3534816034efd573a460a89657ef7312aed01e62613b58f94f4b0619d1cb958a --amount 10000000 --merchant GC3SJB7BNO3M7COY73DLIHHNXGNZPWHMQTYDGBONVAY6E3HLFQUQQ2DG
+     $ stellar contract invoke --id CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL --source-account SCC3…JTXQ --rpc-url https://soroban-testnet.stellar.org --network-passphrase Test SDF Network ; September 2015 -- validate_mandate --mandate_id 3534816034efd573a460a89657ef7312aed01e62613b58f94f4b0619d1cb958a --amount 10000000 --merchant GC3SJB7BNO3M7COY73DLIHHNXGNZPWHMQTYDGBONVAY6E3HLFQUQQ2DG
        ℹ️  Simulation identified as read-only. Send by rerunning with `--send=yes`.
        null
-     ✓ pass validate_and_consume
+     ✓ pass validate_mandate
 
 ▸ 4 · execute_payment  (AGENT-signed — real funds move)
      ℹ The AGENT signs this — NOT the user. The contract re-validates everything,
@@ -152,7 +152,7 @@
   ✓ approve
   ✓ register_mandate
   ✓ get_mandate
-  ✓ validate_and_consume
+  ✓ validate_mandate
   ✓ execute_payment
   ✓ rogue overspend rejected
   ✓ rogue replay rejected
