@@ -178,22 +178,22 @@ friendbot-funded agent and merchant keypairs and real XLM. The run below is the
 canonical evidence for this deliverable, and every transaction is independently
 re-checked against Horizon in the next section.
 
-- **Run:** 2026-06-15, 09:03:27 to 09:03:42 UTC (ledgers 3,100,287 to 3,100,290)
+- **Run:** 2026-06-19, 03:52:07 to 03:52:27 UTC (ledgers 3,165,567 to 3,165,571)
 - **Contract:** [`CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA`](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA)
-- **Mandate:** `2e7c7b87…d4513`
-- **Actors:** user [`GBE3…VNBG`](https://stellar.expert/explorer/testnet/account/GBE3PH4ZYVYUXZWZL4YJP22H5J46U6VQVF6SYNJ3GGU3RHBN4M77VNBG) · agent [`GDKT…KLBH`](https://stellar.expert/explorer/testnet/account/GDKTFIG4IO56FN64P4HBGYZ5FWIBA64XZ4RV4BL2MHCEAEEJLOM6KLBH) · merchant `GAEB…IYZ2`
+- **Mandate:** `0a65…d6b6`
+- **Actors:** user [`GBE3…VNBG`](https://stellar.expert/explorer/testnet/account/GBE3PH4ZYVYUXZWZL4YJP22H5J46U6VQVF6SYNJ3GGU3RHBN4M77VNBG) · agent [`GBPZ…JTHV`](https://stellar.expert/explorer/testnet/account/GBPZN5O3KU7NKFMIPK6JO4GS4NT5GOFZTPFC5NW75CU7VHAXC6I3JTHV) · merchant `GCRE…2RZG`
 
 | SDK call | On-chain | Result |
 |---|---|---|
-| `registerMandate` | [tx `67d6706b…`](https://stellar.expert/explorer/testnet/tx/67d6706be748d4673a44e6cbec3a1fdc02bbc62e8f10b5265879d7577e3fe06d) | user-signed, ledger 3,100,287, `successful: true` |
-| `approveBudget` | [tx `997510fa…`](https://stellar.expert/explorer/testnet/tx/997510facc2d746ecc3f22c7162d8059c7f081e0b99adc681cc93c83c8d4e89a) | user-signed SEP-41 allowance to the contract, ledger 3,100,288, `successful: true` |
-| `agent.pay("1.00")` | [tx `29dc4d72…`](https://stellar.expert/explorer/testnet/tx/29dc4d724e59c0b7a34c10b7d4e8c4c1038035026859f256163fecb3be5bb4d9) | **agent-signed**, ledger 3,100,289, `successful: true`, **+1 XLM moved** (merchant 10000 to 10001) |
+| `registerMandate` | [tx `c45ca03c…`](https://stellar.expert/explorer/testnet/tx/c45ca03c96f5d6627a716cda7ed83610c5b0d495860f15bb7a3668bc6bb0bbdd) | user-signed, ledger 3,165,567, `successful: true` |
+| `approveBudget` | [tx `7f4a9773…`](https://stellar.expert/explorer/testnet/tx/7f4a9773d2db3300e2469ba6042c67b012ed648c619d88ddc76d1b736566114f) | user-signed SEP-41 allowance to the contract, ledger 3,165,568, `successful: true` |
+| `agent.pay("1.00")` | [tx `237a3832…`](https://stellar.expert/explorer/testnet/tx/237a3832b1ec05901745e97db3dafc61cd553871e16738bbb9dfec5c0404b01a) | **agent-signed**, ledger 3,165,569, `successful: true`, **+1 XLM moved** (merchant 10000 to 10001) |
 | `agent.pay("10.00")` over budget | rejected at simulation | `BudgetExceeded`, no tx |
-| `revokeMandate` | [tx `299f88f9…`](https://stellar.expert/explorer/testnet/tx/299f88f9090e956cd5e02873cf85fefa0aaf9ae60a1e11de45a4f22db94510e2) | user-signed, ledger 3,100,290, `successful: true` |
+| `revokeMandate` | [tx `fd2fb6a5…`](https://stellar.expert/explorer/testnet/tx/fd2fb6a5fc7c795ae89eb26eef4734954eec8eb9583d230e642c442098034625) | user-signed, ledger 3,165,571, `successful: true` |
 | `agent.pay("1.00")` after revoke | rejected at simulation | `MandateRevoked`, no tx |
 
 **The e2e harness passed all 8 of its checks.** The single most important line: the payment was signed by the
-agent (`GDKT…KLBH`), a different key from the user (`GBE3…VNBG`) who authorized the
+agent (`GBPZ…JTHV`), a different key from the user (`GBE3…VNBG`) who authorized the
 mandate. The user grants the allowance to the contract, and the agent can only ask
 the contract to spend within the mandate. Overspend and post-revoke payment are
 refused by the contract, so by design they never become transactions.
@@ -255,7 +255,7 @@ Two live examples from this deliverable:
   ✦ SPENDABLE, up to 5.0 to GAEF…3CLS
 ```
 
-**A blocked mandate** (`2e7c7b87…`, the run above, after revoke):
+**A blocked mandate** (`0a65…`, the run above, after revoke):
 
 ```
   · status             Revoked
@@ -312,7 +312,7 @@ dependency pinning), documented in the audit record.
 | Package installable via npm | Met | `npm install @reapp-sdk/core @stellar/stellar-sdk`; ships `dist` with types, pulls `@reapp-sdk/stellar` automatically, no install scripts |
 | Create an agent | Met | `reapp.agent({ mandate, signer })`, bound to a registered mandate |
 | Connect to the testnet contract | Met | Defaults to the live MandateRegistry `CB4KOTLG…7ZOA` with no configuration |
-| Execute a mandate-validated payment | Met | `agent.pay("1.00")` moved 1 XLM live ([tx `29dc4d72…`](https://stellar.expert/explorer/testnet/tx/29dc4d724e59c0b7a34c10b7d4e8c4c1038035026859f256163fecb3be5bb4d9)), Horizon-confirmed |
+| Execute a mandate-validated payment | Met | `agent.pay("1.00")` moved 1 XLM live ([tx `237a3832…`](https://stellar.expert/explorer/testnet/tx/237a3832b1ec05901745e97db3dafc61cd553871e16738bbb9dfec5c0404b01a)), Horizon-confirmed |
 | Under 10 lines of code | Met | The REAPP integration is four calls, well under 10 lines (imports and key setup aside); proven end to end by `npm run e2e:sdk` (8/8) |
 
 The Step 2 deliverable is met on every clause.
@@ -340,7 +340,7 @@ npm install @reapp-sdk/core @stellar/stellar-sdk
 git clone https://github.com/reapp-protocol/reapp-protocol && cd reapp-protocol
 npm install && npm run build
 npm run e2e:sdk                                   # 8/8 live on testnet through the SDK
-npm run audit -- 2e7c7b8746beb91486fce40685a2656616851c07a93087146e6f0f8b5b5d4513
+npm run audit -- 0a65c12bddf62e55bf86ad0d9733b908360728785bb858c8320dfb7e4e81d6b6
 ```
 
 The first block installs the published SDK. The second runs the full on-chain flow
