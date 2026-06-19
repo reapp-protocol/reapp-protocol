@@ -286,7 +286,7 @@ re-verified against the source by a separate skeptic, several reproduced empiric
 then a completeness critic looked for missed surfaces.
 
 **Verdict: airtight for testnet. 22 candidate findings, 0 confirmed defects, 0 testnet
-blockers.** Full record: [`security/sdk-audit-2026-06-15.md`](../security/sdk-audit-2026-06-15.md).
+blockers.** Full record: [`security/sdk-audit-2026-06-15.md`](https://github.com/reapp-protocol/reapp-protocol/blob/main/security/sdk-audit-2026-06-15.md).
 
 What the audit confirmed holds:
 
