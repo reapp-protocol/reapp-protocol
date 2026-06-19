@@ -40,11 +40,11 @@ Both are live on npm under the public, owned `@reapp-sdk` scope, Apache-2.0, ESM
 with TypeScript types, and each ships only its built `dist`. Hosted docs:
 [reapp.live/docs](https://reapp.live/docs).
 
-> **Versions.** `@reapp-sdk/core` 0.1.2 and `@reapp-sdk/stellar` 0.1.1 are the
-> currently published, installable releases. `core` 0.1.2 is the audited build:
+> **Versions.** `@reapp-sdk/core` 0.2.0 and `@reapp-sdk/stellar` 0.1.3 are the
+> currently published, installable releases. `core` 0.2.0 is the audited build:
 > the SDK audit below hardened it with two low-severity input bounds (`toStroops`
 > i128 and `createIntentMandate` expiry). A fresh `npm install @reapp-sdk/core`
-> pulls 0.1.2, confirmed by a clean-install smoke test against the live registry.
+> pulls 0.2.0, confirmed by a clean-install smoke test against the live registry.
 
 ## Install
 
@@ -173,7 +173,7 @@ agent or SDK cannot get around, because they are enforced on-chain.
 ## Proof: the flow live on testnet, no mocks
 
 `npm run e2e:sdk` drives the full flow through the SDK surface (the workspace build
-of the exact code published as 0.1.2) against the live contract, with fresh
+of the exact code published as 0.2.0) against the live contract, with fresh
 friendbot-funded agent and merchant keypairs and real XLM. The run below is the
 canonical evidence for this deliverable, and every transaction is independently
 re-checked against Horizon in the next section.
@@ -296,7 +296,7 @@ What the audit confirmed holds:
 - Both published packages ship `dist` only, run no install scripts, and contain no secrets.
 
 Two real but low-severity input-bound gaps were found and fixed in `@reapp-sdk/core`
-0.1.2 during this pass: `toStroops` now rejects amounts that do not fit i128, and
+0.2.0 during this pass: `toStroops` now rejects amounts that do not fit i128, and
 `createIntentMandate` now requires `expiry` to be a positive integer no greater than
 `Number.MAX_SAFE_INTEGER` (well within u64). Neither was
 exploitable, because the contract already rejects the dangerous outcomes, but the fix

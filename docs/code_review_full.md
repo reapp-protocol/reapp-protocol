@@ -3068,13 +3068,13 @@ export const TESTNET: NetworkConfig = {
 
 *Package manifest for the publishable @reapp-sdk/stellar npm module (ESM, typed, tsc-built).*
 
-Declares the package as `@reapp-sdk/stellar` v0.1.1, an ESM module (`"type": "module"`) whose entrypoint is the compiled `./dist/index.js` with types at `./dist/index.d.ts`. The `exports` map exposes a single `.` entry resolving types then default, and `files` ships only `dist`, so source/tsconfig are excluded from the published tarball.
+Declares the package as `@reapp-sdk/stellar` v0.1.3, an ESM module (`"type": "module"`) whose entrypoint is the compiled `./dist/index.js` with types at `./dist/index.d.ts`. The `exports` map exposes a single `.` entry resolving types then default, and `files` ships only `dist`, so source/tsconfig are excluded from the published tarball.
 
 The sole build script is `tsc` (no bundler), producing `dist` from `src`. Runtime deps are `@stellar/stellar-sdk` ^14.5.0 (the Soroban/RPC SDK this whole layer wraps) and `buffer` 6.0.3 (pinned, for the `window.Buffer` browser shim in client.ts). TypeScript ^5.7.2 is the only devDependency. Licensed Apache-2.0 with `publishConfig.access: public` for the scoped name. Keywords (stellar, soroban, mandate, ap2, sep-41, x402, ai-agents) document the project's positioning.
 
 **Key items:**
 
-- `name / version` — @reapp-sdk/stellar at 0.1.1, scoped and published public.
+- `name / version` — @reapp-sdk/stellar at 0.1.3, scoped and published public.
 - `type: module` — Pure ESM package; pairs with the NodeNext module setting in tsconfig.
 - `main / types / exports` — Entrypoint dist/index.js, types dist/index.d.ts; single `.` export resolving types then default.
 - `files: [dist]` — Only the compiled output is published; src and config are excluded.
@@ -3088,7 +3088,7 @@ The sole build script is `tsc` (no bundler), producing `dist` from `src`. Runtim
 ```json
 {
   "name": "@reapp-sdk/stellar",
-  "version": "0.1.1",
+  "version": "0.1.3",
   "description": "Soroban client + typed MandateRegistry bindings, network config, and signing helpers for REAPP.",
   "keywords": [
     "stellar",
