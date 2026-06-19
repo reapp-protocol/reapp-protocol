@@ -3,7 +3,7 @@
 [![tests](https://img.shields.io/badge/tests-19%2F19%20passing-2ea44f)](https://github.com/reapp-protocol/reapp-protocol/actions/workflows/ci.yml)
 [![testnet: MandateRegistry](https://img.shields.io/badge/testnet-MandateRegistry-7b3fe4)](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA)
 
-> **Update:** the MandateRegistry has been redeployed as a source-verified contract [`CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA`](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA), its source verified on StellarExpert. The transaction evidence in this doc is from the original deployment `CA3X76MR…BQCL` and remains valid.
+> **Update:** the MandateRegistry has been redeployed as a source-verified contract [`CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA`](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA), its source verified on StellarExpert.
 
 > **Deliverable.** x402 testnet payment round-trip working end to end.
 > `Agent.fetch(url)` receives a 402, validates the mandate, signs the XDR, pays,

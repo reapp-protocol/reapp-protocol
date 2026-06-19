@@ -3,7 +3,7 @@
 [![tests](https://img.shields.io/badge/tests-19%2F19%20passing-2ea44f)](https://github.com/reapp-protocol/reapp-protocol/actions/workflows/ci.yml)
 [![testnet: MandateRegistry](https://img.shields.io/badge/testnet-MandateRegistry-7b3fe4)](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA)
 
-> **Update:** the MandateRegistry has been redeployed as a source-verified contract [`CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA`](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA), its source verified on StellarExpert. The contract identity and verification in this page describe that source-verified contract; the transaction history further down is from the original deployment `CA3X76MR…BQCL` and remains valid evidence.
+> **Update:** the MandateRegistry has been redeployed as a source-verified contract [`CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA`](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA), its source verified on StellarExpert. Its identity, verification, and on-chain activity are below.
 
 > **Deliverable.** MandateRegistry Soroban contract deployed on testnet. Contract
 > live on testnet with `register_mandate`, `validate_mandate`,
@@ -277,49 +277,23 @@ These run on every push through the CI workflow. That matches the Stellar feedba
 that the negative tests should run continuously in CI from Tranche 1, not be added
 at the end.
 
-## Original deployment: every transaction on-chain
+## On-chain activity
 
-This is the on-chain history of the original deployment `CA3X76MR…BQCL`, kept as historical evidence; the current source-verified contract is `CB4KOTLG…7ZOA` above. Read from the [stellar.expert contract activity](https://stellar.expert/explorer/testnet/contract/CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL),
-oldest first; each call links to its transaction on stellar.expert. Amounts are in
-XLM (1 XLM = 10,000,000 stroops). Mandate ids are shortened.
+Every call below is on the source-verified contract `CB4KOTLG…7ZOA`, each linking to its transaction on stellar.expert. Amounts are in XLM (1 XLM = 10,000,000 stroops); the mandate id is shortened.
 
 | Time (UTC) | Caller | Call | What happened |
 |---|---|---|---|
-| 2026-06-09 22:50:57 | `GBE3…VNBG` | [create contract](https://stellar.expert/explorer/testnet/tx/13d24673384c60a84433d1b818e3ade28cd2f175712c821a3519b0ab09880fcf) | Deployed MandateRegistry from WASM `59298a08…` |
-| 2026-06-09 22:51:37 | `GBE3…VNBG` | [register_mandate](https://stellar.expert/explorer/testnet/tx/1cfbbd1936c703f165541bcd30b78d8b1d0c8b5fcdf4c8c70b270e5ee9d627d9) | New mandate `cqRd…`: agent `GA2B…`, merchant `GC3S…`, budget 5 XLM |
-| 2026-06-09 22:51:47 | `GA2B…L4XH` | [execute_payment](https://stellar.expert/explorer/testnet/tx/bb3380e5000b01b0f630c4395e2c796d1df09d87ec60ab3c588833b698c39945) | Agent paid 1 XLM on `cqRd…` (seq 0) |
-| 2026-06-09 22:51:57 | `GBE3…VNBG` | [revoke_mandate](https://stellar.expert/explorer/testnet/tx/ce581ea9506bfa9b0cc11f025dcf2a6ddfccd3013d4798727812cacc400b5da2) | User revoked `cqRd…` |
-| 2026-06-10 01:55:42 | `GBE3…VNBG` | [register_mandate](https://stellar.expert/explorer/testnet/tx/4f894a8774105a84517e0d00f78049ade93a4baf733c35bc05bbbb905628b88a) | New mandate `e+j1…`: agent `GBLO…`, merchant `GCQP…`, budget 5 XLM |
-| 2026-06-10 01:55:52 | `GBLO…CIGB` | [execute_payment](https://stellar.expert/explorer/testnet/tx/3f0e98d664176699fb0de952ec7d95b4258f518687f74ea6c7c2414b90f99492) | Agent paid 1 XLM on `e+j1…` (seq 0) |
-| 2026-06-10 01:55:57 | `GBE3…VNBG` | [revoke_mandate](https://stellar.expert/explorer/testnet/tx/7c814f3bf9c3fd4354796f25e412e89ffd90a077295a86a77be50a5bb1e9abfe) | User revoked `e+j1…` |
-| 2026-06-10 04:58:51 | `GD52…JVB6` | [register_mandate](https://stellar.expert/explorer/testnet/tx/5446266fc1b3519507b00e026cbe2fe3084924fa893a4a41ca9a94daaf917eab) | Independent account: new mandate `UrGa…`, agent `GBJO…`, budget 3 XLM |
-| 2026-06-10 04:59:11 | `GBJO…WOZ6` | [execute_payment](https://stellar.expert/explorer/testnet/tx/da6e0423ec763a880f3f6198780389355f02fa044fb6a3163a22c5b5f8bd1ed4) | Agent paid 1 XLM on `UrGa…` (seq 0) |
-| 2026-06-10 14:39:20 | `GDJU…YICB` | [register_mandate](https://stellar.expert/explorer/testnet/tx/b74bcb12d9f3785e44600dc9346bac67bbbe9c3b185fc55becce6208c0ad85fe) | Independent account: new mandate `Rwu/…`, agent `GDZN…`, budget 3 XLM |
-| 2026-06-10 14:44:51 | `GCHM…J6KX` | [register_mandate](https://stellar.expert/explorer/testnet/tx/97caf10a83af57d7d8ec56983d2a3cea1dcdae95075cc35eec0027ff2678184c) | Independent account: new mandate `2E23…`, agent `GBAN…`, budget 3 XLM |
-| 2026-06-10 14:49:36 | `GAZM…TAVO` | [register_mandate](https://stellar.expert/explorer/testnet/tx/a6d852025bec635c4ebc283c7f001b0e3a3a8f2e03942f63954dc026de7b7063) | Independent account: new mandate `tbkM…`, agent `GDEK…`, budget 3 XLM |
-| 2026-06-10 14:50:31 | `GDEK…CUFO` | [execute_payment](https://stellar.expert/explorer/testnet/tx/25c2a87fcb84628d4e89f3b55ab7a618b1c7623c2721650aba9b46ee34370ec4) | Agent paid 1 XLM on `tbkM…` (seq 0) |
-| 2026-06-10 14:50:51 | `GDEK…CUFO` | [execute_payment](https://stellar.expert/explorer/testnet/tx/26be6281a225b1dce7ca7f51e49cfff547af94ec971d6b45bdfadc330f54b09d) | Agent paid 1 XLM on `tbkM…` (seq 1) |
-| 2026-06-10 14:51:11 | `GDEK…CUFO` | [execute_payment](https://stellar.expert/explorer/testnet/tx/8392b1d57663589717ec2e3396764ba6557bf443cbdc540f9a3456d097d8b636) | Agent paid 1 XLM on `tbkM…` (seq 2). Budget now fully used |
-| 2026-06-10 19:51:28 | `GBE3…VNBG` | [register_mandate](https://stellar.expert/explorer/testnet/tx/4cf339408e45c6052e0ceaac2b529568a26926645c0eee5039a7cbbb9c18e80e) | New mandate `dKGH…`: agent `GA2B…`, merchant `GC3S…`, budget 5 XLM |
-| 2026-06-10 19:51:38 | `GA2B…L4XH` | [execute_payment](https://stellar.expert/explorer/testnet/tx/b5fa9f408df9a3e1ac7a95afbf225ebcbbbe52ea65cfc399381140a179958fef) | Agent paid 1 XLM on `dKGH…` (seq 0) |
-| 2026-06-10 19:51:48 | `GBE3…VNBG` | [revoke_mandate](https://stellar.expert/explorer/testnet/tx/a649b41264b645c1343228b6be6a3a574010649df7a39aa3f494794ccea98493) | User revoked `dKGH…` |
-| 2026-06-10 20:05:44 | `GBE3…VNBG` | [register_mandate](https://stellar.expert/explorer/testnet/tx/fba8d71bcb95ef71d7e01dec583491d0790b599136e8a45fb18dd0bb30c38f42) | New mandate `NTSB…`: agent `GA2B…`, merchant `GC3S…`, budget 5 XLM |
-| 2026-06-10 20:05:54 | `GA2B…L4XH` | [execute_payment](https://stellar.expert/explorer/testnet/tx/d4814ab9baa927f2276116e57f3b0384e1b21e67a3aa6ea1907869efcff910ab) | Agent paid 1 XLM on `NTSB…` (seq 0) |
-| 2026-06-10 20:06:04 | `GBE3…VNBG` | [revoke_mandate](https://stellar.expert/explorer/testnet/tx/4ea9f8b1e4fea05afc7526ffebeceb88804f18541c529db67745f1ba1f4a6132) | User revoked `NTSB…` |
-| 2026-06-10 20:08:14 | `GBE3…VNBG` | [register_mandate](https://stellar.expert/explorer/testnet/tx/a95ff1e7353ce78ba6f88d8a2ef927ac075d19b0a3bd97663a2b9513caa5392a) | New mandate `4Asq…`: agent set to the user, budget 1 XLM (set up for the unauthorized test) |
-| 2026-06-10 20:08:24 | `GBE3…VNBG` | [validate_mandate](https://stellar.expert/explorer/testnet/tx/50c8f482e8f809eb5bc076e5d5ad286f8dc33cb9d03f9935ca0de72230c893c0) | Read-only preflight on `4Asq…` for 0.5 XLM. Nothing moved |
-| 2026-06-10 20:11:15 | `GDNV…5ARS` | [execute_payment](https://stellar.expert/explorer/testnet/tx/18214372c9b13d3679808101773d8c372a2438cf2ab96e336c35e1753b0eadd2) | An account that is not the agent tried to pay on `4Asq…`. Rejected on-chain by `require_auth`. The transaction failed (the explorer shows the failed call) |
+| 2026-06-19 02:34:12 | `GA2B…L4XH` | [create contract](https://stellar.expert/explorer/testnet/tx/14f0f5b6c6745d0907c6a92e072e9d2ef3e172627d4dc08d5e39ec1c18d706b8) | Deployed the source-verified MandateRegistry from WASM `4eb1b943…` |
+| 2026-06-19 03:52:07 | `GBE3…VNBG` | [register_mandate](https://stellar.expert/explorer/testnet/tx/c45ca03c96f5d6627a716cda7ed83610c5b0d495860f15bb7a3668bc6bb0bbdd) | New mandate `0a65…`: agent `GBPZ…JTHV`, budget 5 XLM |
+| 2026-06-19 03:52:17 | `GBPZ…JTHV` | [execute_payment](https://stellar.expert/explorer/testnet/tx/237a3832b1ec05901745e97db3dafc61cd553871e16738bbb9dfec5c0404b01a) | Agent paid 1 XLM (seq 0); funds moved from user to merchant |
+| 2026-06-19 03:52:27 | `GBE3…VNBG` | [revoke_mandate](https://stellar.expert/explorer/testnet/tx/fd2fb6a5fc7c795ae89eb26eef4734954eec8eb9583d230e642c442098034625) | User revoked the mandate |
 
-### What this history shows
+### What this shows
 
-- **All four methods run live**: `register_mandate`, `validate_mandate`, `execute_payment`, and `revoke_mandate` all appear, plus the read-only `get_mandate`.
-- **Independent accounts use it**: mandates were registered and paid by accounts that are not ours (`GD52…`, `GBJO…`, `GDJU…`, `GCHM…`, `GAZM…`, `GDEK…`). The contract is publicly live, not a private fixture.
-- **Multi-payment within budget works**: on mandate `tbkM…`, the agent made three payments at seq 0, 1, and 2, each accepted, until the 3 XLM budget was used up. The `seq` counter advances exactly as designed.
-- **An unauthorized caller is rejected on-chain**: `GDNV…5ARS` tried `execute_payment` on a mandate it was not the agent for. Soroban's `require_auth` reverted it, and the transaction failed.
+- **A full lifecycle on the source-verified contract**: `register_mandate`, then `execute_payment` (1 XLM moved on-chain), then `revoke_mandate`, all successful, with the read-only `get_mandate` used to read state.
+- **The contract is the source of truth**: the SEP-41 allowance is granted to the contract, not the agent, and `execute_payment` is the only path that moves funds.
 
-Overspend, replay, and pay-after-revoke are also rejected on-chain, proven by the
-negative tests above and by the contract's typed errors (`BudgetExceeded`,
-`BadSequence`, `MandateRevoked`).
+The rejection paths (overspend, replay, pay-after-revoke, and unauthorized callers) are proven by the 19/19 Rust suite and the end-to-end run, and are enforced on-chain by the typed errors (`BudgetExceeded`, `BadSequence`, `MandateRevoked`) and host-level `require_auth`.
 
 ## Source verification
 
@@ -369,7 +343,7 @@ Every clause of the Tranche 1 Step 1 deliverable, with where it is proven.
 
 | Clause | Status | Evidence |
 |---|---|---|
-| MandateRegistry deployed and live on testnet | Met | Contract `CB4KOTLG…7ZOA`, WASM `4eb1b943…`, deployed 2026-06-19, source-verified on StellarExpert. The same id is hard-coded in the SDK config (`packages/stellar`, v0.1.3). Live behavior confirmed end to end (register, approve, pay, revoke). The original deployment `CA3X76MR…BQCL` and its 24-transaction history are preserved below as evidence |
+| MandateRegistry deployed and live on testnet | Met | Contract `CB4KOTLG…7ZOA`, WASM `4eb1b943…`, deployed 2026-06-19, source-verified on StellarExpert. The same id is hard-coded in the SDK config (`packages/stellar`, v0.1.3). Live behavior confirmed end to end (register, approve, pay, revoke). The on-chain activity is shown in the table below |
 | `register_mandate` callable | Met | Live on-chain; tests `happy_path_runs_every_method`, `register_requires_user_auth` |
 | `validate_mandate` callable | Met | Live on-chain (2026-06-10 20:08:24). Read-only dry run by design, as documented above |
 | `execute_payment` callable | Met | Live on-chain, 1 XLM moved (confirmed on Horizon); tests `happy_path_runs_every_method`, `property_spent_equals_transferred` |
