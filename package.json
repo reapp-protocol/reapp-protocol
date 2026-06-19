@@ -10,7 +10,7 @@
   "scripts": {
     "build": "npm run build -w @reapp-sdk/stellar && npm run build --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
-    "typecheck": "tsc --build",
+    "typecheck": "tsc",
     "verify": "node scripts/verify.mjs",
     "demo": "tsx playbook/demo.ts",
     "keys:derive-freighter": "node scripts/derive-freighter.mjs",

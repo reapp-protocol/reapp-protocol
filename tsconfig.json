@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "NodeNext",
+    "moduleResolution": "nodenext",
+    "strict": false,
+    "skipLibCheck": true,
+    "noEmit": true
+  },
+  "include": ["packages/stellar/src/**/*", "packages/sdk/src/**/*"],
+  "exclude": ["**/*.test.ts"]
+}
