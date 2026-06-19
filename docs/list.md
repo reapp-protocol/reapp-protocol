@@ -4,7 +4,7 @@ A quick-reference guide to every document in this submission: what each one is, 
 
 **Status:** Tranche 1 (Steps 1, 2, 3) is complete on Stellar **testnet**. The `MandateRegistry` contract is live, `@reapp-sdk/core` and `@reapp-sdk/stellar` are published to npm, and the full x402 round-trip runs end to end on testnet. Mainnet is future work; it is what this round funds.
 
-**Canonical contract:** [`CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL`](https://stellar.expert/explorer/testnet/contract/CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL) on testnet. Every on-chain claim in the verification docs links to its transaction and was re-checked against Horizon, Stellar's canonical API.
+**Canonical contract:** [`CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA`](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA) on testnet, its source verified on StellarExpert. The historical verification docs below were produced on the original deployment [`CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL`](https://stellar.expert/explorer/testnet/contract/CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL); their transactions remain valid on that contract and were re-checked against Horizon, Stellar's canonical API.
 
 **The one idea behind all of it:** an AI agent cannot be trusted to police its own spending, so the spending limit lives inside a Soroban contract in the money path, not in the app or the SDK. Money moves only through `MandateRegistry.execute_payment`, which validates and consumes a mandate before it transfers. The user grants the token allowance to the contract, never to the agent or SDK. The SDK is untrusted; the contract is the source of truth.
 
@@ -19,7 +19,7 @@ flowchart LR
   B --> C[Verified docs<br/>on-chain proof]
   C --> D[Security audits<br/>adversarial review]
   D --> E[Code reviews<br/>line-by-line depth]
-  E --> F[PLAYBOOK.md<br/>reproduce it yourself]
+  E --> F[PLAYBOOK_TESTNET.md<br/>reproduce it yourself]
 ```
 
 1. **[README.md](../README.md)** to orient.
@@ -27,7 +27,7 @@ flowchart LR
 3. The matching **`*-verified.md`** docs for the live on-chain proof.
 4. The three **security audits** for the adversarial review.
 5. **`code-review.md`** or **`code_review_full.md`** for line-by-line depth.
-6. **[PLAYBOOK.md](../PLAYBOOK.md)** to reproduce any of it.
+6. **[PLAYBOOK_TESTNET.md](../PLAYBOOK_TESTNET.md)** to reproduce any of it. The mainnet counterpart, `PLAYBOOK_MAINNET.md`, ships with the mainnet tranche.
 
 ---
 
@@ -36,7 +36,8 @@ flowchart LR
 | Document | What it is |
 | --- | --- |
 | [`README.md`](../README.md) | The front door. Project overview, the core invariant, and current Tranche 1 status with links into each step. |
-| [`PLAYBOOK.md`](../PLAYBOOK.md) | The operating manual for the repo: how to change the contract, build and publish the SDK, run the reference apps, prove the flow on testnet, run the security audit, and push work that stays green. |
+| [`PLAYBOOK_TESTNET.md`](../PLAYBOOK_TESTNET.md) | The operating manual for working against **Stellar testnet**: how to change the contract, build and publish the SDK, run the reference apps, prove the flow on testnet, run the security audit, and push work that stays green. Every contract id, account, RPC, passphrase, and explorer link in it is testnet. |
+| `PLAYBOOK_MAINNET.md` *(forthcoming)* | The mainnet counterpart, shipping with the mainnet tranche. The same recipes against a separate `MAINNET` config: no friendbot funding, real value at risk, hardware-backed keys, and the deferred hardening items from the audits. Not in the repo yet. |
 
 ## Tranche 1 deliverable reports
 
@@ -90,6 +91,12 @@ Shipped with the published npm packages.
 | --- | --- |
 | [`packages/sdk/README.md`](../packages/sdk/README.md) | `@reapp-sdk/core` usage: install, create an agent, approve a budget, run a mandate-validated payment, and use the `Agent.fetch` x402 client. |
 | [`packages/stellar/README.md`](../packages/stellar/README.md) | `@reapp-sdk/stellar` usage: the low-level Soroban layer with typed bindings, network config, the keypair signer, and minimal SEP-41 token helpers. |
+
+## Internal reference
+
+| Document | What it is |
+| --- | --- |
+| [`repo-inventory.md`](repo-inventory.md) | *Internal, optional for the external bundle.* A per-file map of the whole repository: a one-line brief and a keep / cut / decide status for every file. Built for the team to find the right file fast and to decide what is safe to remove. |
 
 ---
 

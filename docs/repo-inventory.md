@@ -23,7 +23,7 @@ through `execute_payment`.
 |---|---|---|
 | `src/lib.rs` | Contract entry points: thin dispatch for the five methods (register, validate, execute, revoke, get). No logic. | Keep |
 | `src/registry.rs` | `register_mandate` and `revoke_mandate`. The contract self-initializes spent/seq/status so a caller cannot seed a tampered balance. | Keep |
-| `src/payment.rs` | The money path: `check()`, `validate_and_consume`, `execute_payment` (auth, replay guard, revalidate, advance, SEP-41 `transfer_from`). | Keep |
+| `src/payment.rs` | The money path: `check()`, `validate_mandate`, `execute_payment` (auth, replay guard, revalidate, advance, SEP-41 `transfer_from`). | Keep |
 | `src/mandate.rs` | `Mandate` struct and `Status` enum. Pure data. | Keep |
 | `src/storage.rs` | The only module touching `env.storage`: `DataKey`, get/set, TTL. | Keep |
 | `src/error.rs` | The eight typed error codes. Slot 3 reserved (auth is host-enforced). | Keep |
