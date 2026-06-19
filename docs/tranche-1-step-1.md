@@ -3,7 +3,7 @@
 [![tests](https://img.shields.io/badge/tests-19%2F19%20passing-2ea44f)](https://github.com/reapp-protocol/reapp-protocol/actions/workflows/ci.yml)
 [![testnet: MandateRegistry](https://img.shields.io/badge/testnet-MandateRegistry-7b3fe4)](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA)
 
-> **Update:** the MandateRegistry has been redeployed as a source-verified contract [`CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA`](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA), its source verified on StellarExpert. Its identity, verification, and on-chain activity are below.
+> The MandateRegistry is deployed on testnet and **source-verified on StellarExpert**: [`CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA`](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA). Its identity, verification, and on-chain activity are below.
 
 > **Deliverable.** MandateRegistry Soroban contract deployed on testnet. Contract
 > live on testnet with `register_mandate`, `validate_mandate`,

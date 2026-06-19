@@ -57,7 +57,7 @@ the price from asset decimals) are mainnet-hardening, not testnet blockers.
 
 ## Proof, live on testnet (3 of 4 served, the 4th blocked)
 
-Contract [`CA3X76MR…BQCL`](https://stellar.expert/explorer/testnet/contract/CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL).
+Contract [`CB4KOTLG…7ZOA`](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA).
 Native XLM; friendbot-funded actors.
 
 | Step | What happened | On-chain |

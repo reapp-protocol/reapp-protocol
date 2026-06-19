@@ -11,7 +11,7 @@ real resources from a 402-gated merchant, each unlock settled by a real
 and the over-budget request was rejected on the real network.
 
 - **Run:** 2026-06-16, ledgers 3,108,631 to 3,108,636
-- **Contract:** [`CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL`](https://stellar.expert/explorer/testnet/contract/CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL) (the Step 1 MandateRegistry, unchanged)
+- **Contract:** [`CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA`](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA) (the Step 1 MandateRegistry, unchanged)
 - **Mandate:** `b608dde3f23975abb59b4b611f5f5fcb618b3f6ee533d2753fa4014052371126`, budget 3 XLM
 - **Actors:** user `GAHG…TORQ` · agent `GCZN…EZOC` · merchant `GDQ3…VSOA`
 

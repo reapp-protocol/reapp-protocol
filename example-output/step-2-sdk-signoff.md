@@ -64,7 +64,7 @@ dependency pinning) are pre-mainnet hardening, not testnet blockers.
 
 ## Proof: live on testnet, no mocks (8/8)
 
-Contract [`CA3X76MR…BQCL`](https://stellar.expert/explorer/testnet/contract/CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL).
+Contract [`CB4KOTLG…7ZOA`](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA).
 Native XLM as a real SEP-41 token; friendbot-funded agent and merchant.
 
 ```mermaid

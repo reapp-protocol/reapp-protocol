@@ -10,7 +10,7 @@ code published as 0.1.2. Real XLM moved, and the rejections happened on the real
 network. No mocks, no local sandbox.
 
 - **Run:** 2026-06-15, 09:03:27 to 09:03:42 UTC (ledgers 3,100,287 to 3,100,290)
-- **Contract:** [`CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL`](https://stellar.expert/explorer/testnet/contract/CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL) (deployed and audited in Step 1)
+- **Contract:** [`CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA`](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA) (deployed and audited in Step 1)
 - **Mandate:** `2e7c7b8746beb91486fce40685a2656616851c07a93087146e6f0f8b5b5d4513`
 - **Actors:** user `GBE3…VNBG` · agent `GDKT…KLBH` · merchant `GAEB…IYZ2`
 
@@ -21,7 +21,7 @@ network. No mocks, no local sandbox.
 | Core package **published to npm** | [`@reapp-sdk/core`](https://www.npmjs.com/package/@reapp-sdk/core) and [`@reapp-sdk/stellar`](https://www.npmjs.com/package/@reapp-sdk/stellar), public scope, Apache-2.0, types included |
 | **Installable** via npm | `npm install @reapp-sdk/core @stellar/stellar-sdk`; published tarball ships `dist` only, no install scripts |
 | **Create an agent** | `reapp.agent({ mandate, signer })` |
-| **Connect to the testnet contract** | Defaults to the live MandateRegistry `CA3X76MR…BQCL`, no config |
+| **Connect to the testnet contract** | Defaults to the live MandateRegistry `CB4KOTLG…7ZOA`, no config |
 | **Mandate-validated payment** | `agent.pay("1.00")` moved **+1 XLM** live: [tx `29dc4d72…`](https://stellar.expert/explorer/testnet/tx/29dc4d724e59c0b7a34c10b7d4e8c4c1038035026859f256163fecb3be5bb4d9), ledger 3,100,289, Horizon `successful: true` |
 | **Under 10 lines** | Four REAPP calls, well under 10 lines of integration code, run end to end by `npm run e2e:sdk` (8/8) |
 | Negative: **overspend** | `agent.pay("10.00")` against a 5 XLM budget refused on-chain: `BudgetExceeded` |

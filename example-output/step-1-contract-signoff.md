@@ -37,7 +37,7 @@ _(Full record: [`security/audit-2026-06-10.md`](../security/audit-2026-06-10.md)
 
 ## Proof: live on testnet, no mocks (9/9)
 
-Contract [`CA3X76MR…BQCL`](https://stellar.expert/explorer/testnet/contract/CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL).
+Contract [`CB4KOTLG…7ZOA`](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA).
 It uses native XLM as a real SEP-41 token, with a friendbot-funded agent and merchant.
 
 > **9/9 on-chain, fully airtight.** The rogue replay returned `Error(Contract, #8) = BadSequence` (the guard we built, working live), and the post-revoke payment returned `#5 = MandateRevoked`.

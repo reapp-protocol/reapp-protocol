@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 const OUT = fileURLToPath(new URL("../example-output/screenshots", import.meta.url));
 mkdirSync(OUT, { recursive: true });
 
-const CONTRACT = "CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL";
+const CONTRACT = "CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA";
 const tx = (h) => `https://testnet.stellarchain.io/tx/${h}`;
 
 // waitText = a string that only appears once the page's client-side data has rendered.

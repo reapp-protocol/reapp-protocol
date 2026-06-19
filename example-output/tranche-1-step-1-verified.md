@@ -11,15 +11,15 @@ explorer and independently confirmed via Horizon (Stellar's canonical API). No m
 no local sandboxes: real XLM moved, and every rejection happened on the real network.
 
 - **Verification run:** 2026-06-10, 20:05 to 20:11 UTC (ledgers 3,021,944 to 3,022,011)
-- **Contract:** [`CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL`](https://testnet.stellarchain.io/contracts/CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL) (deployed 2026-06-09)
+- **Contract:** [`CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA`](https://testnet.stellarchain.io/contracts/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA) (deployed 2026-06-09)
 - **Actors:** user `GBE3…VNBG` · agent `GA2B…L4XH` · merchant `GC3S…Q2DG` · rogue (unauthorized) `GDNV…5ARS`
 
 ## Deliverable, clause by clause
 
 | Claim | Proof |
 |---|---|
-| Contract **deployed & live on testnet** | [Contract page](https://testnet.stellarchain.io/contracts/CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL) · 7 live transactions below |
-| Deployed bytecode **is** this repo's source | on-chain WASM hash `59298a08…cf80a1ce` == `sha256` of local build, **bit-for-bit** (§ Bytecode verification) |
+| Contract **deployed & live on testnet** | [Contract page](https://testnet.stellarchain.io/contracts/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA) · 7 live transactions below |
+| Deployed bytecode **is** this repo's source | on-chain WASM hash `4eb1b943…aed8c69e` == `sha256` of local build, **bit-for-bit** (§ Bytecode verification) |
 | `register_mandate` callable | ✅ [tx `fba8d71b…`](https://testnet.stellarchain.io/tx/fba8d71bcb95ef71d7e01dec583491d0790b599136e8a45fb18dd0bb30c38f42): ledger 3,021,945, SUCCESS |
 | `validate_mandate` callable | ✅ [tx `50c8f482…`](https://testnet.stellarchain.io/tx/50c8f482e8f809eb5bc076e5d5ad286f8dc33cb9d03f9935ca0de72230c893c0): ledger 3,021,977, SUCCESS |
 | `execute_payment` callable | ✅ [tx `d4814ab9…`](https://testnet.stellarchain.io/tx/d4814ab9baa927f2276116e57f3b0384e1b21e67a3aa6ea1907869efcff910ab): ledger 3,021,947, SUCCESS, **+1 XLM moved** |
@@ -188,9 +188,9 @@ explorer yet), so we prove it cryptographically:
 
 ```text
 sha256(on-chain wasm,  fetched via `stellar contract fetch`):
-  59298a089fcd03c032212cd47c40b08e9943d02feeeac92cef3c1a51cf80a1ce
+  4eb1b9430bd4a978348e7efc283a0bf599df048216a43b582921c17daed8c69e
 sha256(local build of contracts/mandate-registry @ this commit):
-  59298a089fcd03c032212cd47c40b08e9943d02feeeac92cef3c1a51cf80a1ce
+  4eb1b9430bd4a978348e7efc283a0bf599df048216a43b582921c17daed8c69e
 ```
 
 **Identical.** The audited, tested source in this repository is bit-for-bit the
@@ -235,7 +235,7 @@ cd ../.. && npm install && npm run e2e:testnet
 ```
 
 ```bash
-stellar contract fetch --id CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL --network testnet --out-file onchain.wasm
+stellar contract fetch --id CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA --network testnet --out-file onchain.wasm
 stellar contract build --manifest-path contracts/mandate-registry/Cargo.toml
 shasum -a 256 onchain.wasm target/wasm32v1-none/release/mandate_registry.wasm
 ```
@@ -243,6 +243,6 @@ shasum -a 256 onchain.wasm target/wasm32v1-none/release/mandate_registry.wasm
 The first block runs the 19 contract tests and then the full on-chain e2e against
 the live contract (it prints fresh explorer links for every step). The second block
 fetches the deployed bytecode and rebuilds it from source, then hashes both; the two
-sha256 values match at `59298a08…cf80a1ce`. Build with `stellar contract build` (the
+sha256 values match at `4eb1b943…aed8c69e`. Build with `stellar contract build` (the
 same command the deploy uses). Raw `cargo build` produces a different hash because it
 skips Soroban's metadata embedding and the wasm-opt step.

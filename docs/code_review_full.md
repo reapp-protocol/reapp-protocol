@@ -277,7 +277,7 @@ All mandates live in **persistent** storage (`env.storage().persistent()`), the 
 
 ### Repository Map
 
-**`contracts/mandate-registry/`** - the Rust/soroban-sdk enforcement contract, deployed and audited on Stellar testnet (`CA3X76MR…BQCL`). Its `src/` is split so that dependencies flow one way with no cycles: `lib.rs` (thin contract entry points, no logic), `mandate.rs` (the `Mandate` and `Status` types, pure data), `storage.rs` (the only module touching `env.storage`: `DataKey`, get/set, TTL), `registry.rs` (`register_mandate` / `revoke_mandate`), `payment.rs` (`check`, `validate_mandate`, `execute_payment` - the money path), `events.rs` (the three emitted events), and `error.rs` (typed errors). `test.rs` and `reentry_probe.rs` hold the unit/reentrancy suites; `test_snapshots/` holds recorded ledger snapshots; `target/` is the build output.
+**`contracts/mandate-registry/`** - the Rust/soroban-sdk enforcement contract, deployed and audited on Stellar testnet (`CB4KOTLG…7ZOA`). Its `src/` is split so that dependencies flow one way with no cycles: `lib.rs` (thin contract entry points, no logic), `mandate.rs` (the `Mandate` and `Status` types, pure data), `storage.rs` (the only module touching `env.storage`: `DataKey`, get/set, TTL), `registry.rs` (`register_mandate` / `revoke_mandate`), `payment.rs` (`check`, `validate_mandate`, `execute_payment` - the money path), `events.rs` (the three emitted events), and `error.rs` (typed errors). `test.rs` and `reentry_probe.rs` hold the unit/reentrancy suites; `test_snapshots/` holds recorded ledger snapshots; `target/` is the build output.
 
 **`packages/stellar/` (`@reapp-sdk/stellar`)** - the typed Soroban layer. `src/client.ts` is the MandateRegistry contract client generated from the audited ABI (with the embedded contract spec and the `Errors`/`Mandate`/`Status` types). `config.ts` holds `NetworkConfig` and the `TESTNET` constants (RPC URL, passphrase, contract id, native SAC). `signer.ts` adapts a Stellar keypair into the signer shape the client needs. `registry.ts` is the factory that wires a client to a network plus signer. `token.ts` is the minimal SEP-41 helper set (`approve`, `balance`) built directly on `@stellar/stellar-sdk`. `index.ts` re-exports the layer.
 
@@ -2430,10 +2430,10 @@ The API section documents every public surface (createIntentMandate with a field
 - `API: registerMandate / approveBudget / pay / fetch / revokeMandate` — One-line semantics for each user/agent operation, including which key signs and the return value.
 - `API: toStroops / Errors` — toStroops strictness rationale and the typed Errors re-export for branching on rejections.
 - `Errors table` — Maps Errors[1,2,4,5,6,7,8,9] (AlreadyExists, NotFound, MandateExpired, MandateRevoked, BudgetExceeded, MerchantOutOfScope, BadSequence, InvalidAmount) to causes.
-- `Network` — Defaults to testnet and the live MandateRegistry id CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL; reapp.testnet.nativeSac and mandateRegistryId accessors.
+- `Network` — Defaults to testnet and the live MandateRegistry id CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA; reapp.testnet.nativeSac and mandateRegistryId accessors.
 - `Relationship to @reapp-sdk/stellar` — core is built on the stellar package (typed bindings, network config, signer, SEP-41 helpers); drop down only for direct contract access.
 
-> **Note:** Per project memory, the live testnet MandateRegistry is CA3X76MR...BQCL (the same id this README documents), while CCJ4KV5Z...SWND is a superseded impl, so the README's contract id is current. The README describes the contract as 'audited'/'live' on testnet; framing-wise, mainnet is still future work, so readers should treat 'live' as testnet-live. The README's error-code table omits code 3, which is intentional, only the listed codes are surfaced as documented rejection causes.
+> **Note:** Per project memory, the live testnet MandateRegistry is CB4KOTLG...BQCL (the same id this README documents), while CCJ4KV5Z...SWND is a superseded impl, so the README's contract id is current. The README describes the contract as 'audited'/'live' on testnet; framing-wise, mainnet is still future work, so readers should treat 'live' as testnet-live. The README's error-code table omits code 3, which is intentional, only the listed codes are surfaced as documented rejection causes.
 
 ````markdown
 # @reapp-sdk/core
@@ -2583,7 +2583,7 @@ try {
 
 ## Network
 
-`@reapp-sdk/core` defaults to Stellar testnet and the live, audited MandateRegistry at `CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL`. Pass a custom `NetworkConfig` as the last argument to any call to point at a different RPC, passphrase, or contract.
+`@reapp-sdk/core` defaults to Stellar testnet and the live, audited MandateRegistry at `CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA`. Pass a custom `NetworkConfig` as the last argument to any call to point at a different RPC, passphrase, or contract.
 
 ```ts
 reapp.testnet            // the default NetworkConfig
@@ -2653,7 +2653,7 @@ It also exports the `Errors` map (numeric contract error code → message), the 
 
 **Key items:**
 
-- `networks` — Const map with `testnet.networkPassphrase` and `testnet.contractId` (CA3X76MR…BQCL), the live testnet deployment baked into the binding.
+- `networks` — Const map with `testnet.networkPassphrase` and `testnet.contractId` (CB4KOTLG…7ZOA), the live testnet deployment baked into the binding.
 - `Errors` — Numeric→message map of contract errors: 1 AlreadyExists, 2 NotFound, 4 MandateExpired, 5 MandateRevoked, 6 BudgetExceeded, 7 MerchantOutOfScope, 8 BadSequence, 9 InvalidAmount (note: 3 is intentionally absent).
 - `Status` — Tagged-union type: Active | Revoked | Exhausted.
 - `Mandate` — The on-chain mandate struct: agent, asset, expiry (u64), max_amount (i128), merchant, seq (u32), spent (i128), status, user, vc_hash (Buffer).
@@ -2668,7 +2668,7 @@ It also exports the `Errors` map (numeric contract error code → message), the 
 - `Client.deploy` — Static helper to deploy a new instance from an already-installed wasmHash (hex/base64), with optional salt.
 - `fromJSON` — Map of per-method txFromJSON deserializers for reviving AssembledTransactions from JSON with correct typing.
 
-> **Note:** Generated/ABI file - do not hand-edit; the embedded base64 Spec must stay in lockstep with the deployed wasm. The `networks.testnet.contractId` here duplicates config.TESTNET.mandateRegistryId; both must match the live deployment (CA3X76MR…BQCL). Error code 3 is deliberately missing from the Errors map. `expected_seq` is a caller-supplied replay guard, so callers must read the current seq via get_mandate immediately before execute_payment; a stale seq yields BadSequence (correct fail-closed behavior).
+> **Note:** Generated/ABI file - do not hand-edit; the embedded base64 Spec must stay in lockstep with the deployed wasm. The `networks.testnet.contractId` here duplicates config.TESTNET.mandateRegistryId; both must match the live deployment (CB4KOTLG…7ZOA). Error code 3 is deliberately missing from the Errors map. `expected_seq` is a caller-supplied replay guard, so callers must read the current seq via get_mandate immediately before execute_payment; a stale seq yields BadSequence (correct fail-closed behavior).
 
 ```ts
 import { Buffer } from "buffer";
@@ -2707,7 +2707,7 @@ if (typeof window !== "undefined") {
 export const networks = {
   testnet: {
     networkPassphrase: "Test SDF Network ; September 2015",
-    contractId: "CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL",
+    contractId: "CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA",
   }
 } as const
 
@@ -3035,14 +3035,14 @@ export function keypairSigner(
 
 Declares the `NetworkConfig` interface - `rpcUrl`, `networkPassphrase`, `mandateRegistryId` (the deployed MandateRegistry contract), and `nativeSac` (the native XLM Stellar Asset Contract, a real SEP-41 token) - and exports the concrete `TESTNET` config.
 
-`TESTNET` points at the public Soroban testnet RPC (`https://soroban-testnet.stellar.org`), the SDF testnet passphrase, the live audited MandateRegistry id `CA3X76MR…BQCL`, and the testnet native SAC `CDLZFC3S…CYSC`. This object is the single source of truth consumed by `registryClient` (registry.ts) and the token helpers, and is re-exported at the top level via the index barrel for `@reapp-sdk/core` and scripts.
+`TESTNET` points at the public Soroban testnet RPC (`https://soroban-testnet.stellar.org`), the SDF testnet passphrase, the live audited MandateRegistry id `CB4KOTLG…7ZOA`, and the testnet native SAC `CDLZFC3S…CYSC`. This object is the single source of truth consumed by `registryClient` (registry.ts) and the token helpers, and is re-exported at the top level via the index barrel for `@reapp-sdk/core` and scripts.
 
 **Key items:**
 
 - `interface NetworkConfig` — Network descriptor: rpcUrl, networkPassphrase, mandateRegistryId, nativeSac.
-- `TESTNET` — Concrete NetworkConfig for Stellar testnet: soroban-testnet RPC, SDF testnet passphrase, live MandateRegistry CA3X76MR…BQCL, native SAC CDLZFC3S…CYSC.
+- `TESTNET` — Concrete NetworkConfig for Stellar testnet: soroban-testnet RPC, SDF testnet passphrase, live MandateRegistry CB4KOTLG…7ZOA, native SAC CDLZFC3S…CYSC.
 
-> **Note:** `mandateRegistryId` here must stay equal to `networks.testnet.contractId` in client.ts (CA3X76MR…BQCL is the live impl; CCJ4KV5Z…SWND from memory is a superseded impl that must NOT appear). Only testnet is defined - there is no MAINNET config, consistent with the project's testnet-only status. `nativeSac` is the native XLM SAC, distinct from the USDC SEP-41 token a mandate's `asset` typically references.
+> **Note:** `mandateRegistryId` here must stay equal to `networks.testnet.contractId` in client.ts (CB4KOTLG…7ZOA is the live impl; CCJ4KV5Z…SWND from memory is a superseded impl that must NOT appear). Only testnet is defined - there is no MAINNET config, consistent with the project's testnet-only status. `nativeSac` is the native XLM SAC, distinct from the USDC SEP-41 token a mandate's `asset` typically references.
 
 ```ts
 /** Network configuration for REAPP's Soroban layer. */
@@ -3059,7 +3059,7 @@ export interface NetworkConfig {
 export const TESTNET: NetworkConfig = {
   rpcUrl: "https://soroban-testnet.stellar.org",
   networkPassphrase: "Test SDF Network ; September 2015",
-  mandateRegistryId: "CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL",
+  mandateRegistryId: "CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA",
   nativeSac: "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
 };
 ```
@@ -3254,7 +3254,7 @@ Configures `tsc` for this package: `target: ESNext`, `module: NodeNext` with `mo
 
 *Package documentation: what the low-level Stellar layer exports, how to use it, and when to prefer @reapp-sdk/core.*
 
-Positions `@reapp-sdk/stellar` as the low-level Soroban building block for REAPP (typed MandateRegistry client, testnet config, keypair signing adapter, SEP-41 helpers) and steers most consumers toward `@reapp-sdk/core`, which wraps these pieces into a mandate-validated payment in under 10 lines. It gives the install command, a table of the main exports (`TESTNET`, `registryClient`, `Client`/`Mandate`/`Errors`, `keypairSigner`, `token.approve`/`token.balance`), and names the live audited contract id `CA3X76MR…BQCL`.
+Positions `@reapp-sdk/stellar` as the low-level Soroban building block for REAPP (typed MandateRegistry client, testnet config, keypair signing adapter, SEP-41 helpers) and steers most consumers toward `@reapp-sdk/core`, which wraps these pieces into a mandate-validated payment in under 10 lines. It gives the install command, a table of the main exports (`TESTNET`, `registryClient`, `Client`/`Mandate`/`Errors`, `keypairSigner`, `token.approve`/`token.balance`), and names the live audited contract id `CB4KOTLG…7ZOA`.
 
 It includes a runnable example reading a mandate straight from the contract: build a `keypairSigner` from a secret, create a `registryClient(TESTNET, signer)`, then `await registry.get_mandate({ mandate_id }).result.unwrap()`. The closing note states the security invariant that gives the package its meaning: the contract is the source of truth - every spend is validated and consumed on-chain by `execute_payment`, so a buggy or malicious client cannot exceed the mandate. Licensed Apache-2.0.
 
@@ -3262,7 +3262,7 @@ It includes a runnable example reading a mandate straight from the contract: bui
 
 - `Install section` — `npm install @reapp-sdk/stellar @stellar/stellar-sdk` - installs the package alongside the Stellar SDK.
 - `Exports table` — Documents TESTNET, registryClient, Client/Mandate/Errors, keypairSigner, and token.approve/balance with one-line descriptions.
-- `Live contract id` — States TESTNET.mandateRegistryId = CA3X76MR…BQCL as the live audited deployment.
+- `Live contract id` — States TESTNET.mandateRegistryId = CB4KOTLG…7ZOA as the live audited deployment.
 - `get_mandate example` — End-to-end snippet: keypairSigner → registryClient → get_mandate(...).result.unwrap().
 - `Security invariant note` — Asserts the contract is the source of truth; execute_payment validates+consumes on-chain so clients cannot exceed the mandate.
 
@@ -3299,7 +3299,7 @@ npm install @reapp-sdk/stellar @stellar/stellar-sdk
 | `token.approve(...)`, `token.balance(...)` | Minimal SEP-41 token helpers |
 
 The live, audited contract is `TESTNET.mandateRegistryId` =
-`CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL`.
+`CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA`.
 
 ## Example: read a mandate straight from the contract
 
@@ -5392,7 +5392,7 @@ console.log();
 
 *Captures full-page Playwright screenshots of the canonical testnet transactions and the contract overview page, for use as visual proof in grant/demo materials.*
 
-This Playwright script produces the evidentiary screenshots that accompany REAPP's testnet proof. It writes into `example-output/screenshots` inside the repo (explicitly never /tmp, per project convention), creating the dir if needed. It hardcodes the canonical contract id (`CA3X76MR…BQCL`, the live MandateRegistry) and a `TARGETS` list of seven captures: six specific transactions (approve, register_mandate, validate_mandate, execute_payment, revoke_mandate, and an unauthorized/FAILED attempt) keyed by tx hash, plus the contract overview page. Each target carries a `waitText` - a string (the leading hash chars, or 'Contract Details') that only appears once the explorer's client-side data has rendered.
+This Playwright script produces the evidentiary screenshots that accompany REAPP's testnet proof. It writes into `example-output/screenshots` inside the repo (explicitly never /tmp, per project convention), creating the dir if needed. It hardcodes the canonical contract id (`CB4KOTLG…7ZOA`, the live MandateRegistry) and a `TARGETS` list of seven captures: six specific transactions (approve, register_mandate, validate_mandate, execute_payment, revoke_mandate, and an unauthorized/FAILED attempt) keyed by tx hash, plus the contract overview page. Each target carries a `waitText` - a string (the leading hash chars, or 'Contract Details') that only appears once the explorer's client-side data has rendered.
 
 It launches headless Chromium at a 1600×1400 viewport with `deviceScaleFactor: 2` (retina-quality output), then for each target navigates to the stellarchain.io URL, optionally dismisses a cookie banner (non-fatal try/catch), and - the real gate - `waitForFunction` until `document.body.innerText` contains the `waitText`, ensuring it screenshots rendered data rather than a loading spinner. After an 800ms settle for fonts/layout it captures a `fullPage` PNG named like `04-execute-payment.png`. It tallies successes and exits non-zero unless all seven captured.
 
@@ -5418,7 +5418,7 @@ import { fileURLToPath } from "node:url";
 const OUT = fileURLToPath(new URL("../example-output/screenshots", import.meta.url));
 mkdirSync(OUT, { recursive: true });
 
-const CONTRACT = "CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL";
+const CONTRACT = "CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA";
 const tx = (h) => `https://testnet.stellarchain.io/tx/${h}`;
 
 // waitText = a string that only appears once the page's client-side data has rendered.

@@ -145,7 +145,7 @@ try {
 
 ## Network
 
-`@reapp-sdk/core` defaults to Stellar testnet and the live, audited MandateRegistry at `CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL`. Pass a custom `NetworkConfig` as the last argument to any call to point at a different RPC, passphrase, or contract.
+`@reapp-sdk/core` defaults to Stellar testnet and the live, audited MandateRegistry at `CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA`. Pass a custom `NetworkConfig` as the last argument to any call to point at a different RPC, passphrase, or contract.
 
 ```ts
 reapp.testnet            // the default NetworkConfig

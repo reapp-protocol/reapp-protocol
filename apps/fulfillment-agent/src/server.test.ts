@@ -24,18 +24,14 @@ const fixture = JSON.parse(
 ) as { txHash: string; metaXdr: string; note: string };
 
 const REGISTRY = TESTNET.mandateRegistryId; // the trusted emitter
-const MERCHANT = "GDQ3U23ZNRO3D5NGIH52BE2LT2RGSL5VD6Z3JXG2LOY5F3JQTOUJVSOA"; // paid in the fixture
+const MERCHANT = "GCREL554SPELMSCEIQQVYS2TPDWONZ6AVQXMUNBEGGZ2X5FNYHDC2RZG"; // paid in the fixture
 const OTHER = "GAHGD3Q6ZKKJFM4FM5M6DSDNTT6KGCEZRZ2NLBBGILZFSKNUFT7VTORQ"; // a different account
 const SAC = "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC"; // the token contract (not the registry)
 const PRICE = 10_000_000n; // 1.00 XLM, the unlock price
 const CHECK: PaymentCheck = { merchant: MERCHANT, registryId: REGISTRY, priceStroops: PRICE };
 
-// The golden fixture below is a historical tx emitted by the ORIGINAL deployed
-// MandateRegistry, since superseded by the source-verified contract that
-// TESTNET.mandateRegistryId now points at. The golden tests assert against that
-// historical emitter; live runtime trust uses the current registry id above.
-const GOLDEN_REGISTRY = "CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL";
-const GOLDEN_CHECK: PaymentCheck = { merchant: MERCHANT, registryId: GOLDEN_REGISTRY, priceStroops: PRICE };
+// The golden fixture is a real execute_payment on the source-verified MandateRegistry
+// (TESTNET.mandateRegistryId), captured from testnet, with the registry as the trusted emitter.
 
 /** A well-formed decoded payment event from the registry; override per case. */
 const paymentEvent = (over: Partial<DecodedEvent> = {}): DecodedEvent => ({
@@ -53,27 +49,27 @@ test("golden: the real tx decodes to two events, one emitted by the registry", (
   const decoded = interpretEvents(extractContractEvents(meta));
   // The tx carries two contract events: the token's transfer and the registry's payment.
   assert.equal(decoded.length, 2);
-  const reg = decoded.find((e) => e.contractId === GOLDEN_REGISTRY);
+  const reg = decoded.find((e) => e.contractId === REGISTRY);
   assert.ok(reg, "expected an event emitted by the MandateRegistry");
   assert.equal(reg.topic0, "payment");
   assert.equal(String(reg.topic1), MERCHANT);
   assert.equal(reg.amount, PRICE);
   // The token's own transfer event is present too, and is emitted by a DIFFERENT
   // contract, so the merchant must be able to tell them apart.
-  const other = decoded.find((e) => e.contractId !== GOLDEN_REGISTRY);
+  const other = decoded.find((e) => e.contractId !== REGISTRY);
   assert.ok(other, "expected the token's transfer event to also be present");
-  assert.notEqual(other.contractId, GOLDEN_REGISTRY);
+  assert.notEqual(other.contractId, REGISTRY);
 });
 
 test("golden: selectPayment accepts the real payment to this merchant", () => {
   const meta = xdr.TransactionMeta.fromXDR(fixture.metaXdr, "base64");
-  const verdict = selectPayment(interpretEvents(extractContractEvents(meta)), GOLDEN_CHECK);
+  const verdict = selectPayment(interpretEvents(extractContractEvents(meta)), CHECK);
   assert.deepEqual(verdict, { ok: true, amount: PRICE });
 });
 
 test("golden: the same real tx does NOT unlock for a different merchant", () => {
   const meta = xdr.TransactionMeta.fromXDR(fixture.metaXdr, "base64");
-  const verdict = selectPayment(interpretEvents(extractContractEvents(meta)), { ...GOLDEN_CHECK, merchant: OTHER });
+  const verdict = selectPayment(interpretEvents(extractContractEvents(meta)), { ...CHECK, merchant: OTHER });
   assert.equal(verdict.ok, false);
 });
 

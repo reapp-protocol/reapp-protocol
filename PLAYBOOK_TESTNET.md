@@ -191,7 +191,7 @@ with real XLM.
 
 After this, `MANDATE_REGISTRY_CONTRACT_ID` in the local env file should point at the live
 testnet contract (see "Smart contract" below). The current testnet value is
-`CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL`.
+`CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA`.
 
 ---
 
@@ -336,7 +336,7 @@ shaped. The mainnet playbook will document the mainnet deploy procedure.
 To confirm what is on testnet is what is in the repo:
 
 ```bash
-stellar contract fetch --id CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL --network testnet --out-file onchain.wasm
+stellar contract fetch --id CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA --network testnet --out-file onchain.wasm
 stellar contract build --manifest-path contracts/mandate-registry/Cargo.toml
 ```
 
@@ -346,12 +346,12 @@ Then compare the hash of `onchain.wasm` against the freshly built artifact.
 
 | Item | Value |
 |---|---|
-| Live testnet contract id | `CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL` |
+| Live testnet contract id | `CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA` |
 | Native XLM SAC (testnet) | `CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC` |
 | Testnet RPC | `https://soroban-testnet.stellar.org` |
 | Testnet passphrase | `Test SDF Network ; September 2015` |
 | soroban-sdk | v22 |
-| Contract page | https://stellar.expert/explorer/testnet/contract/CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL |
+| Contract page | https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA |
 
 Use stellar.expert for the contract page and activity. Single transactions also
 render on stellarchain.io (the testnet e2e and deploy scripts print
