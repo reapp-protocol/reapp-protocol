@@ -117,7 +117,7 @@ A read-only dry run that answers one question: would a payment of `amount` to
 | **Signer** | none, anyone can call it |
 | **Effect** | none, it changes nothing on-chain |
 | **Use** | the SDK calls it for a clean typed answer before paying |
-| **Note** | despite the name it consumes nothing; the real consume happens only in `execute_payment` |
+| **Note** | it consumes nothing; the real consume happens only in `execute_payment` |
 
 ---
 

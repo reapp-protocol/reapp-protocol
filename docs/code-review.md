@@ -268,7 +268,7 @@ What it does: This is a read-only preflight that answers whether a spend would b
 ```
 
 Review notes:
-- The name `validate_mandate` is misleading: it does not consume. The doc comment acknowledges this is named per the protocol spec but is a dry run. A reviewer should confirm no caller relies on it to actually reserve or decrement budget, because it does not, and there is a TOCTOU gap between a successful preflight and a later `execute_payment` (state can change in between). Mitigated because `execute_payment` re-validates.
+- `validate_mandate` is a read-only dry run: it does not consume or reserve budget. A reviewer should confirm no caller relies on it to reserve or decrement budget, because it does not, and there is a TOCTOU gap between a successful preflight and a later `execute_payment` (state can change in between). Mitigated because `execute_payment` re-validates.
 - No auth is required, so this is callable by anyone and leaks whether a given `mandate_id` exists and whether a given merchant/amount would pass. Consider whether that information disclosure is acceptable.
 
 ### execute_payment (entry point)
