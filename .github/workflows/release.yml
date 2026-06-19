@@ -13,7 +13,7 @@ jobs:
     with:
       release_name: ${{ github.ref_name }}
       release_description: 'MandateRegistry contract release'
-      relative_path: '["contracts/mandate-registry"]'
+      relative_path: 'contracts/mandate-registry'
       package: 'mandate-registry'
     secrets:
       release_token: ${{ secrets.GITHUB_TOKEN }}
