@@ -168,7 +168,7 @@ Merged and deduped across the four reviewer lenses. Resolved audit findings are 
 Part 2 is the line-by-line reference: every method and its behavior, argument by argument. Read these first, in roughly this order, to understand the enforcement core before the supporting plumbing. References are by name and file (line numbers shift, so they are omitted here).
 
 1. **`execute_payment`** (`contracts/mandate-registry/src/payment.rs`): the single money path; the whole security model lives here.
-2. **`check` / `validate_and_consume`** (`contracts/mandate-registry/src/payment.rs`): the status/expiry/scope/budget gate and the mutate-then-transfer sequencing.
+2. **`check` / `validate_mandate`** (`contracts/mandate-registry/src/payment.rs`): the status/expiry/scope/budget gate and the mutate-then-transfer sequencing.
 3. **`register_mandate`** (`contracts/mandate-registry/src/registry.rs`): how a mandate is created and why `spent=0`/`seq=0`/`status=Active` is forced.
 4. **The `Error` enum** (`contracts/mandate-registry/src/error.rs`): the typed rejections, and why slot 3 (`NotAuthorized`) is deliberately reserved (auth is host-enforced).
 5. **`reentry_probe.rs`** (`contracts/mandate-registry/src/reentry_probe.rs`): the adversarial token and the exact double-spend assertion.
@@ -248,7 +248,7 @@ Review notes:
 - The `vc_hash` is both the binding to the off-chain AP2 IntentMandate VC and the storage key. Reviewers should confirm callers cannot use this to overwrite an existing mandate; the inner function guards with `has_mandate` and returns `AlreadyExists`.
 - Arguments are passed by value into the inner function; ordering of the eight arguments matters and is easy to transpose at a call site (for example, swapping `agent` and `merchant`). Worth flagging that there is no type-level distinction between the four `Address` parameters.
 
-### validate_and_consume (entry point)
+### validate_mandate (entry point)
 `contracts/mandate-registry/src/lib.rs:61`
 
 What it does: This is a read-only preflight that answers whether a spend would be permitted right now. Despite the name it consumes nothing, mutates no state, and requires no auth; it is a dry run for the SDK to get a clean typed error before paying. The authoritative consume happens only in `execute_payment`.
@@ -257,18 +257,18 @@ What it does: This is a read-only preflight that answers whether a spend would b
     /// Read-only preflight — would this spend be permitted right now? Mutates
     /// nothing and requires no auth; the authoritative consume happens only in
     /// `execute_payment`. (Named per the protocol spec; it is a dry-run.)
-    pub fn validate_and_consume(
+    pub fn validate_mandate(
         env: Env,
         mandate_id: BytesN<32>,
         amount: i128,
         merchant: Address,
     ) -> Result<(), Error> {
-        payment::validate_and_consume(&env, mandate_id, amount, merchant)
+        payment::validate_mandate(&env, mandate_id, amount, merchant)
     }
 ```
 
 Review notes:
-- The name `validate_and_consume` is misleading: it does not consume. The doc comment acknowledges this is named per the protocol spec but is a dry run. A reviewer should confirm no caller relies on it to actually reserve or decrement budget, because it does not, and there is a TOCTOU gap between a successful preflight and a later `execute_payment` (state can change in between). Mitigated because `execute_payment` re-validates.
+- The name `validate_mandate` is misleading: it does not consume. The doc comment acknowledges this is named per the protocol spec but is a dry run. A reviewer should confirm no caller relies on it to actually reserve or decrement budget, because it does not, and there is a TOCTOU gap between a successful preflight and a later `execute_payment` (state can change in between). Mitigated because `execute_payment` re-validates.
 - No auth is required, so this is callable by anyone and leaks whether a given `mandate_id` exists and whether a given merchant/amount would pass. Consider whether that information disclosure is acceptable.
 
 ### execute_payment (entry point)
@@ -449,7 +449,7 @@ Review notes:
 - Merchant scope: `*merchant != m.merchant` enforces single-payee scope. On the money path the merchant passed in is the stored merchant (see `execute_payment`), so this branch is effectively always satisfied there; it is the preflight path where a caller-supplied merchant is meaningfully checked. Reviewers should confirm this is understood and that the money path never takes merchant from caller input.
 - Budget and overflow: `m.spent + amount > m.max_amount`. This is an `i128 + i128` addition. Because `amount > 0` and `spent >= 0` are invariants, and `max_amount` is bounded by whatever was registered, overflow would require `spent + amount` to exceed `i128::MAX`. With realistic token amounts this cannot happen, but a maliciously huge `max_amount` at register time (which is allowed, see register notes) combined with a huge `amount` could in principle approach overflow. The addition is not written as `checked_add`, but the build profile makes this safe: the contract's own `Cargo.toml` sets `overflow-checks = true` under `[profile.release]` (`contracts/mandate-registry/Cargo.toml:17-19`), and the deployed wasm is built in release mode. So an `i128 + i128` overflow panics and reverts the whole transaction; it does NOT wrap, and no wrapped negative sum can pass the `> max_amount` check. A `checked_add` would make the intent explicit and would not depend on the profile setting, so it is still worth considering for defense in depth, but there is no live wrapping path with this configuration.
 
-### validate_and_consume (logic)
+### validate_mandate (logic)
 `contracts/mandate-registry/src/payment.rs:43`
 
 What it does: This is the read-only preflight delegate. It loads the mandate (returning `NotFound` if missing) and runs `check` against it with the caller-supplied amount and merchant. It mutates nothing and requires no auth.
@@ -459,7 +459,7 @@ What it does: This is the read-only preflight delegate. It loads the mandate (re
 /// permitted right now? Mutates nothing, requires no auth — the SDK calls this
 /// for a clean typed error before paying. The authoritative consume + transfer
 /// happens only in `execute_payment`.
-pub fn validate_and_consume(
+pub fn validate_mandate(
     env: &Env,
     mandate_id: BytesN<32>,
     amount: i128,

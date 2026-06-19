@@ -220,7 +220,7 @@ stateDiagram-v2
 
 The contract is the security boundary; everything in TypeScript is a convenience wrapper whose checks are advisory. Each attack class is closed by a specific on-chain mechanism.
 
-**Redirect funds (pay an attacker instead of the named merchant).** `execute_payment` never accepts a merchant parameter. It reads `mandate.merchant` from stored state (`let merchant = mandate.merchant.clone()`) and passes that as the `to` of `transfer_from`. The agent can only choose `amount`, `mandate_id`, and `expected_seq`. A mismatched merchant in `validate_and_consume`'s explicit-merchant preflight returns `MerchantOutOfScope` (error 7), but the spend path simply cannot be pointed elsewhere.
+**Redirect funds (pay an attacker instead of the named merchant).** `execute_payment` never accepts a merchant parameter. It reads `mandate.merchant` from stored state (`let merchant = mandate.merchant.clone()`) and passes that as the `to` of `transfer_from`. The agent can only choose `amount`, `mandate_id`, and `expected_seq`. A mismatched merchant in `validate_mandate`'s explicit-merchant preflight returns `MerchantOutOfScope` (error 7), but the spend path simply cannot be pointed elsewhere.
 
 **Overspend, single payment.** The `check` helper enforces `m.spent + amount > m.max_amount → BudgetExceeded` (error 6) against the stored budget, which the caller cannot supply. Amounts are validated `> 0` (`InvalidAmount`, error 9), and the SDK additionally rejects values exceeding i128 max before they reach the unchecked ScVal encoder.
 
@@ -230,7 +230,7 @@ The contract is the security boundary; everything in TypeScript is a convenience
 
 **Expired / revoked / exhausted mandate.** `check` matches `status` first: `Revoked → MandateRevoked` (5), `Exhausted → BudgetExceeded` (6). Expiry is enforced as `env.ledger().timestamp() >= m.expiry → MandateExpired` (4), symmetric with registration which requires `expiry > now`. `revoke_mandate` requires the stored user's auth and flips status to `Revoked`, after which every spend is rejected on-chain regardless of what the SDK believes.
 
-**Out-of-scope merchant.** In the read-only `validate_and_consume` preflight, a merchant other than the stored one returns `MerchantOutOfScope`. In the authoritative path the merchant is read from storage, so out-of-scope is structurally impossible rather than merely checked.
+**Out-of-scope merchant.** In the read-only `validate_mandate` preflight, a merchant other than the stored one returns `MerchantOutOfScope`. In the authoritative path the merchant is read from storage, so out-of-scope is structurally impossible rather than merely checked.
 
 **Reentrancy via an evil token.** `execute_payment` follows strict checks-effects-interactions ordering: it validates, then writes the updated mandate to storage (`storage::set_mandate`), and **only after the state write** calls the external `token.transfer_from`. A malicious SEP-41/SAC asset that re-enters `execute_payment` during the transfer sees already-advanced `spent` and `seq`, so the re-entrant call fails the sequence or budget check. A dedicated `reentry_probe` test exercises this.
 
@@ -277,7 +277,7 @@ All mandates live in **persistent** storage (`env.storage().persistent()`), the 
 
 ### Repository Map
 
-**`contracts/mandate-registry/`** - the Rust/soroban-sdk enforcement contract, deployed and audited on Stellar testnet (`CA3X76MR…BQCL`). Its `src/` is split so that dependencies flow one way with no cycles: `lib.rs` (thin contract entry points, no logic), `mandate.rs` (the `Mandate` and `Status` types, pure data), `storage.rs` (the only module touching `env.storage`: `DataKey`, get/set, TTL), `registry.rs` (`register_mandate` / `revoke_mandate`), `payment.rs` (`check`, `validate_and_consume`, `execute_payment` - the money path), `events.rs` (the three emitted events), and `error.rs` (typed errors). `test.rs` and `reentry_probe.rs` hold the unit/reentrancy suites; `test_snapshots/` holds recorded ledger snapshots; `target/` is the build output.
+**`contracts/mandate-registry/`** - the Rust/soroban-sdk enforcement contract, deployed and audited on Stellar testnet (`CA3X76MR…BQCL`). Its `src/` is split so that dependencies flow one way with no cycles: `lib.rs` (thin contract entry points, no logic), `mandate.rs` (the `Mandate` and `Status` types, pure data), `storage.rs` (the only module touching `env.storage`: `DataKey`, get/set, TTL), `registry.rs` (`register_mandate` / `revoke_mandate`), `payment.rs` (`check`, `validate_mandate`, `execute_payment` - the money path), `events.rs` (the three emitted events), and `error.rs` (typed errors). `test.rs` and `reentry_probe.rs` hold the unit/reentrancy suites; `test_snapshots/` holds recorded ledger snapshots; `target/` is the build output.
 
 **`packages/stellar/` (`@reapp-sdk/stellar`)** - the typed Soroban layer. `src/client.ts` is the MandateRegistry contract client generated from the audited ABI (with the embedded contract spec and the `Errors`/`Mandate`/`Status` types). `config.ts` holds `NetworkConfig` and the `TESTNET` constants (RPC URL, passphrase, contract id, native SAC). `signer.ts` adapts a Stellar keypair into the signer shape the client needs. `registry.ts` is the factory that wires a client to a network plus signer. `token.ts` is the minimal SEP-41 helper set (`approve`, `balance`) built directly on `@stellar/stellar-sdk`. `index.ts` re-exports the layer.
 
@@ -307,7 +307,7 @@ Every file inlined in this document, in the order it appears. Generated artifact
 | 2 | [`contracts/mandate-registry/src/lib.rs`](#contractsmandate-registrysrclibrs) | 100 | Crate root and contract entry-point: thin `#[contractimpl]` dispatch with no business logic, plus the module dependency graph. |
 | 3 | [`contracts/mandate-registry/src/registry.rs`](#contractsmandate-registrysrcregistryrs) | 72 | Mandate lifecycle module: user-authorized registration and revocation; no money movement. |
 | 4 | [`contracts/mandate-registry/src/mandate.rs`](#contractsmandate-registrysrcmandaters) | 36 | Pure data definition of the `Mandate` struct and `Status` enum; no logic, no storage, no auth. |
-| 5 | [`contracts/mandate-registry/src/payment.rs`](#contractsmandate-registrysrcpaymentrs) | 98 | The money path: the central `check` validator, the read-only `validate_and_consume` dry run, and the atomic `execute_payment` that is the only function moving funds. |
+| 5 | [`contracts/mandate-registry/src/payment.rs`](#contractsmandate-registrysrcpaymentrs) | 98 | The money path: the central `check` validator, the read-only `validate_mandate` dry run, and the atomic `execute_payment` that is the only function moving funds. |
 | 6 | [`contracts/mandate-registry/src/storage.rs`](#contractsmandate-registrysrcstoragers) | 40 | Sole persistence module: defines the storage key, all get/set/has accessors, and the TTL bump policy. |
 | 7 | [`contracts/mandate-registry/src/events.rs`](#contractsmandate-registrysrceventsrs) | 26 | Leaf module emitting the three contract events for off-chain indexers and audit. |
 | 8 | [`contracts/mandate-registry/src/error.rs`](#contractsmandate-registrysrcerrorrs) | 25 | Leaf module defining the contract's typed error enum with stable numeric codes. |
@@ -414,21 +414,21 @@ codegen-units = 1
 
 Declares `#![no_std]` and the six internal modules (`error`, `events`, `mandate`, `payment`, `registry`, `storage`), re-exporting `Error`, `Mandate`, and `Status` for the generated client and tests. The doc comment fixes the one-way dependency flow (`lib → {registry, payment} → storage → mandate/error`, with `events` as a leaf), which is the architectural invariant the rest of the code respects (e.g. `payment` and `registry` never depend on each other).
 
-The `MandateRegistry` struct carries `#[contract]` and its `impl` carries `#[contractimpl]`, which is what generates the `MandateRegistryClient` used in tests. Each of the five public methods is a one-line forwarder into a module function, keeping the audited surface minimal: `register_mandate` → `registry::register_mandate`, `validate_and_consume` → `payment::validate_and_consume`, `execute_payment` → `payment::execute_payment`, `revoke_mandate` → `registry::revoke_mandate`, and `get_mandate` → `storage::get_mandate`.
+The `MandateRegistry` struct carries `#[contract]` and its `impl` carries `#[contractimpl]`, which is what generates the `MandateRegistryClient` used in tests. Each of the five public methods is a one-line forwarder into a module function, keeping the audited surface minimal: `register_mandate` → `registry::register_mandate`, `validate_mandate` → `payment::validate_mandate`, `execute_payment` → `payment::execute_payment`, `revoke_mandate` → `registry::revoke_mandate`, and `get_mandate` → `storage::get_mandate`.
 
-The doc comments encode the security model: money moves only through `execute_payment`, which validates-and-consumes atomically; `validate_and_consume` is an explicitly read-only, no-auth dry run despite its consume-sounding name; and `execute_payment`'s `expected_seq` must equal the mandate's current `seq` or it fails with `BadSequence`. The two test modules (`test`, `reentry_probe`) are wired in under `#[cfg(test)]` at the bottom.
+The doc comments encode the security model: money moves only through `execute_payment`, which validates-and-consumes atomically; `validate_mandate` is an explicitly read-only, no-auth dry run despite its consume-sounding name; and `execute_payment`'s `expected_seq` must equal the mandate's current `seq` or it fails with `BadSequence`. The two test modules (`test`, `reentry_probe`) are wired in under `#[cfg(test)]` at the bottom.
 
 **Key items:**
 
 - `MandateRegistry (#[contract])` — The contract type; its #[contractimpl] generates the client used by tests.
 - `register_mandate(env,user,agent,merchant,asset,max_amount,expiry,vc_hash)->BytesN<32>` — Stores a user-signed mandate (contract forces spent=0/seq=0/Active); returns the id (=vc_hash).
-- `validate_and_consume(env,mandate_id,amount,merchant)->()` — Read-only, no-auth preflight; despite the name it mutates nothing.
+- `validate_mandate(env,mandate_id,amount,merchant)->()` — Read-only, no-auth preflight; despite the name it mutates nothing.
 - `execute_payment(env,mandate_id,amount,expected_seq)->()` — The sole money path; auth + seq guard + revalidate + consume + transfer, atomic.
 - `revoke_mandate(env,mandate_id)->()` — User withdraws consent; marks the mandate Revoked.
 - `get_mandate(env,mandate_id)->Mandate` — Read-only accessor; also how callers learn the current seq for the next payment.
 - `pub use Error / Mandate / Status` — Re-exports consumed by the generated client and the test modules.
 
-> **Note:** The method named validate_and_consume does NOT consume anything; it is a dry run with no auth and no state change. The only authoritative consume is execute_payment. This naming is a deliberate spec-driven misnomer and is the most likely point of reviewer confusion.
+> **Note:** The method named validate_mandate does NOT consume anything; it is a dry run with no auth and no state change. The only authoritative consume is execute_payment. This naming is a deliberate spec-driven misnomer and is the most likely point of reviewer confusion.
 
 ```rust
 #![no_std]
@@ -448,7 +448,7 @@ The doc comments encode the security model: money moves only through `execute_pa
 //!  - `mandate`  — the `Mandate` type (pure data).
 //!  - `storage`  — `DataKey` + all get/set/TTL (the ONLY module touching env.storage).
 //!  - `registry` — register / revoke (allowance funding model).
-//!  - `payment`  — validate_and_consume + execute_payment + the token transfer.
+//!  - `payment`  — validate_mandate + execute_payment + the token transfer.
 //!  - `error`    — typed errors.
 //!  - `events`   — emitted events.
 
@@ -491,13 +491,13 @@ impl MandateRegistry {
     /// Read-only preflight — would this spend be permitted right now? Mutates
     /// nothing and requires no auth; the authoritative consume happens only in
     /// `execute_payment`. (Named per the protocol spec; it is a dry-run.)
-    pub fn validate_and_consume(
+    pub fn validate_mandate(
         env: Env,
         mandate_id: BytesN<32>,
         amount: i128,
         merchant: Address,
     ) -> Result<(), Error> {
-        payment::validate_and_consume(&env, mandate_id, amount, merchant)
+        payment::validate_mandate(&env, mandate_id, amount, merchant)
     }
 
     /// The only money path. Atomic: require_auth(agent) → replay guard
@@ -688,9 +688,9 @@ pub enum Status {
 
 ### `contracts/mandate-registry/src/payment.rs`
 
-*The money path: the central `check` validator, the read-only `validate_and_consume` dry run, and the atomic `execute_payment` that is the only function moving funds.*
+*The money path: the central `check` validator, the read-only `validate_mandate` dry run, and the atomic `execute_payment` that is the only function moving funds.*
 
-`check` is the single source of enforcement truth, re-run on every spend so the SDK is never trusted: it rejects `amount <= 0` (`InvalidAmount`), matches `status` (`Revoked` → `MandateRevoked`, `Exhausted` → `BudgetExceeded`, `Active` → continue), rejects `now >= expiry` (`MandateExpired`, symmetric with registration's `expiry > now`), enforces `merchant == m.merchant` (`MerchantOutOfScope`), and enforces `m.spent + amount <= m.max_amount` (`BudgetExceeded`). `validate_and_consume` simply loads the mandate and calls `check` - no auth, no mutation; it exists to give the off-chain SDK a clean typed error before paying.
+`check` is the single source of enforcement truth, re-run on every spend so the SDK is never trusted: it rejects `amount <= 0` (`InvalidAmount`), matches `status` (`Revoked` → `MandateRevoked`, `Exhausted` → `BudgetExceeded`, `Active` → continue), rejects `now >= expiry` (`MandateExpired`, symmetric with registration's `expiry > now`), enforces `merchant == m.merchant` (`MerchantOutOfScope`), and enforces `m.spent + amount <= m.max_amount` (`BudgetExceeded`). `validate_mandate` simply loads the mandate and calls `check` - no auth, no mutation; it exists to give the off-chain SDK a clean typed error before paying.
 
 `execute_payment` is the security core and follows strict checks-effects-interactions ordering. (1) Load the mandate (`NotFound` if absent). (2) `mandate.agent.require_auth()` - only the bound agent can spend; this is host-enforced and reverts the tx if auth is missing/forged, with no typed error. (3) Replay guard: `expected_seq != mandate.seq` → `BadSequence`, blocking duplicate or out-of-order spends on top of Soroban's transport-level nonce. (4) Re-run `check` against stored state for scope/budget/expiry/status. (5) EFFECTS: `spent += amount`, `seq += 1`, flip `status = Exhausted` when `spent == max_amount`, and persist via `storage::set_mandate` BEFORE any external call. (6) INTERACTION: construct a `TokenClient` for `mandate.asset` and call SEP-41 `transfer_from(current_contract_address as spender, user → merchant, amount)`. (7) Emit `payment_executed`.
 
@@ -699,13 +699,13 @@ Because state is persisted before the token call, a malicious asset that reenter
 **Key items:**
 
 - `check(env,m,amount,merchant)->Result<(),Error> (private)` — The full validation: amount>0, status==Active, now<expiry, merchant in scope, spent+amount<=max_amount.
-- `validate_and_consume(env,mandate_id,amount,merchant)->Result<(),Error>` — Read-only dry run: load mandate + check; no auth, no state change.
+- `validate_mandate(env,mandate_id,amount,merchant)->Result<(),Error>` — Read-only dry run: load mandate + check; no auth, no state change.
 - `execute_payment(env,mandate_id,amount,expected_seq)->Result<(),Error>` — Only money path: load → require_auth(agent) → seq guard → check → advance spent/seq/status → persist → transfer_from → emit.
 - `expected_seq replay guard` — Must equal current mandate.seq; mandate-layer protection against duplicate/out-of-order execution.
 - `Exhausted transition` — status flips to Exhausted exactly when spent==max_amount, short-circuiting future spends.
 - `transfer_from(current_contract_address, user, merchant, amount)` — SEP-41 pull using the contract as the user-approved spender; the only external call.
 
-> **Note:** Checks-effects-interactions is strict and load-bearing: state (spent/seq) is written via set_mandate BEFORE transfer_from, so reentrancy during the token call hits the advanced seq and dies with BadSequence - no double-spend. Auth is on mandate.agent (the stored value), not a parameter. Budget check uses spent+amount and relies on overflow-checks=true (Cargo.toml) to trap rather than wrap. Note the merchant passed to check inside execute_payment is the mandate's own merchant, so the scope check there is tautological; the meaningful scope enforcement against an arbitrary payee is exercised via validate_and_consume.
+> **Note:** Checks-effects-interactions is strict and load-bearing: state (spent/seq) is written via set_mandate BEFORE transfer_from, so reentrancy during the token call hits the advanced seq and dies with BadSequence - no double-spend. Auth is on mandate.agent (the stored value), not a parameter. Budget check uses spent+amount and relies on overflow-checks=true (Cargo.toml) to trap rather than wrap. Note the merchant passed to check inside execute_payment is the mandate's own merchant, so the scope check there is tautological; the meaningful scope enforcement against an arbitrary payee is exercised via validate_mandate.
 
 ```rust
 //! The money path. The core invariant lives here: validating and consuming the
@@ -750,7 +750,7 @@ fn check(env: &Env, m: &Mandate, amount: i128, merchant: &Address) -> Result<(),
 /// permitted right now? Mutates nothing, requires no auth — the SDK calls this
 /// for a clean typed error before paying. The authoritative consume + transfer
 /// happens only in `execute_payment`.
-pub fn validate_and_consume(
+pub fn validate_mandate(
     env: &Env,
     mandate_id: BytesN<32>,
     amount: i128,
@@ -1069,7 +1069,7 @@ fn reentrancy_via_evil_token() {
 
 Builds a `World` fixture via `setup()`: a fresh `Env` with `mock_all_auths`, ledger time set to `NOW`, a registered `MandateRegistry`, generated user/agent/merchant, and a real Stellar Asset Contract (`register_stellar_asset_contract_v2`). It mints `FUNDED` to the user and has the user `approve` the registry contract as SEP-41 spender for `FUNDED` - establishing the allowance funding model that `execute_payment`'s `transfer_from` relies on. Helpers `client()`, `register()`, and `balance()` reduce boilerplate.
 
-The happy-path tests exercise every entry point end to end and assert real token movement: `happy_path_runs_every_method` registers, reads, dry-runs `validate_and_consume`, executes a payment (seq 0 → checks merchant balance = SPEND, user = FUNDED - SPEND, spent/seq advance), then revokes and confirms a follow-on `execute_payment` returns `MandateRevoked`. `property_spent_equals_transferred` runs two sequential payments (seq 0 then 1) and asserts `spent == 2*SPEND` and the merchant actually received `2*SPEND`.
+The happy-path tests exercise every entry point end to end and assert real token movement: `happy_path_runs_every_method` registers, reads, dry-runs `validate_mandate`, executes a payment (seq 0 → checks merchant balance = SPEND, user = FUNDED - SPEND, spent/seq advance), then revokes and confirms a follow-on `execute_payment` returns `MandateRevoked`. `property_spent_equals_transferred` runs two sequential payments (seq 0 then 1) and asserts `spent == 2*SPEND` and the merchant actually received `2*SPEND`.
 
 The §10 negative suite asserts the exact typed error for each rejection: `AlreadyExists` (duplicate register), `NotFound` (unknown id on get and execute), `BudgetExceeded` (single overspend, cumulative overspend, and post-Exhausted), `MandateExpired` (time advanced past expiry, and past-expiry registration), `MandateRevoked`, `MerchantOutOfScope` (payment to an attacker address via the dry run), `InvalidAmount` (zero amount). The replay suite covers `BadSequence` for both a stale/replayed seq and a future out-of-order seq, asserting funds moved exactly once or not at all.
 
@@ -1193,8 +1193,8 @@ fn happy_path_runs_every_method() {
     assert_eq!(m.max_amount, MAX);
     assert_eq!(m.seq, 0);
 
-    // validate_and_consume (read-only preflight)
-    c.validate_and_consume(&w.id, &SPEND, &w.merchant);
+    // validate_mandate (read-only preflight)
+    c.validate_mandate(&w.id, &SPEND, &w.merchant);
 
     // execute_payment — funds actually move (seq starts at 0)
     c.execute_payment(&w.id, &SPEND, &0);
@@ -1310,7 +1310,7 @@ fn out_of_scope_merchant_rejected() {
     let attacker = Address::generate(&w.env);
     assert_eq!(
         w.client()
-            .try_validate_and_consume(&w.id, &SPEND, &attacker),
+            .try_validate_mandate(&w.id, &SPEND, &attacker),
         Err(Ok(Error::MerchantOutOfScope))
     );
 }
@@ -2647,7 +2647,7 @@ export * as token from "./token.js";
 
 This is a `stellar contract bindings typescript`-style generated file. It defines the on-chain data model as TypeScript types and a `Client` class that extends the SDK's `ContractClient`, embedding the contract's XDR `Spec` (the base64 ABI entries) directly in the constructor so the client can encode/decode every method's arguments and results without a network round-trip for type info.
 
-The `Client` interface declares the five contract methods, each returning `Promise<AssembledTransaction<Result<...>>>`: read-only `get_mandate` and `validate_and_consume` (dry-run preflight, no auth, no state change), and state-mutating `revoke_mandate`, `execute_payment`, and `register_mandate`. The doc comments encode the on-chain semantics precisely: `execute_payment` is the only money path and is atomic - `require_auth(agent)` then a replay guard comparing `expected_seq` to the stored `seq` (else `BadSequence`), re-validation, advance of `spent`+`seq`, then a SEP-41 `transfer_from(user → merchant)`, reverting on any failure. `register_mandate` is authorized by `user` and forces `spent=0, seq=0, status=Active`, returning the mandate id (= `vc_hash`).
+The `Client` interface declares the five contract methods, each returning `Promise<AssembledTransaction<Result<...>>>`: read-only `get_mandate` and `validate_mandate` (dry-run preflight, no auth, no state change), and state-mutating `revoke_mandate`, `execute_payment`, and `register_mandate`. The doc comments encode the on-chain semantics precisely: `execute_payment` is the only money path and is atomic - `require_auth(agent)` then a replay guard comparing `expected_seq` to the stored `seq` (else `BadSequence`), re-validation, advance of `spent`+`seq`, then a SEP-41 `transfer_from(user → merchant)`, reverting on any failure. `register_mandate` is authorized by `user` and forces `spent=0, seq=0, status=Active`, returning the mandate id (= `vc_hash`).
 
 It also exports the `Errors` map (numeric contract error code → message), the `Status` union (Active/Revoked/Exhausted), the `Mandate` struct, the `DataKey` union (the storage key is `Mandate(vc_hash)`), and a `networks` const carrying the testnet passphrase and contract id. It re-exports `@stellar/stellar-sdk`, plus `contract` and `rpc` subpaths, and shims `window.Buffer` in browser environments. The `registryClient` factory in registry.ts instantiates this `Client`.
 
@@ -2663,7 +2663,7 @@ It also exports the `Errors` map (numeric contract error code → message), the 
 - `Client.revoke_mandate` — User-authorized state change marking the mandate Revoked; returns Result<void>.
 - `Client.execute_payment` — The only money path: agent-authorized atomic consume + SEP-41 transfer_from; args mandate_id, amount (i128), expected_seq (u32); returns Result<void>.
 - `Client.register_mandate` — User-authorized store of a signed mandate; args user/agent/merchant/asset/max_amount/expiry/vc_hash; contract forces spent=0,seq=0,Active; returns Result<Buffer> (the id).
-- `Client.validate_and_consume` — Read-only preflight dry-run (no auth, no mutation) checking whether a spend would be permitted; returns Result<void>.
+- `Client.validate_mandate` — Read-only preflight dry-run (no auth, no mutation) checking whether a spend would be permitted; returns Result<void>.
 - `class Client extends ContractClient` — Concrete client; constructor embeds the base64 ContractSpec (XDR ABI) and forwards ContractClientOptions to the base.
 - `Client.deploy` — Static helper to deploy a new instance from an already-installed wasmHash (hex/base64), with optional salt.
 - `fromJSON` — Map of per-method txFromJSON deserializers for reviving AssembledTransactions from JSON with correct typing.
@@ -2799,12 +2799,12 @@ export interface Client {
   register_mandate: ({user, agent, merchant, asset, max_amount, expiry, vc_hash}: {user: string, agent: string, merchant: string, asset: string, max_amount: i128, expiry: u64, vc_hash: Buffer}, options?: MethodOptions) => Promise<AssembledTransaction<Result<Buffer>>>
 
   /**
-   * Construct and simulate a validate_and_consume transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   * Construct and simulate a validate_mandate transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    * Read-only preflight — would this spend be permitted right now? Mutates
    * nothing and requires no auth; the authoritative consume happens only in
    * `execute_payment`. (Named per the protocol spec; it is a dry-run.)
    */
-  validate_and_consume: ({mandate_id, amount, merchant}: {mandate_id: Buffer, amount: i128, merchant: string}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+  validate_mandate: ({mandate_id, amount, merchant}: {mandate_id: Buffer, amount: i128, merchant: string}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
 
 }
 export class Client extends ContractClient {
@@ -2841,7 +2841,7 @@ export class Client extends ContractClient {
         revoke_mandate: this.txFromJSON<Result<void>>,
         execute_payment: this.txFromJSON<Result<void>>,
         register_mandate: this.txFromJSON<Result<Buffer>>,
-        validate_and_consume: this.txFromJSON<Result<void>>
+        validate_mandate: this.txFromJSON<Result<void>>
   }
 }
 ```
@@ -4390,7 +4390,7 @@ main().catch((err) => die(String(err instanceof Error ? err.message : err)));
 
 This is the flagship `npm run e2e:testnet` proof. It loads config from `.env` (contract id, RPC URL, passphrase, burner user secret/public) and validates each is present, then drives the entire mandate lifecycle on live testnet via `stellar contract invoke` subprocesses. The three actors are: `user` (the funded burner / deployer that owns funds and signs the mandate), `agent` (a fresh friendbot-funded key - the ONLY signer allowed to call `execute_payment`), and `merchant` (a fresh key that receives funds). Fresh keys come from `ensureAccount()` which runs `stellar keys generate --fund` then resolves the G-address; `friendbotFund()` tops them up via the Friendbot HTTP endpoint.
 
-The happy path: ensure the native asset contract (SAC) exists (`contract asset deploy --asset native`, tolerating the already-deployed error) and resolve its id; the user grants a SEP-41 `approve` allowance to the CONTRACT (not the agent) with an expiration ledger 17280 ahead (`latestLedger()` queries `getLatestLedger` over JSON-RPC); then `register_mandate` (user-signed), `get_mandate`, `validate_and_consume` (read-only preflight), and `execute_payment` (AGENT-signed) where it asserts the merchant balance delta equals `SPEND` exactly by reading SAC `balance` before/after. Each mandate uses a fresh 32-byte random `VC_HASH` as its id so reruns don't collide.
+The happy path: ensure the native asset contract (SAC) exists (`contract asset deploy --asset native`, tolerating the already-deployed error) and resolve its id; the user grants a SEP-41 `approve` allowance to the CONTRACT (not the agent) with an expiration ledger 17280 ahead (`latestLedger()` queries `getLatestLedger` over JSON-RPC); then `register_mandate` (user-signed), `get_mandate`, `validate_mandate` (read-only preflight), and `execute_payment` (AGENT-signed) where it asserts the merchant balance delta equals `SPEND` exactly by reading SAC `balance` before/after. Each mandate uses a fresh 32-byte random `VC_HASH` as its id so reruns don't collide.
 
 The adversarial section is the real point: a ROGUE overspend (`execute_payment` for 2×MAX) must be rejected → BudgetExceeded; a ROGUE replay (resubmit seq 0) must be rejected → BadSequence; then `revoke_mandate` (user-signed) and a PUNCHLINE attempt to pay on the revoked mandate which must be rejected. Every step is scored via `record(label, okExit)` and a final SUMMARY prints pass/fail and exits 1 if any step failed. It shares the same `chainify()` link-rewriting and color scheme as deploy.mjs, and depends entirely on the contract id produced by deploy.mjs.
 
@@ -4426,7 +4426,7 @@ The adversarial section is the real point: a ROGUE overspend (`execute_payment` 
  *   merchant (fresh) — receives the funds
  *
  * Flow: ensure native SAC → fund agent+merchant → user approves contract →
- *       register_mandate → get_mandate → validate_and_consume →
+ *       register_mandate → get_mandate → validate_mandate →
  *       execute_payment (agent-signed, XLM actually moves) → balances →
  *       revoke_mandate → confirm revoked.
  *
@@ -4620,11 +4620,11 @@ async function main() {
   record("get_mandate", invoke({ source: USER_SECRET, mask: USER_SECRET,
     method: { name: "get_mandate" }, args: ["--mandate_id", VC_HASH] }).okExit);
 
-  step("3/5 · validate_and_consume  (read-only preflight)");
+  step("3/5 · validate_mandate  (read-only preflight)");
   note("Dry-run: would a 1 XLM payment to this merchant be allowed right now?");
   note("Mutates nothing — it's the clean error the SDK checks before paying.");
-  record("validate_and_consume", invoke({ source: USER_SECRET, mask: USER_SECRET,
-    method: { name: "validate_and_consume" },
+  record("validate_mandate", invoke({ source: USER_SECRET, mask: USER_SECRET,
+    method: { name: "validate_mandate" },
     args: ["--mandate_id", VC_HASH, "--amount", SPEND, "--merchant", MERCHANT] }).okExit);
 
   step("4 · execute_payment  (AGENT-signed — real funds move)");
@@ -5392,7 +5392,7 @@ console.log();
 
 *Captures full-page Playwright screenshots of the canonical testnet transactions and the contract overview page, for use as visual proof in grant/demo materials.*
 
-This Playwright script produces the evidentiary screenshots that accompany REAPP's testnet proof. It writes into `example-output/screenshots` inside the repo (explicitly never /tmp, per project convention), creating the dir if needed. It hardcodes the canonical contract id (`CA3X76MR…BQCL`, the live MandateRegistry) and a `TARGETS` list of seven captures: six specific transactions (approve, register_mandate, validate_and_consume, execute_payment, revoke_mandate, and an unauthorized/FAILED attempt) keyed by tx hash, plus the contract overview page. Each target carries a `waitText` - a string (the leading hash chars, or 'Contract Details') that only appears once the explorer's client-side data has rendered.
+This Playwright script produces the evidentiary screenshots that accompany REAPP's testnet proof. It writes into `example-output/screenshots` inside the repo (explicitly never /tmp, per project convention), creating the dir if needed. It hardcodes the canonical contract id (`CA3X76MR…BQCL`, the live MandateRegistry) and a `TARGETS` list of seven captures: six specific transactions (approve, register_mandate, validate_mandate, execute_payment, revoke_mandate, and an unauthorized/FAILED attempt) keyed by tx hash, plus the contract overview page. Each target carries a `waitText` - a string (the leading hash chars, or 'Contract Details') that only appears once the explorer's client-side data has rendered.
 
 It launches headless Chromium at a 1600×1400 viewport with `deviceScaleFactor: 2` (retina-quality output), then for each target navigates to the stellarchain.io URL, optionally dismisses a cookie banner (non-fatal try/catch), and - the real gate - `waitForFunction` until `document.body.innerText` contains the `waitText`, ensuring it screenshots rendered data rather than a loading spinner. After an 800ms settle for fonts/layout it captures a `fullPage` PNG named like `04-execute-payment.png`. It tallies successes and exits non-zero unless all seven captured.
 

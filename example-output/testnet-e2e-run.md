@@ -1,7 +1,7 @@
 # REAPP Smart Contract: Milestone Complete ✅
 
 > **Deliverable:** *MandateRegistry Soroban contract deployed on testnet. Contract
-> live on testnet with `register_mandate`, `validate_and_consume`, `execute_payment`,
+> live on testnet with `register_mandate`, `validate_mandate`, `execute_payment`,
 > and `revoke_mandate` callable. Integration tests passing, including negative cases
 > for unauthorized callers and overspend attempts.*
 
@@ -16,7 +16,7 @@ way to overspend, replay, or pay after the user revokes.
 |---|---|---|
 | Soroban contract **deployed & live on testnet** | ✅ | [`CB2LY7XI…H3RD`](https://testnet.stellarchain.io/contracts/CB2LY7XIGP7324LTFWUWV5K54AKNCERCUC2N67TKGTCPK4Y2TVVYH3RD) |
 | `register_mandate` callable | ✅ | [on-chain tx](https://testnet.stellarchain.io/tx/d2cd6527a14344b88eaa2cd0e0e0d044150eabf6a22fcec58c48a0767d83ca14) |
-| `validate_and_consume` callable | ✅ | run live (read-only preflight) |
+| `validate_mandate` callable | ✅ | run live (read-only preflight) |
 | `execute_payment` callable | ✅ | [on-chain tx](https://testnet.stellarchain.io/tx/1ae4c4295d1786c679a8780925daa7839eb204521dd0b3b8c0e59c2febbf0616) |
 | `revoke_mandate` callable | ✅ | [on-chain tx](https://testnet.stellarchain.io/tx/83787eeabb1b4fde823639260631262088530e01f01311bcf9918432ad66ddb5) |
 | Integration tests passing | ✅ | **18/18** (`cargo test`) |

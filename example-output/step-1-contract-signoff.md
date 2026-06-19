@@ -1,7 +1,7 @@
 # Step 1: MandateRegistry: Audited & Airtight ✅
 
 > **Deliverable:** *MandateRegistry Soroban contract deployed on testnet with
-> `register_mandate`, `validate_and_consume`, `execute_payment`, and
+> `register_mandate`, `validate_mandate`, `execute_payment`, and
 > `revoke_mandate` callable. Integration tests passing, including negative cases
 > for unauthorized callers and overspend attempts.*
 

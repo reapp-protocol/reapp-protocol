@@ -1,7 +1,7 @@
 # Tranche 1: Step 1: Verified ✅
 
 > **Deliverable:** *MandateRegistry Soroban contract deployed on testnet. Contract
-> live on testnet with `register_mandate`, `validate_and_consume`, `execute_payment`,
+> live on testnet with `register_mandate`, `validate_mandate`, `execute_payment`,
 > and `revoke_mandate` callable. Integration tests passing, including negative cases
 > for unauthorized callers and overspend attempts.*
 
@@ -21,7 +21,7 @@ no local sandboxes: real XLM moved, and every rejection happened on the real net
 | Contract **deployed & live on testnet** | [Contract page](https://testnet.stellarchain.io/contracts/CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL) · 7 live transactions below |
 | Deployed bytecode **is** this repo's source | on-chain WASM hash `59298a08…cf80a1ce` == `sha256` of local build, **bit-for-bit** (§ Bytecode verification) |
 | `register_mandate` callable | ✅ [tx `fba8d71b…`](https://testnet.stellarchain.io/tx/fba8d71bcb95ef71d7e01dec583491d0790b599136e8a45fb18dd0bb30c38f42): ledger 3,021,945, SUCCESS |
-| `validate_and_consume` callable | ✅ [tx `50c8f482…`](https://testnet.stellarchain.io/tx/50c8f482e8f809eb5bc076e5d5ad286f8dc33cb9d03f9935ca0de72230c893c0): ledger 3,021,977, SUCCESS |
+| `validate_mandate` callable | ✅ [tx `50c8f482…`](https://testnet.stellarchain.io/tx/50c8f482e8f809eb5bc076e5d5ad286f8dc33cb9d03f9935ca0de72230c893c0): ledger 3,021,977, SUCCESS |
 | `execute_payment` callable | ✅ [tx `d4814ab9…`](https://testnet.stellarchain.io/tx/d4814ab9baa927f2276116e57f3b0384e1b21e67a3aa6ea1907869efcff910ab): ledger 3,021,947, SUCCESS, **+1 XLM moved** |
 | `revoke_mandate` callable | ✅ [tx `4ea9f8b1…`](https://testnet.stellarchain.io/tx/4ea9f8b1e4fea05afc7526ffebeceb88804f18541c529db67745f1ba1f4a6132): ledger 3,021,949, SUCCESS |
 | Integration tests passing | ✅ **19/19** `cargo test` (full list below) · `cargo clippy` 0 warnings |
@@ -39,7 +39,7 @@ sequenceDiagram
     User->>C: approve (SEP-41 allowance, 5 XLM cap)
     User->>C: register_mandate (budget 5 XLM, scoped to merchant)
     Agent->>C: get_mandate (read seq)
-    Agent->>C: validate_and_consume (preflight: would 1 XLM pass?)
+    Agent->>C: validate_mandate (preflight: would 1 XLM pass?)
     Agent->>C: execute_payment (1 XLM)
     C->>M: transfer 1 XLM (user → merchant)
     Agent--xC: overspend 10 XLM → #6 BudgetExceeded
@@ -82,18 +82,18 @@ mandate live and uses its `seq` for the payment's replay guard:
 ✓ pass get_mandate
 ```
 
-### 3 · `validate_and_consume`: preflight: would this spend be permitted?
+### 3 · `validate_mandate`: preflight: would this spend be permitted?
 
 > *Contract spec:* read-only dry-run that mutates nothing; the authoritative consume
 > happens only inside `execute_payment`. (Named per the protocol spec.)
 
-Used as a free preflight in the e2e (`✓ pass validate_and_consume`), **and** also
+Used as a free preflight in the e2e (`✓ pass validate_mandate`), **and** also
 submitted as a real transaction so reviewers have an on-chain record of the method
 executing successfully:
 
 - ✅ [tx `50c8f482…`](https://testnet.stellarchain.io/tx/50c8f482e8f809eb5bc076e5d5ad286f8dc33cb9d03f9935ca0de72230c893c0): ledger 3,021,977, Horizon `successful: true`
 
-![validate_and_consume on explorer](screenshots/03-validate-and-consume.png)
+![validate_mandate on explorer](screenshots/03-validate-and-consume.png)
 
 ### 4 · `execute_payment`: the only money path (agent-signed)
 

@@ -3,10 +3,10 @@
 [![tests](https://img.shields.io/badge/tests-19%2F19%20passing-2ea44f)](https://github.com/reapp-protocol/reapp-protocol/actions/workflows/ci.yml)
 [![testnet: MandateRegistry](https://img.shields.io/badge/testnet-MandateRegistry-7b3fe4)](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA)
 
-> **Update:** the MandateRegistry has been redeployed as a source-verified contract [`CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA`](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA), its source verified on StellarExpert (the read-only `validate_and_consume` method is now `validate_mandate`). The ids and transactions below remain valid historical evidence from the original deployment `CA3X76MR…BQCL`.
+> **Update:** the MandateRegistry has been redeployed as a source-verified contract [`CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA`](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA), its source verified on StellarExpert. The ids and transactions below remain valid historical evidence from the original deployment `CA3X76MR…BQCL`.
 
 > **Deliverable.** MandateRegistry Soroban contract deployed on testnet. Contract
-> live on testnet with `register_mandate`, `validate_and_consume`,
+> live on testnet with `register_mandate`, `validate_mandate`,
 > `execute_payment`, and `revoke_mandate` callable. Integration tests passing,
 > including negative cases for unauthorized callers and overspend attempts.
 
@@ -44,7 +44,7 @@ The five methods are just the things people can ask the bank:
 
 - 🔵 **`register_mandate`** sets the rules: who can spend, how much, where, and until when. You also tell the bank it may pull up to that amount from your account, so the assistant never holds the keys to your money; the bank does.
 - 🟠 **`execute_payment`** is the assistant asking the bank to pay the store. The bank re-checks every rule first (right assistant? right store? under budget? not expired? not a repeat?) and only then moves the money. This is the only way a single coin ever moves.
-- 🟢 **`validate_and_consume`** is a "would this be allowed?" dry run, like checking your balance before you swipe. Nothing actually happens.
+- 🟢 **`validate_mandate`** is a "would this be allowed?" dry run, like checking your balance before you swipe. Nothing actually happens.
 - 🔵 **`revoke_mandate`** is your kill switch: cancel the assistant's spending at any time, and every later attempt is denied.
 - 🟢 **`get_mandate`** lets anyone look up the rules and how much has been spent, like reading the card statement.
 
@@ -85,7 +85,7 @@ change state and require a specific signer.
 | Method | Signer | Changes state | What it does |
 |---|---|---|---|
 | 🔵 `register_mandate` | User | ✅ | Creates a mandate |
-| 🟢 `validate_and_consume` | None | ➖ | Preflight check before paying |
+| 🟢 `validate_mandate` | None | ➖ | Preflight check before paying |
 | 🟠 `execute_payment` | Agent | ✅ | The only path that moves money |
 | 🔵 `revoke_mandate` | User | ✅ | Cancels a mandate |
 | 🟢 `get_mandate` | None | ➖ | Reads a mandate |
@@ -106,7 +106,7 @@ Creates a new mandate. Moves no money.
 
 ---
 
-### 🟢 `validate_and_consume(mandate_id, amount, merchant)`
+### 🟢 `validate_mandate(mandate_id, amount, merchant)`
 
 A read-only dry run that answers one question: would a payment of `amount` to
 `merchant` be allowed right now?
@@ -198,7 +198,7 @@ sequenceDiagram
     Note over Agent,Merchant: Spend (agent signs)
     Agent->>Registry: get_mandate(id)
     Registry-->>Agent: current seq
-    Agent->>Registry: validate_and_consume(id, amount, merchant)
+    Agent->>Registry: validate_mandate(id, amount, merchant)
     Registry-->>Agent: ok (read-only, nothing moves)
     Agent->>Registry: execute_payment(id, amount, expected_seq)
     Registry->>Registry: require_auth(agent), check seq, status, expiry, scope, budget
@@ -306,12 +306,12 @@ XLM (1 XLM = 10,000,000 stroops). Mandate ids are shortened.
 | 2026-06-10 20:05:54 | `GA2B…L4XH` | [execute_payment](https://stellar.expert/explorer/testnet/tx/d4814ab9baa927f2276116e57f3b0384e1b21e67a3aa6ea1907869efcff910ab) | Agent paid 1 XLM on `NTSB…` (seq 0) |
 | 2026-06-10 20:06:04 | `GBE3…VNBG` | [revoke_mandate](https://stellar.expert/explorer/testnet/tx/4ea9f8b1e4fea05afc7526ffebeceb88804f18541c529db67745f1ba1f4a6132) | User revoked `NTSB…` |
 | 2026-06-10 20:08:14 | `GBE3…VNBG` | [register_mandate](https://stellar.expert/explorer/testnet/tx/a95ff1e7353ce78ba6f88d8a2ef927ac075d19b0a3bd97663a2b9513caa5392a) | New mandate `4Asq…`: agent set to the user, budget 1 XLM (set up for the unauthorized test) |
-| 2026-06-10 20:08:24 | `GBE3…VNBG` | [validate_and_consume](https://stellar.expert/explorer/testnet/tx/50c8f482e8f809eb5bc076e5d5ad286f8dc33cb9d03f9935ca0de72230c893c0) | Read-only preflight on `4Asq…` for 0.5 XLM. Nothing moved |
+| 2026-06-10 20:08:24 | `GBE3…VNBG` | [validate_mandate](https://stellar.expert/explorer/testnet/tx/50c8f482e8f809eb5bc076e5d5ad286f8dc33cb9d03f9935ca0de72230c893c0) | Read-only preflight on `4Asq…` for 0.5 XLM. Nothing moved |
 | 2026-06-10 20:11:15 | `GDNV…5ARS` | [execute_payment](https://stellar.expert/explorer/testnet/tx/18214372c9b13d3679808101773d8c372a2438cf2ab96e336c35e1753b0eadd2) | An account that is not the agent tried to pay on `4Asq…`. Rejected on-chain by `require_auth`. The transaction failed (the explorer shows the failed call) |
 
 ### What this history shows
 
-- **All four methods run live**: `register_mandate`, `validate_and_consume`, `execute_payment`, and `revoke_mandate` all appear, plus the read-only `get_mandate`.
+- **All four methods run live**: `register_mandate`, `validate_mandate`, `execute_payment`, and `revoke_mandate` all appear, plus the read-only `get_mandate`.
 - **Independent accounts use it**: mandates were registered and paid by accounts that are not ours (`GD52…`, `GBJO…`, `GDJU…`, `GCHM…`, `GAZM…`, `GDEK…`). The contract is publicly live, not a private fixture.
 - **Multi-payment within budget works**: on mandate `tbkM…`, the agent made three payments at seq 0, 1, and 2, each accepted, until the 3 XLM budget was used up. The `seq` counter advances exactly as designed.
 - **An unauthorized caller is rejected on-chain**: `GDNV…5ARS` tried `execute_payment` on a mandate it was not the agent for. Soroban's `require_auth` reverted it, and the transaction failed.
@@ -358,7 +358,7 @@ Why it holds:
 
 Three items are deferred to mainnet hardening and are not testnet blockers: an asset
 allowlist, aligning storage TTL with the mandate expiry, and revisiting the
-`validate_and_consume` name.
+`validate_mandate` name.
 
 ## Deliverable checklist
 
@@ -368,7 +368,7 @@ Every clause of the Tranche 1 Step 1 deliverable, with where it is proven.
 |---|---|---|
 | MandateRegistry deployed and live on testnet | Met | Contract `CA3X76MR…BQCL`, WASM `59298a08…`, deployed 2026-06-09. The same id is hard-coded in the SDK config (`packages/stellar`). The activity table lists 24 transactions (the deploy plus 23 calls), including from independent third-party accounts |
 | `register_mandate` callable | Met | Live on-chain; tests `happy_path_runs_every_method`, `register_requires_user_auth` |
-| `validate_and_consume` callable | Met | Live on-chain (2026-06-10 20:08:24). Read-only dry run by design, as documented above |
+| `validate_mandate` callable | Met | Live on-chain (2026-06-10 20:08:24). Read-only dry run by design, as documented above |
 | `execute_payment` callable | Met | Live on-chain, 1 XLM moved (confirmed on Horizon); tests `happy_path_runs_every_method`, `property_spent_equals_transferred` |
 | `revoke_mandate` callable | Met | Live on-chain; tests `revoked_mandate_rejected`, `revoke_requires_user_auth` |
 | Integration tests passing | Met | `cargo test` 19 of 19, green in CI on every push |
