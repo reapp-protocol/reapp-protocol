@@ -3,7 +3,7 @@
 [![tests](https://img.shields.io/badge/tests-19%2F19%20passing-2ea44f)](https://github.com/reapp-protocol/reapp-protocol/actions/workflows/ci.yml)
 [![testnet: MandateRegistry](https://img.shields.io/badge/testnet-MandateRegistry-7b3fe4)](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA)
 
-> **Update:** the MandateRegistry has been redeployed as a source-verified contract [`CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA`](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA), its source verified on StellarExpert. The ids and transactions below remain valid historical evidence from the original deployment `CA3X76MR…BQCL`.
+> **Update:** the MandateRegistry has been redeployed as a source-verified contract [`CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA`](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA), its source verified on StellarExpert. The contract identity and verification in this page describe that source-verified contract; the transaction history further down is from the original deployment `CA3X76MR…BQCL` and remains valid evidence.
 
 > **Deliverable.** MandateRegistry Soroban contract deployed on testnet. Contract
 > live on testnet with `register_mandate`, `validate_mandate`,
@@ -29,10 +29,11 @@ treated as untrusted. The contract is the source of truth.
 | Fact | Value |
 |---|---|
 | Network | Stellar testnet |
-| Contract id | [`CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL`](https://stellar.expert/explorer/testnet/contract/CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL) |
-| WASM hash | `59298a08…cf80a1ce` |
-| Deployed | 2026-06-09 22:50:57 UTC by [`GBE3…VNBG`](https://stellar.expert/explorer/testnet/account/GBE3PH4ZYVYUXZWZL4YJP22H5J46U6VQVF6SYNJ3GGU3RHBN4M77VNBG) |
-| Explorer | [stellar.expert contract page](https://stellar.expert/explorer/testnet/contract/CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL) |
+| Contract id | [`CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA`](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA) |
+| WASM hash | `4eb1b943…d8c69e` |
+| Deployed | 2026-06-19 02:34:12 UTC by [`GA2B…L4XH`](https://stellar.expert/explorer/testnet/account/GA2B3YY27OY6AWT2VXMXUDBSAHVOLU2ST6QWJJJLOIGDQHJDXO4RL4XH) |
+| Source | Source-verified on StellarExpert: [`reapp-protocol-contracts`](https://github.com/reapp-protocol/reapp-protocol-contracts) @ commit `d1a2e3e` |
+| Explorer | [stellar.expert contract page](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA) |
 
 The contract is small on purpose. A small interface is an auditable interface.
 
@@ -276,9 +277,9 @@ These run on every push through the CI workflow. That matches the Stellar feedba
 that the negative tests should run continuously in CI from Tranche 1, not be added
 at the end.
 
-## Every transaction on-chain
+## Original deployment: every transaction on-chain
 
-Read from the [stellar.expert contract activity](https://stellar.expert/explorer/testnet/contract/CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL),
+This is the on-chain history of the original deployment `CA3X76MR…BQCL`, kept as historical evidence; the current source-verified contract is `CB4KOTLG…7ZOA` above. Read from the [stellar.expert contract activity](https://stellar.expert/explorer/testnet/contract/CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL),
 oldest first; each call links to its transaction on stellar.expert. Amounts are in
 XLM (1 XLM = 10,000,000 stroops). Mandate ids are shortened.
 
@@ -320,23 +321,25 @@ Overspend, replay, and pay-after-revoke are also rejected on-chain, proven by th
 negative tests above and by the contract's typed errors (`BudgetExceeded`,
 `BadSequence`, `MandateRevoked`).
 
-## Bytecode verification
+## Source verification
 
-The contract enforcing payments on testnet is the exact source in this repository,
-proven by hash (Soroban explorers do not yet have a "verified source" badge):
+The contract is source-verified on StellarExpert: its on-chain bytecode is matched
+to the published source. The contract page shows a verified-source badge linking to
+the [`reapp-protocol-contracts`](https://github.com/reapp-protocol/reapp-protocol-contracts)
+repository at the exact commit it was built from.
 
-- On-chain wasm, fetched with `stellar contract fetch`: `59298a08…cf80a1ce`
-- Source rebuilt with `stellar contract build`: `59298a08…cf80a1ce`
+- On-chain wasm hash: `4eb1b943…d8c69e`
+- Verified source: `reapp-protocol-contracts` @ commit `d1a2e3e`, path `contracts/mandate-registry`
+- Build: produced by the StellarExpert build workflow with a pinned, reproducible toolchain, then deployed from that exact release artifact
 
-The two are identical. Build with `stellar contract build`, the same command the
-deploy uses. Raw `cargo build` produces a different hash because it skips Soroban's
-metadata embedding and the wasm-opt step.
+Anyone can confirm the deployed bytecode hash:
 
 ```
-stellar contract fetch --id CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL --network testnet --out-file onchain.wasm
-stellar contract build --manifest-path contracts/mandate-registry/Cargo.toml
-shasum -a 256 onchain.wasm target/wasm32v1-none/release/mandate_registry.wasm
+stellar contract fetch --id CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA --network testnet --out-file onchain.wasm
+shasum -a 256 onchain.wasm
 ```
+
+The hash is `4eb1b943…d8c69e`, and the [contract page](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA) shows the verified-source link to the repository.
 
 ## Security audit
 
@@ -366,7 +369,7 @@ Every clause of the Tranche 1 Step 1 deliverable, with where it is proven.
 
 | Clause | Status | Evidence |
 |---|---|---|
-| MandateRegistry deployed and live on testnet | Met | Contract `CA3X76MR…BQCL`, WASM `59298a08…`, deployed 2026-06-09. The same id is hard-coded in the SDK config (`packages/stellar`). The activity table lists 24 transactions (the deploy plus 23 calls), including from independent third-party accounts |
+| MandateRegistry deployed and live on testnet | Met | Contract `CB4KOTLG…7ZOA`, WASM `4eb1b943…`, deployed 2026-06-19, source-verified on StellarExpert. The same id is hard-coded in the SDK config (`packages/stellar`, v0.1.3). Live behavior confirmed end to end (register, approve, pay, revoke). The original deployment `CA3X76MR…BQCL` and its 24-transaction history are preserved below as evidence |
 | `register_mandate` callable | Met | Live on-chain; tests `happy_path_runs_every_method`, `register_requires_user_auth` |
 | `validate_mandate` callable | Met | Live on-chain (2026-06-10 20:08:24). Read-only dry run by design, as documented above |
 | `execute_payment` callable | Met | Live on-chain, 1 XLM moved (confirmed on Horizon); tests `happy_path_runs_every_method`, `property_spent_equals_transferred` |

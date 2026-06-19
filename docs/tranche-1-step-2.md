@@ -3,7 +3,7 @@
 [![tests](https://img.shields.io/badge/tests-19%2F19%20passing-2ea44f)](https://github.com/reapp-protocol/reapp-protocol/actions/workflows/ci.yml)
 [![testnet: MandateRegistry](https://img.shields.io/badge/testnet-MandateRegistry-7b3fe4)](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA)
 
-> **Update:** the MandateRegistry has been redeployed as a source-verified contract [`CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA`](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA), and the SDK (`@reapp-sdk/stellar` 0.1.3) points at it. Ids and transactions below are historical evidence from the original deployment `CA3X76MR…BQCL`.
+> **Update:** the MandateRegistry has been redeployed as a source-verified contract [`CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA`](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA), and the SDK (`@reapp-sdk/stellar` 0.1.3) points at it. The transaction evidence in this doc is from the original deployment `CA3X76MR…BQCL` and remains valid.
 
 > **Deliverable.** REAPP SDK core package published to npm. Package installable
 > via npm. Developers can create an agent, connect to the testnet contract, and
@@ -179,7 +179,7 @@ canonical evidence for this deliverable, and every transaction is independently
 re-checked against Horizon in the next section.
 
 - **Run:** 2026-06-15, 09:03:27 to 09:03:42 UTC (ledgers 3,100,287 to 3,100,290)
-- **Contract:** [`CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL`](https://stellar.expert/explorer/testnet/contract/CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL)
+- **Contract:** [`CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA`](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA)
 - **Mandate:** `2e7c7b87…d4513`
 - **Actors:** user [`GBE3…VNBG`](https://stellar.expert/explorer/testnet/account/GBE3PH4ZYVYUXZWZL4YJP22H5J46U6VQVF6SYNJ3GGU3RHBN4M77VNBG) · agent [`GDKT…KLBH`](https://stellar.expert/explorer/testnet/account/GDKTFIG4IO56FN64P4HBGYZ5FWIBA64XZ4RV4BL2MHCEAEEJLOM6KLBH) · merchant `GAEB…IYZ2`
 
@@ -311,7 +311,7 @@ dependency pinning), documented in the audit record.
 | SDK core package published to npm | Met | [`@reapp-sdk/core`](https://www.npmjs.com/package/@reapp-sdk/core) and [`@reapp-sdk/stellar`](https://www.npmjs.com/package/@reapp-sdk/stellar) live on npm, public scope, Apache-2.0 |
 | Package installable via npm | Met | `npm install @reapp-sdk/core @stellar/stellar-sdk`; ships `dist` with types, pulls `@reapp-sdk/stellar` automatically, no install scripts |
 | Create an agent | Met | `reapp.agent({ mandate, signer })`, bound to a registered mandate |
-| Connect to the testnet contract | Met | Defaults to the live MandateRegistry `CA3X76MR…BQCL` with no configuration |
+| Connect to the testnet contract | Met | Defaults to the live MandateRegistry `CB4KOTLG…7ZOA` with no configuration |
 | Execute a mandate-validated payment | Met | `agent.pay("1.00")` moved 1 XLM live ([tx `29dc4d72…`](https://stellar.expert/explorer/testnet/tx/29dc4d724e59c0b7a34c10b7d4e8c4c1038035026859f256163fecb3be5bb4d9)), Horizon-confirmed |
 | Under 10 lines of code | Met | The REAPP integration is four calls, well under 10 lines (imports and key setup aside); proven end to end by `npm run e2e:sdk` (8/8) |
 
