@@ -132,16 +132,17 @@ contract is the leash.
 `npm run e2e:x402` funds fresh actors, signs a 3 XLM mandate, starts the merchant,
 and runs the ResearchAgent. The run below is the canonical evidence.
 
-- **Run:** 2026-06-16, ledgers 3,108,631 to 3,108,636
-- **Mandate:** `b608dde3…1126`, budget 3 XLM
-- **Actors:** user [`GAHG…TORQ`](https://stellar.expert/explorer/testnet/account/GAHGD3Q6ZKKJFM4FM5M6DSDNTT6KGCEZRZ2NLBBGILZFSKNUFT7VTORQ) · agent [`GCZN…EZOC`](https://stellar.expert/explorer/testnet/account/GCZNWR64DOYJKQYSBO2D7LQQQ7UXJ57PF7JPHAVKH5EWAC5BIFC7EZOC) · merchant [`GDQ3…VSOA`](https://stellar.expert/explorer/testnet/account/GDQ3U23ZNRO3D5NGIH52BE2LT2RGSL5VD6Z3JXG2LOY5F3JQTOUJVSOA)
+- **Run:** 2026-06-19, ledgers 3,169,539 to 3,169,547
+- **Contract:** [`CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA`](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA)
+- **Mandate:** `86b4…4479`, budget 3 XLM
+- **Actors:** user [`GAMH…IDX6`](https://stellar.expert/explorer/testnet/account/GAMH7BXFSGLC6ZUTPMBPFQQLXJ6GT6SFVAGZC6S3DKISBSBM35QGIDX6) · agent [`GDEA…FKWW`](https://stellar.expert/explorer/testnet/account/GDEAXIXR2AIM7BILXPTIZ25546QW4IY5FFCBY6DEMDAOO3R3X3KSFKWW) · merchant [`GAA2…4OE3`](https://stellar.expert/explorer/testnet/account/GAA2BBN5EB6OH573AMWDZJZJVU7UESCQHG4JKW22DKRIXVYA77VP4OE3)
 
 | Step | x402 | On-chain |
 |---|---|---|
-| Authorize | user signs the 3 XLM mandate | register [tx `88d4462c…`](https://stellar.expert/explorer/testnet/tx/88d4462c8f15827a77af71a2f3c091f7c0ada5ed05e2dcdae2a23ebf8fead822), approve [tx `a42f1dba…`](https://stellar.expert/explorer/testnet/tx/a42f1dba6590deb585b52ab367bce3ebd387882055cae4b7ccf36145070ad0ec) |
-| `fetch(/source/market)` | 402, pay 1 XLM, resource served | **agent-signed** [tx `f6abd0c1…`](https://stellar.expert/explorer/testnet/tx/f6abd0c11ca9b1e2f856e92aa013bfbd456c2d9363728741799e51d7792e5b90) |
-| `fetch(/source/academic)` | 402, pay 1 XLM, resource served | [tx `4be38b50…`](https://stellar.expert/explorer/testnet/tx/4be38b500da29b69900ef9cd2ba5d2c9a9f51a832929012532f471c468dc4284) |
-| `fetch(/source/news)` | 402, pay 1 XLM, resource served | [tx `90723f4b…`](https://stellar.expert/explorer/testnet/tx/90723f4bc810f677b07fb5299b2bc2155f0ba7d36c5bd43c4eb8e8cd9bcabe41) |
+| Authorize | user signs the 3 XLM mandate | register [tx `af93aa7a…`](https://stellar.expert/explorer/testnet/tx/af93aa7a71196390502d8df0d3bef4ee4402f83d9cbe3416e9da6f095636cdf3), approve [tx `24997f20…`](https://stellar.expert/explorer/testnet/tx/24997f205abe0515707fd245754eb9e5ee553212cd43756b5a62a21eddd4fc01) |
+| `fetch(/source/market)` | 402, pay 1 XLM, resource served | **agent-signed** [tx `b4d749b2…`](https://stellar.expert/explorer/testnet/tx/b4d749b258b618465b8dfecc63d0deaad7c86ddeb14b48850bb217a80defb57b) |
+| `fetch(/source/academic)` | 402, pay 1 XLM, resource served | [tx `34542bd9…`](https://stellar.expert/explorer/testnet/tx/34542bd90be9383fdff2278c02c4f04ffb1fed780bb48c3726f8fb0be1500f0f) |
+| `fetch(/source/news)` | 402, pay 1 XLM, resource served | [tx `bf3df55e…`](https://stellar.expert/explorer/testnet/tx/bf3df55efb9894695e2135967bafe23ffe9558b5a37c923eafd0b691b2a1942c) |
 | `fetch(/source/patents)` | 402, payment **rejected on-chain** | `BudgetExceeded`, no transaction, no resource |
 
 **Result: 3 of 4 sources served, the 4th blocked by the contract, merchant earned
@@ -150,9 +151,9 @@ exactly 3 XLM.** The budget held through the HTTP layer.
 ### Independent confirmation
 
 Every transaction was re-verified against Horizon. The four method transactions
-return `successful: true` at ledgers 3,108,631 to 3,108,636. The register and approve
-were signed by the user (`GAHG…TORQ`); the three payments were signed by the agent
-(`GCZN…EZOC`), a different key. The merchant account read back exactly
+return `successful: true` at ledgers 3,169,539 to 3,169,547. The register and approve
+were signed by the user (`GAMH…IDX6`); the three payments were signed by the agent
+(`GDEA…FKWW`), a different key. The merchant account read back exactly
 `10003.0000000` XLM, a clean `+3` over its 10,000 XLM friendbot start.
 
 ## Security audit
@@ -170,7 +171,7 @@ honest record kept here on purpose:
 | The merchant verified the `payment` event's topic and amount but not which contract emitted it. Any contract could publish a forged `("payment", merchant, price)` event and unlock the resource for free. | The merchant now requires the event to be emitted by the MandateRegistry (`StrKey.encodeContract(ev.contractId()) == mandateRegistryId`). Verified on-chain: the token's `transfer` event is correctly ignored, only the registry's `payment` event is honored. |
 | Replay check ran before the async on-chain verification, leaving a TOCTOU window for concurrent reuse. | The proof is reserved synchronously before the await, and released only on a verification failure. |
 
-Full record: [`security/x402-audit-2026-06-16.md`](../security/x402-audit-2026-06-16.md).
+Full record: [`security/x402-audit-2026-06-16.md`](https://github.com/reapp-protocol/reapp-protocol/blob/main/security/x402-audit-2026-06-16.md).
 After the fixes the surface re-audited clean for testnet. The remaining items
 (per-call price ceiling, binding a payment to a specific resource, deriving the price
 from the asset decimals) are mainnet-hardening notes, not testnet blockers.
@@ -179,7 +180,7 @@ from the asset decimals) are mainnet-hardening notes, not testnet blockers.
 
 | Clause | Status | Evidence |
 |---|---|---|
-| x402 round-trip working end to end | Met | `npm run e2e:x402`, 3 of 4 sources served live, [tx `f6abd0c1…`](https://stellar.expert/explorer/testnet/tx/f6abd0c11ca9b1e2f856e92aa013bfbd456c2d9363728741799e51d7792e5b90) and the table above |
+| x402 round-trip working end to end | Met | `npm run e2e:x402`, 3 of 4 sources served live, [tx `b4d749b2…`](https://stellar.expert/explorer/testnet/tx/b4d749b258b618465b8dfecc63d0deaad7c86ddeb14b48850bb217a80defb57b) and the table above |
 | `Agent.fetch(url)` receives a 402 | Met | the merchant answers 402; `fetch` parses it (`x402.ts` `parse402`) |
 | validates the mandate | Met | `fetch` checks merchant and asset; the contract re-validates scope, budget, expiry, replay on-chain |
 | signs the XDR and pays | Met | agent-signed `execute_payment`, three payments confirmed on Horizon |
