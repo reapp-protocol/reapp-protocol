@@ -4,7 +4,7 @@ An AI agent does research for you and buys the articles it needs. A smart contra
 
 Each step ends with an "Under the hood" line naming the smart-contract method behind it. Skip those and the story still makes sense.
 
-## The steps
+## 🪜 The steps
 
 ### Step 1: You add money to a wallet
 
@@ -54,7 +54,7 @@ You can kill the rule whenever you want, and every payment after that is refused
 
 Under the hood: `revoke_mandate`, which you sign, sets `status = Revoked`, and later payments fail with `MandateRevoked`. The contract also refuses the wrong store, an expired rule, and repeat payments on its own.
 
-## The methods, in plain English
+## 🧰 The methods, in plain English
 
 The contract has five methods, plus the token's `approve`. The "Who signs" column tells you who has to authorize each one.
 
@@ -67,7 +67,7 @@ The contract has five methods, plus the token's `approve`. The "Who signs" colum
 | `get_mandate` | No one | Looks up the rule and how much has been spent. Read-only. |
 | `revoke_mandate` | You | Your kill switch. Cancels the rule so no more payments go through. |
 
-## What the contract refuses
+## 🚫 What the contract refuses
 
 The contract checks these on every payment, and no agent or app can get around them. It says no to:
 
@@ -78,6 +78,6 @@ The contract checks these on every payment, and no agent or app can get around t
 - A repeat or out-of-order payment
 - A zero or negative amount
 
-## The one thing to remember
+## 🛡️ The one thing to remember
 
 The agent never holds your money and never controls the limit. The contract does, and it checks the rules on every single payment. The worst a rogue agent or a hacked app can do is get told no.
