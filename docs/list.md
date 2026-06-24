@@ -24,7 +24,7 @@ flowchart LR
 1. **[README.md](../README.md)** to orient.
 2. The three **deliverable docs** (contract, SDK, x402) — each carries its own live on-chain proof, with every call linked to its transaction on StellarExpert.
 3. The three **security audits** for the adversarial review.
-4. **`code-review.md`** or **`code_review_full.md`** for line-by-line depth.
+4. The archived **code reviews** in [`history/`](history/) for line-by-line depth.
 5. **[playbook-testnet.md](playbook-testnet.md)** to reproduce any of it. The mainnet counterpart, `playbook-mainnet.md`, ships with the mainnet tranche.
 
 ---
@@ -49,10 +49,14 @@ The plain-English writeup of each milestone: what shipped, the full API or metho
 
 ## Code reviews
 
+Large, generated, point-in-time snapshots — archived under
+[`history/`](history/), not maintained. Use them for line-by-line depth; for the
+current state, read the source and the `security/` audits.
+
 | Document | What it is |
 | --- | --- |
-| [`code-review.md`](code-review.md) | A focused review up front (verdict, architecture, what stops each attack, findings) followed by an exhaustive method-by-method reference. Scope: the contract, the SDK, and the reference apps. |
-| [`code_review_full.md`](code_review_full.md) | The full annotated source listing. Every meaningful file with its role, an explanation of what the code does function by function, and the verbatim source inlined, preceded by five architecture Mermaid diagrams. The complete read-the-whole-thing reference. |
+| [`history/code-review.md`](history/code-review.md) | A focused review up front (verdict, architecture, what stops each attack, findings) followed by an exhaustive method-by-method reference. Scope: the contract, the SDK, and the reference apps. |
+| [`history/code_review_full.md`](history/code_review_full.md) | The full annotated source listing. Every meaningful file with its role, an explanation of what the code does function by function, and the verbatim source inlined, preceded by five architecture Mermaid diagrams. The complete read-the-whole-thing reference. |
 
 ## Security audits
 

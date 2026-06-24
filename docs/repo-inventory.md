@@ -91,8 +91,8 @@ The untrusted client. Published to npm.
 | `docs/mandate-registry-contract.md` | Step 1 writeup: the contract, every method, on-chain activity, deployment history. | Keep |
 | `docs/reapp-sdk-npm.md` | Step 2 writeup: `@reapp-sdk/core` + `@reapp-sdk/stellar` on npm, the under-10-line flow. | Keep |
 | `docs/x402-roundtrip.md` | Step 3 writeup: the `Agent.fetch` x402 round-trip, merchant, ResearchAgent. | Keep |
-| `docs/code-review.md` | Code review export (tracked, ~168 KB). | Decide (older review) |
-| `docs/code_review_full.md` | Full file-by-file review with verbatim source inlined (~383 KB). | Decide (untracked) |
+| `docs/history/code-review.md` | Code review export (~168 KB), created 2026-06-16. | Keep (archived) |
+| `docs/history/code_review_full.md` | Full file-by-file review with verbatim source inlined (~383 KB), created 2026-06-17. | Keep (archived) |
 | `docs/repo-inventory.md` | This file. | Keep |
 | `security/README.md` | Index of audit records. | Keep |
 | `security/audit-2026-06-10.md` | Contract audit (Step 1). | Keep |
@@ -127,9 +127,10 @@ load-bearing. The real cut candidates cluster in a few places:
 3. **Frozen one-shots.** `scripts/screenshot-proofs.mjs` (wrote into the now-removed
    `example-output/screenshots/` and still hardcodes old stellarchain.io tx links),
    and the thin `playbook/demo.ts` alias. Both remain cut candidates.
-4. **Two code-review docs.** `docs/code-review.md` (tracked) and
-   `docs/code_review_full.md` (much larger). Keep one; both still describe the
-   removed `example-output/` folder and should be regenerated or trimmed.
+4. **Code-review dumps — moved to `docs/history/`.** `code-review.md` (2026-06-16)
+   and `code_review_full.md` (2026-06-17) are point-in-time snapshots (they still
+   describe the removed `example-output/` folder); regenerate from the current tree
+   if a fresh review is needed.
 
 ## Cleanup log
 
