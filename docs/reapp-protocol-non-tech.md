@@ -1,13 +1,8 @@
-# REAPP for Marketing: The Non-Technical Guide 🧠💸
-
-[![audience](https://img.shields.io/badge/audience-marketing%20%2F%20non--technical-2ea44f)](#)
-[![network](https://img.shields.io/badge/network-Stellar%20testnet-7b3fe4)](#)
-[![you](https://img.shields.io/badge/you-stay%20in%20control-0ea5e9)](#)
-[![agent](https://img.shields.io/badge/agent-never%20holds%20your%20money-f59e0b)](#)
+# REAPP for Marketing: The Non-Technical Guide
 
 > A simple story: an **AI agent** does research for you and buys the articles it needs, while a smart contract makes sure it can only ever spend what you allowed.
 >
-> Read the **steps** for the story. Each step has an **🔧 Under the hood** line naming the real smart-contract method behind it, also in plain English. Marketing can skip those lines; the story still makes sense.
+> Each step has a **🔧 Under the hood** line naming the smart-contract method behind it. Skip those and the story still makes sense.
 
 ---
 
@@ -65,7 +60,7 @@ You can kill the rule whenever you want, and every later payment is refused.
 
 ---
 
-## 🧰 The five methods, in plain English
+## 🧰 The methods, in plain English
 
 > **Key:** 🟢 read-only, no signature · 🔵 you sign · 🟠 agent signs, moves money
 
