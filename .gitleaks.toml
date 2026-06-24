@@ -1,0 +1,33 @@
+# gitleaks config for reapp-protocol.
+# Extends the default ruleset and adds Stellar-specific detection.
+# See https://github.com/gitleaks/gitleaks
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "stellar-secret-key"
+description = "Stellar secret (seed) key — controls funds, must never be committed"
+# S + 55 base32 chars (A-Z, 2-7), as a standalone token.
+# Public keys (G...) and contract ids (C...) are NOT secret and won't match.
+regex = '''\bS[A-Z2-7]{55}\b'''
+keywords = ["S"]
+
+[[rules]]
+id = "bip39-seed-phrase"
+description = "Possible BIP39 mnemonic (12 or 24 lowercase words)"
+regex = '''\b([a-z]{3,8}\s+){11,23}[a-z]{3,8}\b'''
+# Markdown/docs are English prose and trip this rule constantly. A real seed
+# phrase would live in .env, a script, or config — never in doc prose.
+[rules.allowlist]
+paths = ['''\.(md|mdx|txt|rst)$''']
+
+[allowlist]
+description = "Known-safe placeholders and public values"
+regexes = [
+  '''S\.\.\.your-burner-secret\.\.\.''',  # .env.example placeholder
+  '''G\.\.\.your-burner-address\.\.\.''',  # .env.example placeholder
+]
+paths = [
+  '''\.env\.example$''',
+]
