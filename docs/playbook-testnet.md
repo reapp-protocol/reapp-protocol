@@ -77,7 +77,7 @@ anything network related.
 
 | Surface | How it reaches testnet | What changes for mainnet |
 |---|---|---|
-| Contract deploy (`scripts/deploy.mjs`, `npm run deploy:testnet`) | Reads `SOROBAN_RPC_URL` and `NETWORK_PASSPHRASE` from the local env file. Hardcodes testnet explorer links (`testnet.stellarchain.io`). Assumes a funded testnet account. | Point the local env file at mainnet RPC and passphrase, swap the explorer base, and deploy from a hardware-backed key rather than a burner. The script name itself (`deploy:testnet`) signals scope. |
+| Contract deploy (`scripts/deploy.mjs`, `npm run deploy:testnet`) | Reads `SOROBAN_RPC_URL` and `NETWORK_PASSPHRASE` from the local env file. Hardcodes testnet explorer links (`stellar.expert`). Assumes a funded testnet account. | Point the local env file at mainnet RPC and passphrase, swap the explorer base, and deploy from a hardware-backed key rather than a burner. The script name itself (`deploy:testnet`) signals scope. |
 | `npm run e2e:testnet` (`scripts/e2e-testnet.mjs`) | Reads RPC, passphrase, contract id, and keys from the local env file. Funds fresh accounts via **friendbot**. | Friendbot does not exist on mainnet. Real accounts must be funded with real XLM. There is no auto-funding. |
 | SDK network config (`packages/stellar/src/config.ts`, the `TESTNET` constant) | Hardcodes the testnet contract id, native SAC, RPC, and passphrase. | Add a `MAINNET` `NetworkConfig` and pass it explicitly as the last argument to `reapp.*` calls, or publish an SDK build that defaults to it. |
 | `npm run e2e:sdk`, `npm run e2e:x402`, `npm run audit` | Import the SDK `TESTNET` constant directly. **They ignore the network values in the local env file** and always hit the testnet contract baked into the SDK. They fund via friendbot. | These must select the `MAINNET` config. Updating the local env file alone does nothing for them. |
@@ -322,8 +322,8 @@ How `scripts/deploy.mjs` targets testnet, in detail:
   --rpc-url <rpc> --network-passphrase <passphrase>`, captures stdout, and takes
   the last `C...` match as the contract id.
 - It writes that id back into the local env file as `MANDATE_REGISTRY_CONTRACT_ID` and
-  prints a `testnet.stellarchain.io` explorer link. The explorer base and the
-  link rewriting are hardcoded to testnet inside the script.
+  prints a `stellar.expert` explorer link. The explorer base and the
+  link normalization are hardcoded to testnet inside the script.
 - The deployer account must already be funded with **testnet** XLM (use
   friendbot during setup).
 
@@ -353,9 +353,8 @@ Then compare the hash of `onchain.wasm` against the freshly built artifact.
 | soroban-sdk | v22 |
 | Contract page | https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA |
 
-Use stellar.expert for the contract page and activity. Single transactions also
-render on stellarchain.io (the testnet e2e and deploy scripts print
-stellarchain links for txs).
+Use stellar.expert for the contract page, activity, and single transactions; the
+testnet e2e and deploy scripts print stellar.expert links throughout.
 
 ### Behavior to preserve
 

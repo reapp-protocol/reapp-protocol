@@ -10,7 +10,7 @@
  * - Reads the deployer SECRET from REAPP_BURNER_SECRET_KEY, or prompts for it
  *   at runtime (hidden input) — never stored, never echoed.
  * - Deploys, captures the contract ID, writes it back to .env, and prints the
- *   stellarchain.io link.
+ *   stellar.expert link.
  *
  * The deployer account must be funded with testnet XLM.
  * (Set NO_COLOR=1 to disable colored output.)
@@ -34,7 +34,7 @@ const ENV_PATH = path.join(ROOT, ".env");
 const DEPLOYMENTS_PATH = path.join(ROOT, "packages", "stellar", "src", "deployments.ts");
 const MANIFEST = path.join(ROOT, "contracts", "mandate-registry", "Cargo.toml");
 const CONTRACT_DIR = path.join(ROOT, "contracts", "mandate-registry");
-const EXPLORER = "https://testnet.stellarchain.io/contracts/";
+const EXPLORER = "https://stellar.expert/explorer/testnet/contract/";
 
 const loaded = dotenv.config({ path: ENV_PATH, quiet: true });
 
@@ -55,13 +55,13 @@ const c = {
 };
 const RULE = (paint = c.gray) => paint("─".repeat(62));
 
-// Rewrite the stellar CLI's explorer links to stellarchain.io (testnet).
-const chainify = (s) =>
+// Normalize the stellar CLI's explorer links to stellar.expert (testnet).
+const explorerize = (s) =>
   String(s)
-    .replaceAll("https://stellar.expert/explorer/testnet/tx/", "https://testnet.stellarchain.io/tx/")
-    .replaceAll("https://stellar.expert/explorer/testnet/contract/", "https://testnet.stellarchain.io/contracts/")
-    .replaceAll("https://stellar.expert/explorer/testnet/account/", "https://testnet.stellarchain.io/accounts/")
-    .replaceAll("https://lab.stellar.org/r/testnet/contract/", "https://testnet.stellarchain.io/contracts/");
+    .replaceAll("https://testnet.stellarchain.io/tx/", "https://stellar.expert/explorer/testnet/tx/")
+    .replaceAll("https://testnet.stellarchain.io/contracts/", "https://stellar.expert/explorer/testnet/contract/")
+    .replaceAll("https://testnet.stellarchain.io/accounts/", "https://stellar.expert/explorer/testnet/account/")
+    .replaceAll("https://lab.stellar.org/r/testnet/contract/", "https://stellar.expert/explorer/testnet/contract/");
 
 // ── logging ────────────────────────────────────────────────────────────────
 const startedAt = Date.now();
@@ -96,8 +96,8 @@ function capture(bin, args, display) {
   cmd(`${bin} ${(display ?? args).join(" ")}`);
   const res = spawnSync(bin, args, { cwd: ROOT, encoding: "utf8", env: CHILD_ENV });
   if (res.error) die(`failed to spawn ${bin}: ${res.error.message}`);
-  if (res.stdout) stdout.write(chainify(res.stdout));
-  if (res.stderr) process.stderr.write(chainify(res.stderr));
+  if (res.stdout) stdout.write(explorerize(res.stdout));
+  if (res.stderr) process.stderr.write(explorerize(res.stderr));
   if (res.status !== 0) die(`${bin} exited with code ${res.status}`);
   return `${res.stdout ?? ""}\n${res.stderr ?? ""}`;
 }

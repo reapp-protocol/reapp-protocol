@@ -42,13 +42,13 @@ const c = {
 };
 const RULE = (p = c.gray) => p("─".repeat(64));
 
-// Rewrite the stellar CLI's explorer links to stellarchain.io (testnet).
-const chainify = (s) =>
+// Normalize the stellar CLI's explorer links to stellar.expert (testnet).
+const explorerize = (s) =>
   String(s)
-    .replaceAll("https://stellar.expert/explorer/testnet/tx/", "https://testnet.stellarchain.io/tx/")
-    .replaceAll("https://stellar.expert/explorer/testnet/contract/", "https://testnet.stellarchain.io/contracts/")
-    .replaceAll("https://stellar.expert/explorer/testnet/account/", "https://testnet.stellarchain.io/accounts/")
-    .replaceAll("https://lab.stellar.org/r/testnet/contract/", "https://testnet.stellarchain.io/contracts/");
+    .replaceAll("https://testnet.stellarchain.io/tx/", "https://stellar.expert/explorer/testnet/tx/")
+    .replaceAll("https://testnet.stellarchain.io/contracts/", "https://stellar.expert/explorer/testnet/contract/")
+    .replaceAll("https://testnet.stellarchain.io/accounts/", "https://stellar.expert/explorer/testnet/account/")
+    .replaceAll("https://lab.stellar.org/r/testnet/contract/", "https://stellar.expert/explorer/testnet/contract/");
 const log = (...a) => console.log(...a);
 const step = (s) => console.log(`\n${c.cyan("▸")} ${c.bold(c.cyan(s))}`);
 const field = (l, v) => console.log(`     ${c.gray("·")} ${c.dim(`${l}`.padEnd(14))} ${v}`);
@@ -90,8 +90,8 @@ function sh(bin, args, { mask, quiet } = {}) {
   const err = `${res.stderr ?? ""}`.trim();
   const okExit = !res.error && res.status === 0;
   if (!quiet) {
-    for (const l of err.split("\n").filter(Boolean)) log(`       ${(okExit ? c.dim : c.red)(chainify(l))}`);
-    if (out) log(`       ${c.dim(chainify(out))}`);
+    for (const l of err.split("\n").filter(Boolean)) log(`       ${(okExit ? c.dim : c.red)(explorerize(l))}`);
+    if (out) log(`       ${c.dim(explorerize(out))}`);
   }
   return { okExit, out, err };
 }
@@ -153,7 +153,7 @@ async function main() {
   log(`    ${c.yellow("merchant")} ${c.dim("the payee — receives funds")}`);
   log("");
   field("contract", c.yellow(CONTRACT));
-  field("explorer", c.link(`https://testnet.stellarchain.io/contracts/${CONTRACT}`));
+  field("explorer", c.link(`https://stellar.expert/explorer/testnet/contract/${CONTRACT}`));
   field("user", c.yellow(USER));
   field("vc_hash", c.dim(VC_HASH));
 
