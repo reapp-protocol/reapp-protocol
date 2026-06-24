@@ -1,10 +1,5 @@
 # Tranche 1, Step 3: x402 Payment Round-Trip on Testnet
 
-[![tests](https://img.shields.io/badge/tests-19%2F19%20passing-2ea44f)](https://github.com/reapp-protocol/reapp-protocol/actions/workflows/ci.yml)
-[![testnet: MandateRegistry](https://img.shields.io/badge/testnet-MandateRegistry-7b3fe4)](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA)
-
-> The MandateRegistry is **source-verified on StellarExpert**: [`CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA`](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA).
-
 > **Deliverable.** x402 testnet payment round-trip working end to end.
 > `Agent.fetch(url)` receives a 402, validates the mandate, signs the XDR, pays,
 > and receives the resource. Reviewers can reproduce the full ResearchAgent

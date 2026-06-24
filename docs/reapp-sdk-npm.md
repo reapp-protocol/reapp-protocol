@@ -1,10 +1,5 @@
 # Tranche 1, Step 2: The REAPP SDK on npm
 
-[![tests](https://img.shields.io/badge/tests-19%2F19%20passing-2ea44f)](https://github.com/reapp-protocol/reapp-protocol/actions/workflows/ci.yml)
-[![testnet: MandateRegistry](https://img.shields.io/badge/testnet-MandateRegistry-7b3fe4)](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA)
-
-> The MandateRegistry is **source-verified on StellarExpert**: [`CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA`](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA). The SDK (`@reapp-sdk/stellar` 0.1.3) points at it.
-
 > **Deliverable.** REAPP SDK core package published to npm. Package installable
 > via npm. Developers can create an agent, connect to the testnet contract, and
 > execute a mandate-validated payment in under 10 lines of code.
