@@ -26,7 +26,7 @@ const fixture = JSON.parse(
 const REGISTRY = TESTNET.mandateRegistryId; // the trusted emitter
 const MERCHANT = "GCREL554SPELMSCEIQQVYS2TPDWONZ6AVQXMUNBEGGZ2X5FNYHDC2RZG"; // paid in the fixture
 const OTHER = "GAHGD3Q6ZKKJFM4FM5M6DSDNTT6KGCEZRZ2NLBBGILZFSKNUFT7VTORQ"; // a different account
-const SAC = "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC"; // the token contract (not the registry)
+const SAC = TESTNET.nativeSac; // the token contract (not the registry)
 const PRICE = 10_000_000n; // 1.00 XLM, the unlock price
 const CHECK: PaymentCheck = { merchant: MERCHANT, registryId: REGISTRY, priceStroops: PRICE };
 

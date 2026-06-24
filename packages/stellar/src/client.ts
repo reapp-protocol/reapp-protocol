@@ -1,5 +1,9 @@
 import { Buffer } from "buffer";
 import { Address } from "@stellar/stellar-sdk";
+// Deployed addresses come from the single source of truth, deployments.ts.
+// (This is the generated binding; if you regenerate it, re-apply this import and
+// the `contractId` reference below.)
+import { DEPLOYMENTS } from "./deployments.js";
 import {
   AssembledTransaction,
   Client as ContractClient,
@@ -34,7 +38,7 @@ if (typeof window !== "undefined") {
 export const networks = {
   testnet: {
     networkPassphrase: "Test SDF Network ; September 2015",
-    contractId: "CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA",
+    contractId: DEPLOYMENTS.testnet.mandateRegistryId,
   }
 } as const
 

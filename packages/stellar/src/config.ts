@@ -1,3 +1,5 @@
+import { DEPLOYMENTS } from "./deployments.js";
+
 /** Network configuration for REAPP's Soroban layer. */
 export interface NetworkConfig {
   rpcUrl: string;
@@ -12,6 +14,6 @@ export interface NetworkConfig {
 export const TESTNET: NetworkConfig = {
   rpcUrl: "https://soroban-testnet.stellar.org",
   networkPassphrase: "Test SDF Network ; September 2015",
-  mandateRegistryId: "CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA",
-  nativeSac: "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+  mandateRegistryId: DEPLOYMENTS.testnet.mandateRegistryId,
+  nativeSac: DEPLOYMENTS.testnet.nativeSac,
 };
