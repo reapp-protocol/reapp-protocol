@@ -9,7 +9,7 @@ that matches your task.
 
 > **This is the testnet playbook.** Every contract id, account, RPC, passphrase,
 > funding step, and explorer link below is testnet. The mainnet counterpart
-> will live in `PLAYBOOK_MAINNET.md` and will differ in important ways (no
+> will live in `docs/playbook-mainnet.md` and will differ in important ways (no
 > friendbot funding, real value at risk, a separate `MAINNET` network config,
 > hardware-backed keys, and the deferred hardening items from the audits). See
 > "Going to mainnet" at the end for the preview. **Never reuse a testnet key,
@@ -103,7 +103,7 @@ apps/consumer-agent/          reference ResearchAgent: buys sources via agent.fe
 scripts/                      deploy (testnet), e2e (testnet), audit (testnet), key derivation, verify gate
 playbook/demo.ts              npm run demo, the on-chain "aha" on testnet (happy path + rogue rejections)
 security/                     dated audit records (contract, SDK, x402)
-docs/                         tranche step write-ups and the full code review
+docs/                         deliverable write-ups, this playbook, and the full code review
 .github/workflows/ci.yml      CI: Rust contract job + TypeScript workspaces job
 .githooks/pre-push            local pre-push gate that runs npm run verify
 ```
@@ -654,9 +654,10 @@ not. Green CI is required to merge.
 - **Prose style.** REAPP writing is human and direct. No em dashes or en dashes.
   Avoid AI-tell phrasing.
 - **Tranche cadence.** Work ships in tranche steps. Each step has a write-up in
-  `docs/tranche-1-step-N.md` with the verified on-chain evidence (test counts,
-  e2e counts, contract and mandate ids). Update the relevant doc when a step
-  closes.
+  the matching deliverable doc in `docs/` (`mandate-registry-contract.md`,
+  `reapp-sdk-npm.md`, `x402-roundtrip.md`) with the verified on-chain evidence
+  (test counts, e2e counts, contract and mandate ids). Update the relevant doc when
+  a step closes.
 - **Defer cosmetic changes.** Do not reopen a shipped tranche for a
   non-functional change (a method rename, a comment tweak). Fold it into the
   next tranche's redeploy and version cycle.
@@ -870,7 +871,7 @@ account.
 2. Run the BulletproofBar gate on the changed surfaces.
 3. Fix every finding that meets the defect bar.
 4. Write `security/<component>-audit-YYYY-MM-DD.md`.
-5. Update `docs/tranche-1-step-N.md` with the verified evidence.
+5. Update the matching deliverable doc in `docs/` with the verified evidence.
 
 ### I am onboarding a new developer
 
@@ -901,7 +902,7 @@ get rejected on-chain is the fastest way to understand the invariant.
 
 ## Going to mainnet
 
-The mainnet procedure will live in `PLAYBOOK_MAINNET.md`. This section is the
+The mainnet procedure will live in `docs/playbook-mainnet.md`. This section is the
 preview so you know what carries over and what does not. The core invariant, the
 contract source, the test suite, `npm run verify`, CI, and the git conventions
 are all unchanged. What changes is everything network and value related:
@@ -914,7 +915,7 @@ flowchart LR
     T3["deploy:testnet, burner key"]
     T4["mistakes cost nothing"]
   end
-  subgraph Mainnet["Mainnet (PLAYBOOK_MAINNET.md)"]
+  subgraph Mainnet["Mainnet (docs/playbook-mainnet.md)"]
     M1["real XLM, real funding"]
     M2["new SDK MAINNET constant"]
     M3["mainnet deploy, hardware-backed key"]

@@ -5599,14 +5599,14 @@ time, so a compromised agent or SDK cannot exceed the mandate.
 > **Status:** Tranche 1 complete (Steps 1, 2, 3).
 > **Step 1.** `MandateRegistry` deployed, audited, and live on Stellar testnet
 > (19/19 tests, 9/9 on-chain e2e, CI green). See
-> [docs/tranche-1-step-1.md](docs/tranche-1-step-1.md).
+> [docs/mandate-registry-contract.md](docs/mandate-registry-contract.md).
 > **Step 2.** `@reapp-sdk/core` and `@reapp-sdk/stellar` published to npm; the
 > under-10-line flow runs 8/8 live on testnet; SDK independently audited (0 defects).
-> See [docs/tranche-1-step-2.md](docs/tranche-1-step-2.md).
+> See [docs/reapp-sdk-npm.md](docs/reapp-sdk-npm.md).
 > **Step 3.** The x402 round-trip works end to end on testnet: `Agent.fetch(url)`
 > receives a 402, pays on-chain, and gets the resource, with the budget enforced
 > through the HTTP layer. Reference merchant and ResearchAgent, independently
-> audited. See [docs/tranche-1-step-3.md](docs/tranche-1-step-3.md).
+> audited. See [docs/x402-roundtrip.md](docs/x402-roundtrip.md).
 
 ## The core invariant
 

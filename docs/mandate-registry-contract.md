@@ -315,6 +315,22 @@ shasum -a 256 onchain.wasm
 
 The hash is `4eb1b943…d8c69e`, and the [contract page](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA) shows the verified-source link to the repository.
 
+## Deployment history
+
+The contract was iterated on testnet before the canonical deploy. Earlier instances
+were throwaway testnet builds, are **unverified**, and are superseded; only
+`CB4KOTLG…7ZOA` is the source-verified, canonical contract that the SDK, the apps,
+and every current doc point at. Listed here for the full record.
+
+| Deploy | Contract id | WASM hash | Created | Status |
+|---|---|---|---|---|
+| Early build | [`CB2LY7XI…H3RD`](https://stellar.expert/explorer/testnet/contract/CB2LY7XIGP7324LTFWUWV5K54AKNCERCUC2N67TKGTCPK4Y2TVVYH3RD) | `a58290d7…` | 2026-06-09 | Superseded · unverified · before the reentrancy regression test (18 tests) |
+| e2e iteration | [`CA3X76MR…SBQCL`](https://stellar.expert/explorer/testnet/contract/CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL) | `59298a08…` | 2026-06-09 | Superseded · unverified · the Step 1–3 hardening runs (19 tests) |
+| **Canonical** | [`CB4KOTLG…7ZOA`](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA) | `4eb1b943…` | 2026-06-19 | **Live · source-verified · the contract this repo deploys and documents** |
+
+Each deploy is a fresh contract id with its own bytecode hash; the earlier two are
+left on testnet for transparency and carry no funds or active mandates.
+
 ## Security audit
 
 Internal adversarial audit on 2026-06-10: a 12-agent sweep across six attack
@@ -345,7 +361,7 @@ Every clause of the Tranche 1 Step 1 deliverable, with where it is proven.
 |---|---|---|
 | MandateRegistry deployed and live on testnet | Met | Contract `CB4KOTLG…7ZOA`, WASM `4eb1b943…`, deployed 2026-06-19, source-verified on StellarExpert. The same id is hard-coded in the SDK config (`packages/stellar`, v0.1.3). Live behavior confirmed end to end (register, approve, pay, revoke). The on-chain activity is shown in the table below |
 | `register_mandate` callable | Met | Live on-chain; tests `happy_path_runs_every_method`, `register_requires_user_auth` |
-| `validate_mandate` callable | Met | Live on-chain (2026-06-10 20:08:24). Read-only dry run by design, as documented above |
+| `validate_mandate` callable | Met | Read-only dry run by design (mutates nothing); exercised as the e2e preflight before each `execute_payment`, as documented above |
 | `execute_payment` callable | Met | Live on-chain, 1 XLM moved (confirmed on Horizon); tests `happy_path_runs_every_method`, `property_spent_equals_transferred` |
 | `revoke_mandate` callable | Met | Live on-chain; tests `revoked_mandate_rejected`, `revoke_requires_user_auth` |
 | Integration tests passing | Met | `cargo test` 19 of 19, green in CI on every push |

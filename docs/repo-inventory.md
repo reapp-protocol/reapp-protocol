@@ -88,7 +88,9 @@ The untrusted client. Published to npm.
 | Path | What it does | Status |
 |---|---|---|
 | `playbook/demo.ts` | `npm run demo`; thin wrapper that spawns `e2e-testnet.mjs`. | Cut candidate (alias) |
-| `docs/tranche-1-step-1.md` … `-3.md` | Canonical tranche writeups (Steps 1, 2, 3). | Keep |
+| `docs/mandate-registry-contract.md` | Step 1 writeup: the contract, every method, on-chain activity, deployment history. | Keep |
+| `docs/reapp-sdk-npm.md` | Step 2 writeup: `@reapp-sdk/core` + `@reapp-sdk/stellar` on npm, the under-10-line flow. | Keep |
+| `docs/x402-roundtrip.md` | Step 3 writeup: the `Agent.fetch` x402 round-trip, merchant, ResearchAgent. | Keep |
 | `docs/code-review.md` | Code review export (tracked, ~168 KB). | Decide (older review) |
 | `docs/code_review_full.md` | Full file-by-file review with verbatim source inlined (~383 KB). | Decide (untracked) |
 | `docs/repo-inventory.md` | This file. | Keep |
@@ -96,12 +98,9 @@ The untrusted client. Published to npm.
 | `security/audit-2026-06-10.md` | Contract audit (Step 1). | Keep |
 | `security/sdk-audit-2026-06-15.md` | SDK audit (Step 2). | Keep |
 | `security/x402-audit-2026-06-16.md` | x402 surface audit (Step 3). | Keep |
-| `example-output/step-1/2/3-*-signoff.md` | Signoff posts per step. | Cut candidate |
-| `example-output/tranche-1-step-1/2/3-verified.md` | Evidence writeups; overlap `docs/`. | Cut candidate |
-| `example-output/testnet-e2e-run.md` | Milestone run summary. | Cut candidate |
-| `example-output/tranche-1-step-1-e2e-log.txt` | Raw e2e console log. | Cut candidate |
-| `example-output/screenshots/*.png` (7) | Images produced by `screenshot-proofs.mjs`. | Keep if referenced, else cut |
-| `PLAYBOOK.md` | Team operating manual (untracked at repo root). | Decide (likely keep and commit) |
+| `example-output/` (whole folder) | Per-step `*-verified.md`, `*-signoff.md`, e2e log, and `screenshots/`. | **Removed 2026-06-23** (stale: txs were from superseded pre-canonical deploys). The two genuine logs/dumps were moved to `docs/history/`. |
+| `docs/history/` | `testnet-e2e-run.md` + `e2e-testnet-run.log` from the superseded deploys, with a provenance README. | Keep (historical) |
+| `docs/playbook-testnet.md` | Testnet operating manual (moved from repo root `PLAYBOOK_TESTNET.md` 2026-06-23). | Keep |
 
 ## Root and config
 
@@ -120,15 +119,29 @@ load-bearing. The real cut candidates cluster in a few places:
 
 1. **Dead code, removed.** `scripts/lib/env.ts` was an env bootstrap helper that
    nothing imported (every script loads `dotenv` inline). Removed 2026-06-17.
-2. **`example-output/` evidence.** The markdown and log artifacts duplicate the
-   canonical `docs/tranche-1-step-N.md` and `security/` records plus git history.
-   Safe to remove if no grant submission links them directly.
-3. **Frozen one-shots.** `scripts/screenshot-proofs.mjs` and its
-   `example-output/screenshots/*.png`, and the thin `playbook/demo.ts` alias.
+2. **`example-output/` evidence — removed 2026-06-23.** The markdown and log
+   artifacts duplicated the canonical deliverable docs, and their captured
+   transactions were from superseded pre-canonical testnet deploys (`CB2LY7XI`,
+   `CA3X…`), not the canonical `CB4KOTLG` contract. The proof now lives inline in
+   the deliverable docs and is regenerable via `npm run e2e:testnet`.
+3. **Frozen one-shots.** `scripts/screenshot-proofs.mjs` (wrote into the now-removed
+   `example-output/screenshots/` and still hardcodes old stellarchain.io tx links),
+   and the thin `playbook/demo.ts` alias. Both remain cut candidates.
 4. **Two code-review docs.** `docs/code-review.md` (tracked) and
-   `docs/code_review_full.md` (untracked, newer, much larger). Keep one.
+   `docs/code_review_full.md` (much larger). Keep one; both still describe the
+   removed `example-output/` folder and should be regenerated or trimmed.
 
 ## Cleanup log
 
 - 2026-06-17: Removed `scripts/lib/env.ts` and the now-empty `scripts/lib/`.
   Unused env bootstrap helper, imported by nothing.
+- 2026-06-23: Removed most of `example-output/` (3 `*-verified.md`, 3 `*-signoff.md`,
+  7 screenshots). The verified docs spliced superseded-contract transactions
+  (`CA3X…`) with the canonical contract's id and WASM hash; not safely fixable,
+  superseded by the inline proof in the deliverable docs. The two genuine
+  logs/dumps (`testnet-e2e-run.md`, the e2e log) were **moved** to `docs/history/`
+  with a provenance README rather than deleted. Renamed
+  `docs/tranche-1-step-{1,2,3}.md` → `mandate-registry-contract.md` /
+  `reapp-sdk-npm.md` / `x402-roundtrip.md`, moved `PLAYBOOK_TESTNET.md` →
+  `docs/playbook-testnet.md`, and added a **Deployment history** section to the
+  Step 1 doc. Extracted contract addresses to a single `packages/stellar/src/deployments.ts`.
