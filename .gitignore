@@ -15,5 +15,8 @@ test_snapshots/
 # misc
 .DS_Store
 
+# regenerated proof screenshots (scripts/screenshot-proofs.mjs)
+proofs/
+
 # personal, machine-local Claude Code settings (not team-wide)
 .claude/settings.local.json

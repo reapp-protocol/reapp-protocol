@@ -101,7 +101,7 @@ packages/sdk/                 @reapp-sdk/core, thin untrusted client + Agent.fet
 apps/fulfillment-agent/       reference 402-gated merchant: verifies payment on testnet before serving
 apps/consumer-agent/          reference ResearchAgent: buys sources via agent.fetch, budget enforced on testnet
 scripts/                      deploy (testnet), e2e (testnet), audit (testnet), key derivation, verify gate
-playbook/demo.ts              npm run demo, the on-chain "aha" on testnet (happy path + rogue rejections)
+scripts/e2e-testnet.mjs       npm run demo, the on-chain "aha" on testnet (happy path + rogue rejections)
 security/                     dated audit records (contract, SDK, x402)
 docs/                         deliverable write-ups, this playbook, and the full code review
 .github/workflows/ci.yml      CI: Rust contract job + TypeScript workspaces job

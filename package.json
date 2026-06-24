@@ -12,7 +12,7 @@
     "test": "npm run test --workspaces --if-present",
     "typecheck": "tsc",
     "verify": "node scripts/verify.mjs",
-    "demo": "tsx playbook/demo.ts",
+    "demo": "node scripts/e2e-testnet.mjs",
     "keys:derive-freighter": "node scripts/derive-freighter.mjs",
     "deploy:testnet": "node scripts/deploy.mjs",
     "e2e:testnet": "node scripts/e2e-testnet.mjs",

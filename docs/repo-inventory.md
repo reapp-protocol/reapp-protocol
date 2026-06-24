@@ -81,13 +81,12 @@ The untrusted client. Published to npm.
 | `audit-mandate.mjs` | `audit` | Independent read-only auditor: reads a mandate plus allowance and balance straight from chain. | Keep |
 | `verify.mjs` | `verify` | Local CI gate (also the pre-push hook): rustfmt, clippy, cargo test, clean build, npm test. | Keep |
 | `derive-freighter.mjs` | `keys:derive-freighter` | One-time setup: derives a Stellar secret key from a Freighter seed phrase. | Keep (setup) |
-| `screenshot-proofs.mjs` | (none) | Playwright. Screenshots a fixed set of testnet tx hashes into `example-output/screenshots`. | Cut candidate |
+| `screenshot-proofs.mjs` | (none) | Playwright. Screenshots the canonical contract's lifecycle txs (stellar.expert) into the gitignored `proofs/`. Reads the contract id from `deployments.ts`. | Keep |
 
 ## Other top-level
 
 | Path | What it does | Status |
 |---|---|---|
-| `playbook/demo.ts` | `npm run demo`; thin wrapper that spawns `e2e-testnet.mjs`. | Cut candidate (alias) |
 | `docs/mandate-registry-contract.md` | Step 1 writeup: the contract, every method, on-chain activity, deployment history. | Keep |
 | `docs/reapp-sdk-npm.md` | Step 2 writeup: `@reapp-sdk/core` + `@reapp-sdk/stellar` on npm, the under-10-line flow. | Keep |
 | `docs/x402-roundtrip.md` | Step 3 writeup: the `Agent.fetch` x402 round-trip, merchant, ResearchAgent. | Keep |
@@ -124,10 +123,7 @@ load-bearing. The real cut candidates cluster in a few places:
    transactions were from superseded pre-canonical testnet deploys (`CB2LY7XI`,
    `CA3X…`), not the canonical `CB4KOTLG` contract. The proof now lives inline in
    the deliverable docs and is regenerable via `npm run e2e:testnet`.
-3. **Frozen one-shots.** `scripts/screenshot-proofs.mjs` (wrote into the now-removed
-   `example-output/screenshots/` and still hardcodes old stellarchain.io tx links),
-   and the thin `playbook/demo.ts` alias. Both remain cut candidates.
-4. **Code-review dumps — moved to `docs/history/`.** `code-review.md` (2026-06-16)
+3. **Code-review dumps — moved to `docs/history/`.** `code-review.md` (2026-06-16)
    and `code_review_full.md` (2026-06-17) are point-in-time snapshots (they still
    describe the removed `example-output/` folder); regenerate from the current tree
    if a fresh review is needed.
@@ -146,3 +142,9 @@ load-bearing. The real cut candidates cluster in a few places:
   `reapp-sdk-npm.md` / `x402-roundtrip.md`, moved `PLAYBOOK_TESTNET.md` →
   `docs/playbook-testnet.md`, and added a **Deployment history** section to the
   Step 1 doc. Extracted contract addresses to a single `packages/stellar/src/deployments.ts`.
+- 2026-06-24: Aligned all explorer links on stellar.expert (scripts + playbook).
+  Archived the two code-review dumps to `docs/history/`. Brought
+  `scripts/screenshot-proofs.mjs` to spec (reads the contract id from
+  `deployments.ts`, stellar.expert urls, canonical lifecycle txs, output to the
+  gitignored `proofs/`). Removed the `playbook/demo.ts` alias and repointed
+  `npm run demo` straight at `scripts/e2e-testnet.mjs`.

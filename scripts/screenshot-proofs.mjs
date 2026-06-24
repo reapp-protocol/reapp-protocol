@@ -1,23 +1,33 @@
 import { chromium } from "playwright";
 import { mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { TESTNET } from "@reapp-sdk/stellar";
 
-// Output lives inside the repo (example-output/screenshots), never /tmp.
-const OUT = fileURLToPath(new URL("../example-output/screenshots", import.meta.url));
+// Captures full-page screenshots of the canonical MandateRegistry's on-chain
+// activity, for grant/demo materials. Run after building the SDK:
+//   npm run build && node scripts/screenshot-proofs.mjs
+
+// Output lives in a gitignored proofs/ dir at the repo root (regenerated artifacts,
+// never committed). Never /tmp, per project convention.
+const OUT = fileURLToPath(new URL("../proofs", import.meta.url));
 mkdirSync(OUT, { recursive: true });
 
-const CONTRACT = "CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA";
-const tx = (h) => `https://testnet.stellarchain.io/tx/${h}`;
+// The contract id comes from the single source of truth (deployments.ts, via the
+// SDK), so this script never holds its own copy. stellar.expert is the canonical
+// explorer.
+const CONTRACT = TESTNET.mandateRegistryId;
+const base = "https://stellar.expert/explorer/testnet";
+const tx = (h) => `${base}/tx/${h}`;
 
-// waitText = a string that only appears once the page's client-side data has rendered.
+// The canonical lifecycle, matching the on-chain activity table in
+// docs/mandate-registry-contract.md. If the contract is redeployed (deploy.mjs
+// updates the id in deployments.ts), refresh these hashes from the new run.
 const TARGETS = [
-  { name: "01-approve",               url: tx("bf3db709d2724b42565fb569b9c130e23c32642645eecde3cfaaaf42d8106b8d"), waitText: "bf3db709" },
-  { name: "02-register-mandate",      url: tx("fba8d71bcb95ef71d7e01dec583491d0790b599136e8a45fb18dd0bb30c38f42"), waitText: "fba8d71b" },
-  { name: "03-validate-and-consume",  url: tx("50c8f482e8f809eb5bc076e5d5ad286f8dc33cb9d03f9935ca0de72230c893c0"), waitText: "50c8f482" },
-  { name: "04-execute-payment",       url: tx("d4814ab9baa927f2276116e57f3b0384e1b21e67a3aa6ea1907869efcff910ab"), waitText: "d4814ab9" },
-  { name: "05-revoke-mandate",        url: tx("4ea9f8b1e4fea05afc7526ffebeceb88804f18541c529db67745f1ba1f4a6132"), waitText: "4ea9f8b1" },
-  { name: "06-unauthorized-FAILED",   url: tx("18214372c9b13d3679808101773d8c372a2438cf2ab96e336c35e1753b0eadd2"), waitText: "18214372" },
-  { name: "07-contract-overview",     url: `https://testnet.stellarchain.io/contracts/${CONTRACT}`,                    waitText: "Contract Details" },
+  { name: "01-deploy-create-contract", url: tx("14f0f5b6c6745d0907c6a92e072e9d2ef3e172627d4dc08d5e39ec1c18d706b8"), waitText: "14f0f5b6" },
+  { name: "02-register-mandate",       url: tx("c45ca03c96f5d6627a716cda7ed83610c5b0d495860f15bb7a3668bc6bb0bbdd"), waitText: "c45ca03c" },
+  { name: "03-execute-payment",        url: tx("237a3832b1ec05901745e97db3dafc61cd553871e16738bbb9dfec5c0404b01a"), waitText: "237a3832" },
+  { name: "04-revoke-mandate",         url: tx("fd2fb6a5fc7c795ae89eb26eef4734954eec8eb9583d230e642c442098034625"), waitText: "fd2fb6a5" },
+  { name: "05-contract-overview",      url: `${base}/contract/${CONTRACT}`,                                            waitText: CONTRACT.slice(0, 8) },
 ];
 
 const browser = await chromium.launch();
@@ -28,8 +38,8 @@ let ok = 0;
 for (const t of TARGETS) {
   try {
     await page.goto(t.url, { waitUntil: "domcontentloaded", timeout: 45000 });
-    // dismiss cookie banner if it appears (non-fatal)
-    try { await page.getByRole("button", { name: /accept|decline/i }).first().click({ timeout: 2500 }); } catch {}
+    // dismiss a cookie/consent banner if it appears (non-fatal)
+    try { await page.getByRole("button", { name: /accept|decline|agree/i }).first().click({ timeout: 2500 }); } catch {}
     // the real gate: wait until the data has actually rendered into the DOM
     await page.waitForFunction(
       (needle) => document.body && document.body.innerText.includes(needle),
@@ -46,5 +56,5 @@ for (const t of TARGETS) {
   }
 }
 await browser.close();
-console.log(`\n${ok}/${TARGETS.length} captured`);
+console.log(`\n${ok}/${TARGETS.length} captured -> ${OUT}`);
 process.exit(ok === TARGETS.length ? 0 : 1);

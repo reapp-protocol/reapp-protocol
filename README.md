@@ -33,7 +33,7 @@ packages/stellar/             @reapp-sdk/stellar, typed Soroban layer
 apps/fulfillment-agent/       reference 402-gated merchant: verifies payment on-chain before serving
 apps/consumer-agent/          reference ResearchAgent: buys sources via agent.fetch, budget enforced on-chain
 scripts/audit-mandate.mjs     npm run audit, independent on-chain mandate auditor
-playbook/demo.ts              npm run demo, the on-chain "aha" (happy path + rogue rejections)
+scripts/e2e-testnet.mjs       npm run demo, the on-chain "aha" (happy path + rogue rejections)
 security/                     contract, SDK, and x402 audit records
 ```
 
