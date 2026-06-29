@@ -140,6 +140,19 @@ happens, with a timestamp.
   `reapp-protocol-demo/lib/banner.ts` (deployed `b5e9e70..797e35d`). The reapp CLI
   figlet banner is unchanged — it runs in a real terminal where multi-line is fine.
 
+- **2026-06-30 02:18 +07** — reapp.live `/t2/demo` failed live (`Error(Contract,
+  #9)` on first buy in one run; `NOT_FOUND` on register when reproduced). Root
+  cause: the page uses the PUBLISHED `@reapp-sdk/core@0.2.0`, which has no
+  settlement fix (the C1 fix is only on tranche-2, unpublished), so its register/
+  approve/pay writes intermittently return before settling — surfacing as
+  NOT_FOUND, BadSequence, or a transient `#9`. Ruled out a real zero-amount bug:
+  `toStroops("1.00",7)=10000000` always. Fix: added an application-layer
+  reconciliation layer to `reapp-protocol-demo/lib/cli-demo.ts` — every write
+  reconciles against on-chain state (register confirms via `get_mandate`; pay
+  treats "seq advanced" as success even if the client threw; `#6` = budget block;
+  transient errors retry). Verified locally (3 bought, 4th blocked); deployed
+  `797e35d..74d6297`. The proper SDK-level fix is still the T3 settlement refactor.
+
 ## CI / security notes
 
 - `secret-scan.yml` (gitleaks) is currently **disabled** — it only runs on manual
