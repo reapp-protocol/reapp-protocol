@@ -8,6 +8,7 @@
  */
 import { Command } from "commander";
 import { runInit } from "./commands/init.js";
+import { runSetup } from "./commands/setup.js";
 
 const program = new Command();
 
@@ -21,6 +22,12 @@ program
   .description("scaffold a project in the current directory (writes reapp.config.json)")
   .option("-f, --force", "overwrite an existing reapp.config.json")
   .action((opts) => runInit(opts));
+
+program
+  .command("setup")
+  .description("generate testnet burner keys and fund them via friendbot")
+  .option("-f, --force", "regenerate fresh keys, overwriting existing credentials")
+  .action((opts) => runSetup(opts));
 
 program.parseAsync(process.argv).catch((err) => {
   console.error(err instanceof Error ? err.message : err);
