@@ -94,6 +94,43 @@ so the CLI message isn't "rejected by the contract" for a tx-level failure.
 
 ---
 
+## Findings & fixes (timestamped)
+
+Every notable finding, fix, or "X fixes needed" moment gets logged here as it
+happens, with a timestamp.
+
+- **2026-06-30 01:49 +07** — REAPP-46 demo, two fixes needed on the first live run:
+  1. `TS2532` — `msg.split("\n")[0]` is possibly `undefined` under
+     `noUncheckedIndexedAccess`; guarded with `?? msg`. (`tsc` emits JS even on
+     type errors, so the demo ran but the build gate would fail.)
+  2. `waitFunded` polled Horizon, but `registerMandate` uses the soroban RPC,
+     which lags behind Horizon → "Account not found". Switched the funding poll to
+     the soroban RPC (`TESTNET.rpcUrl`), the same source the contract calls use.
+- **2026-06-30 01:49 +07** — REAPP-46 demo, funding still failed: firing 3
+  friendbot requests in parallel got rate-limited and the poll gave up silently,
+  so a later call hit "Account not found". Replaced with a robust `fund()`:
+  friendbot → RPC-poll → retry the friendbot hit, and throw loudly if it truly
+  can't fund. Live run then passed (3 sources bought, 4th blocked).
+- **2026-06-30 01:56 +07** — reapp.live `/demo` page built (reapp-protocol-demo,
+  `main` branch, per REAPP-65 / REAPP-52). New `lib/cli-demo.ts` (no-LLM flow,
+  mirrors the CLI with friendbot-retry + seq-polling), `app/api/demo/route.ts`
+  (NDJSON stream, no key required), `app/demo/page.tsx` (Run button + terminal UI),
+  Nav + AGENTS.md updated. `next build` clean; verified live by streaming
+  `POST /api/demo` (3 sources bought on-chain, 4th blocked, result purchased=3).
+  NOTE: it's on `main`, which Railway auto-deploys to reapp.live, so the push is a
+  production deploy — held for explicit okay. Published `@reapp-sdk/core` lacks the
+  C1 fix, which is why the flow carries its own seq-polling reliability layer.
+
+- **2026-06-30 02:02 +07** — T2 isolation decision + deploy. To avoid confusing the
+  Stellar Foundation during the T1 review, all Tranche 2 surfaces on reapp.live are
+  cordoned under a single `T2` nav button → `/t2` hub (T1 pages Docs · Research ·
+  Video untouched). Key framing: the FREEZE is on the `reapp-protocol` repo
+  (contract/SDK the Foundation reviews); `reapp-protocol-demo` (reapp.live) is the
+  demo site and can carry T2. Restructured `/demo` → `/t2` + `/t2/demo`, updated
+  Nav + AGENTS.md, `next build` clean. Committed + pushed `reapp-protocol-demo`
+  `main` (`cdd6235..b5e9e70`) → Railway auto-deploy to reapp.live in progress
+  (root 200, `/t2` 404 until the build lands).
+
 ## CI / security notes
 
 - `secret-scan.yml` (gitleaks) is currently **disabled** — it only runs on manual
