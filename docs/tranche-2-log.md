@@ -141,6 +141,15 @@ so the CLI message isn't "rejected by the contract" for a tx-level failure.
   `timeoutInSeconds: 60` (a named `PAYMENT_TIMEOUT_SECONDS`) to `execute_payment`.
   Touches the frozen package by explicit sign-off; heads-up to Alex pending.
   Resolves C1; the `token.ts` fixed-`sleep` loop was deliberately NOT re-applied.
+- **REAPP-46** `demo research-agent` — self-contained, runs-cold demo. Spins up 3
+  ephemeral accounts (robust friendbot funding: retry + RPC-poll, throws if it
+  can't fund), registers an on-chain mandate, and the agent buys research sources
+  one by one until the contract caps the budget. No LLM dependency — the on-chain
+  enforcement is the story; payments are real, the research framing is scripted.
+  Verified live on testnet: 3 sources purchased, 4th blocked by the contract.
+  Mitigates **C2** in-command by polling the mandate `seq` between purchases
+  (`waitForSeq`) so a slow testnet doesn't cause the stale-read BadSequence race —
+  the general SDK-level fix is still the T3 settlement refactor.
 
 ### Housekeeping
 - Reverted two **uncommitted** Jun-27 working-tree edits in the frozen packages

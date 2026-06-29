@@ -11,6 +11,7 @@ import { runInit } from "./commands/init.js";
 import { runSetup } from "./commands/setup.js";
 import { runMandateCreate } from "./commands/mandate.js";
 import { runPay } from "./commands/pay.js";
+import { runDemo } from "./commands/demo.js";
 
 const program = new Command();
 
@@ -45,6 +46,12 @@ program
   .description("make an agent-signed payment against the active mandate (budget enforced on-chain)")
   .argument("[amount]", "XLM amount to pay (default: unlockPrice from reapp.config.json)")
   .action((amount) => runPay(amount));
+
+program
+  .command("demo")
+  .description("run a self-contained on-chain demo (ephemeral accounts, no setup needed)")
+  .argument("[target]", "which demo to run", "research-agent")
+  .action((target) => runDemo(target));
 
 program.parseAsync(process.argv).catch((err) => {
   console.error(err instanceof Error ? err.message : err);
