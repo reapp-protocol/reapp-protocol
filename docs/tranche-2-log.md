@@ -131,6 +131,15 @@ happens, with a timestamp.
   `main` (`cdd6235..b5e9e70`) → Railway auto-deploy to reapp.live in progress
   (root 200, `/t2` 404 until the build lands).
 
+- **2026-06-30 02:09 +07** — Boot banner garbled on reapp.live (Railway logs).
+  Root cause: the multi-line ANSI-Shadow figlet banner (added in demo commits
+  `024e6b7` / `6c34ca6`, NOT this session) is not reorder-proof in Railway's log
+  viewer — the 6 figlet rows fragment and interleave with the boot INFO lines. The
+  original design (`138d6b9`) was a deliberate one-liner for exactly this reason;
+  it had regressed. Fix: restored a single-line neon REAPP wordmark in
+  `reapp-protocol-demo/lib/banner.ts` (deployed `b5e9e70..797e35d`). The reapp CLI
+  figlet banner is unchanged — it runs in a real terminal where multi-line is fine.
+
 ## CI / security notes
 
 - `secret-scan.yml` (gitleaks) is currently **disabled** — it only runs on manual
