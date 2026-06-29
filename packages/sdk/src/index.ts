@@ -56,6 +56,12 @@ export interface SignerInput {
 }
 
 const DEFAULT_DECIMALS = 7;
+/** Transaction validity window (seconds) for the agent's execute_payment write.
+ *  This is the network-enforced bound: the tx either lands within the window or
+ *  is rejected as expired (never silently applied later). The SDK's default is
+ *  short, so on a slow/congested testnet signAndSend can return before the result
+ *  XDR exists; a wider window lets settlement resolve cleanly. */
+const PAYMENT_TIMEOUT_SECONDS = 60;
 /** The contract stores amounts as i128. Anything larger cannot fit. */
 const I128_MAX = 2n ** 127n - 1n;
 /** expiry is Unix seconds (a JS number). Bound it to the largest integer a
@@ -111,11 +117,14 @@ export class Agent {
     const signer = keypairSigner(this.agentKeypair, this.net.networkPassphrase);
     const client = registryClient(this.net, signer);
     const current = (await client.get_mandate({ mandate_id: this.mandate.idBuffer })).result.unwrap();
-    const at = await client.execute_payment({
-      mandate_id: this.mandate.idBuffer,
-      amount: toStroops(amount, this.mandate.decimals),
-      expected_seq: current.seq,
-    });
+    const at = await client.execute_payment(
+      {
+        mandate_id: this.mandate.idBuffer,
+        amount: toStroops(amount, this.mandate.decimals),
+        expected_seq: current.seq,
+      },
+      { timeoutInSeconds: PAYMENT_TIMEOUT_SECONDS },
+    );
     const sent = await at.signAndSend();
     try {
       sent.result.unwrap();
