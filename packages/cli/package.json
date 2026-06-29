@@ -1,6 +1,6 @@
 {
   "name": "reapp-protocol-cli",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Command-line tool for the REAPP MandateRegistry: scaffold a project, fund testnet accounts, create AP2 mandates, and pay on-chain. The contract is the source of truth.",
   "keywords": [
     "stellar",
@@ -14,17 +14,20 @@
   ],
   "type": "module",
   "bin": {
-    "reapp": "./dist/index.js"
+    "reapp": "./dist/reapp-cli.bundle.mjs"
   },
-  "files": ["dist"],
+  "files": ["dist/reapp-cli.bundle.mjs", "README.md"],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "start": "tsx src/index.ts"
+    "start": "tsx src/index.ts",
+    "prepack": "npm --prefix ../.. run cli:bundle"
   },
   "dependencies": {
+    "@stellar/stellar-sdk": "^14.5.0"
+  },
+  "devDependencies": {
     "@reapp-sdk/core": "*",
     "@reapp-sdk/stellar": "*",
-    "@stellar/stellar-sdk": "^14.5.0",
     "commander": "^12.1.0"
   },
   "license": "Apache-2.0",

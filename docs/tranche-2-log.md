@@ -167,6 +167,18 @@ happens, with a timestamp.
   `lib/cli-demo` + `/api/demo`. Verified end-to-end: `demo research-agent` = 3 buys
   + budget block, exit 0, ~57s. Deployed demo `main` `74d6297..12ec72f`.
 
+- **2026-06-30 04:39 +07** — REAPP-48 prep (README + publish). Marked REAPP-47 +
+  REAPP-65 Done (delivered by the live terminal). Wrote `packages/cli/README.md`.
+  Publish approach = **self-contained bundle** (fixed core inlined): reliable
+  `npx`, zero impact on the frozen SDK / T1 review, no Alex heads-up. Reconfigured
+  `packages/cli/package.json`: `bin` → `dist/reapp-cli.bundle.mjs`, runtime dep =
+  `@stellar/stellar-sdk` only (core/stellar/commander → devDeps, inlined via
+  `cli:bundle`), `prepack` regenerates the bundle, version `0.1.0`, CLI `--version`
+  → `0.1.0`. `npm pack` dry-run = 3 files (README + 146KB bundle + package.json),
+  35KB tarball. NOT published yet: npm not authed in this env (E401) — user runs
+  `npm publish -w reapp-protocol-cli`. When the fixed core ships in T3, switch the
+  CLI to depend on it instead of inlining.
+
 ## CI / security notes
 
 - `secret-scan.yml` (gitleaks) is currently **disabled** — it only runs on manual
