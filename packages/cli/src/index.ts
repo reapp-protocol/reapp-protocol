@@ -9,6 +9,7 @@
 import { Command } from "commander";
 import { runInit } from "./commands/init.js";
 import { runSetup } from "./commands/setup.js";
+import { runMandateCreate } from "./commands/mandate.js";
 
 const program = new Command();
 
@@ -28,6 +29,15 @@ program
   .description("generate testnet burner keys and fund them via friendbot")
   .option("-f, --force", "regenerate fresh keys, overwriting existing credentials")
   .action((opts) => runSetup(opts));
+
+const mandate = program.command("mandate").description("manage AP2 mandates");
+mandate
+  .command("create")
+  .description("register an AP2 mandate on-chain and grant the SEP-41 allowance")
+  .option("-b, --budget <xlm>", "mandate cap in XLM (default: from reapp.config.json)")
+  .option("-e, --expiry <seconds>", "seconds until the mandate expires", "3600")
+  .option("-f, --force", "replace an existing stored mandate")
+  .action((opts) => runMandateCreate(opts));
 
 program.parseAsync(process.argv).catch((err) => {
   console.error(err instanceof Error ? err.message : err);
