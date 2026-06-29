@@ -52,15 +52,21 @@ export const log = {
   step: (m: string, x?: Record<string, unknown>) => line("STEP", m, x),
 };
 
-/** Compact one-line wordmark. The full figlet banner lands in REAPP-47. */
+/**
+ * REAPP banner: figlet "ANSI Shadow", each letter painted its own neon brand
+ * shade. Ported verbatim from reapp-protocol-demo/lib/banner.ts so the CLI and
+ * the hosted demo share one wordmark.
+ */
+type Seg = [string, keyof typeof c];
+const ART: Seg[][] = [[["██████╗ ","cyan"],["███████╗","mint"],[" █████╗ ","emerald"],["██████╗ ","teal"],["██████╗ ","green"]],[["██╔══██╗","cyan"],["██╔════╝","mint"],["██╔══██╗","emerald"],["██╔══██╗","teal"],["██╔══██╗","green"]],[["██████╔╝","cyan"],["█████╗  ","mint"],["███████║","emerald"],["██████╔╝","teal"],["██████╔╝","green"]],[["██╔══██╗","cyan"],["██╔══╝  ","mint"],["██╔══██║","emerald"],["██╔═══╝ ","teal"],["██╔═══╝ ","green"]],[["██║  ██║","cyan"],["███████╗","mint"],["██║  ██║","emerald"],["██║     ","teal"],["██║     ","green"]],[["╚═╝  ╚═╝","cyan"],["╚══════╝","mint"],["╚═╝  ╚═╝","emerald"],["╚═╝     ","teal"],["╚═╝     ","green"]]];
+
 export function banner(): string {
-  return (
-    c.bold(c.mint("reapp")) +
-    c.dim(" — ") +
-    c.dim("agent payments") +
-    c.emerald(" · ") +
-    c.dim("enforced on-chain") +
-    c.emerald(" · ") +
-    c.dim("stellar testnet")
-  );
+  const paint = (col: keyof typeof c, t: string) => (c[col] as (s: string) => string)(t);
+  const art = ART.map((row) => "  " + row.map(([t, col]) => paint(col, t)).join("")).join("\n");
+  const tag =
+    "  " +
+    c.dim("agent payments") + c.emerald(" · ") +
+    c.dim("enforced on-chain") + c.emerald(" · ") +
+    c.dim("stellar testnet");
+  return art + "\n" + tag;
 }
