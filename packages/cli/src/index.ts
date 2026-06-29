@@ -10,6 +10,7 @@ import { Command } from "commander";
 import { runInit } from "./commands/init.js";
 import { runSetup } from "./commands/setup.js";
 import { runMandateCreate } from "./commands/mandate.js";
+import { runPay } from "./commands/pay.js";
 
 const program = new Command();
 
@@ -38,6 +39,12 @@ mandate
   .option("-e, --expiry <seconds>", "seconds until the mandate expires", "3600")
   .option("-f, --force", "replace an existing stored mandate")
   .action((opts) => runMandateCreate(opts));
+
+program
+  .command("pay")
+  .description("make an agent-signed payment against the active mandate (budget enforced on-chain)")
+  .argument("[amount]", "XLM amount to pay (default: unlockPrice from reapp.config.json)")
+  .action((amount) => runPay(amount));
 
 program.parseAsync(process.argv).catch((err) => {
   console.error(err instanceof Error ? err.message : err);
