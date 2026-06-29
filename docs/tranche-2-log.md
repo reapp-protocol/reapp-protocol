@@ -153,6 +153,20 @@ happens, with a timestamp.
   transient errors retry). Verified locally (3 bought, 4th blocked); deployed
   `797e35d..74d6297`. The proper SDK-level fix is still the T3 settlement refactor.
 
+- **2026-06-30 04:20 +07** — Reworked the reapp.live T2 demo into a **live terminal
+  that runs the REAL CLI**, after the in-app reimplementation kept failing. Root
+  cause recap: the page used the published `@reapp-sdk/core@0.2.0` (no settlement
+  fix), so writes were flaky (NOT_FOUND/#8/#9), and my reconcile-by-seq had a bug
+  that counted 4 buys against a 3 XLM budget (late tx from a prior source advanced
+  seq, misattributed). Decision: stop reimplementing; run the actual CLI, which
+  uses the fixed workspace core. Added `npm run cli:bundle` (esbuild: fixed core
+  inlined, `@stellar/stellar-sdk` external, `createRequire` banner) → vendored to
+  `reapp-protocol-demo/vendor/reapp-cli.mjs`. New `/api/cli` spawns it per session
+  (cwd + REAPP_HOME, allow-listed subcommands) and streams raw stdout; `/t2/demo`
+  is now an xterm.js terminal (quick-commands + input). Removed the old
+  `lib/cli-demo` + `/api/demo`. Verified end-to-end: `demo research-agent` = 3 buys
+  + budget block, exit 0, ~57s. Deployed demo `main` `74d6297..12ec72f`.
+
 ## CI / security notes
 
 - `secret-scan.yml` (gitleaks) is currently **disabled** — it only runs on manual
