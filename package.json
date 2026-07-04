@@ -17,6 +17,7 @@
     "keys:derive-freighter": "node scripts/derive-freighter.mjs",
     "deploy:testnet": "node scripts/deploy.mjs",
     "e2e:testnet": "node scripts/e2e-testnet.mjs",
+    "e2e:composites": "node scripts/e2e-composites.mjs",
     "e2e:sdk": "node scripts/e2e-sdk.mjs",
     "e2e:x402": "tsx scripts/e2e-x402.ts",
     "audit": "node scripts/audit-mandate.mjs"

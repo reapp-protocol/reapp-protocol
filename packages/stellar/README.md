@@ -27,9 +27,12 @@ npm install @reapp-sdk/stellar @stellar/stellar-sdk
 | `keypairSigner(keypair, passphrase)` | Adapt a Stellar `Keypair` into a transaction signer |
 | `token.approve(...)`, `token.balance(...)` | Minimal SEP-41 token helpers |
 
-The live, source-verified contract is `TESTNET.mandateRegistryId` =
-[`CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA`](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA),
-its source verified on StellarExpert.
+`TESTNET.mandateRegistryId` points at the Tranche 2 composite build
+[`CAO3X5WKCW7DGDB5UV6UPAMVA63LSMK2QPODZUAWZZBNJYLWXXJOOQPY`](https://stellar.expert/explorer/testnet/contract/CAO3X5WKCW7DGDB5UV6UPAMVA63LSMK2QPODZUAWZZBNJYLWXXJOOQPY)
+(MandateRegistry + clearing pools). The Tranche 1 source-verified contract
+[`CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA`](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA)
+stays live and is what currently PUBLISHED npm versions pin; publishing this
+package is the deliberate cutover step.
 
 ## Example: read a mandate straight from the contract
 

@@ -13,7 +13,7 @@
 export const DEPLOYMENTS = {
   testnet: {
     /** Deployed MandateRegistry contract id. */
-    mandateRegistryId: "CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA",
+    mandateRegistryId: "CAO3X5WKCW7DGDB5UV6UPAMVA63LSMK2QPODZUAWZZBNJYLWXXJOOQPY",
     /** Native XLM Stellar Asset Contract — a real SEP-41 token. */
     nativeSac: "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
   },

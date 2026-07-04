@@ -21,9 +21,13 @@ import {
 const here = dirname(fileURLToPath(import.meta.url));
 const fixture = JSON.parse(
   readFileSync(join(here, "fixtures", "payment-meta.json"), "utf8"),
-) as { txHash: string; metaXdr: string; note: string };
+) as { txHash: string; metaXdr: string; note: string; registryId: string };
 
-const REGISTRY = TESTNET.mandateRegistryId; // the trusted emitter
+// The trusted emitter is the deployment the fixture was RECORDED against, not
+// the current deployment cursor: these tests exercise the decode/verify path
+// against real Soroban output, and must stay green across redeploys. A live
+// server still trusts TESTNET.mandateRegistryId (see server.ts).
+const REGISTRY = fixture.registryId;
 const MERCHANT = "GCREL554SPELMSCEIQQVYS2TPDWONZ6AVQXMUNBEGGZ2X5FNYHDC2RZG"; // paid in the fixture
 const OTHER = "GAHGD3Q6ZKKJFM4FM5M6DSDNTT6KGCEZRZ2NLBBGILZFSKNUFT7VTORQ"; // a different account
 const SAC = TESTNET.nativeSac; // the token contract (not the registry)

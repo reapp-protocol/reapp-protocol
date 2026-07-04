@@ -191,7 +191,85 @@ happens, with a timestamp.
 
 ---
 
-## Session: 2026-06-30
+## Session: 2026-07-04
+
+### D5 — Composite mandates Stage 1 (clearing pools): built, deployed, demoed
+
+The Tranche 2 trust core, end to end in one session: architecture → contract →
+tests → testnet deploy → e2e → live visual demo, with a multi-agent adversarial
+review gate (BulletproofBar-style) between build and ship.
+
+**Architecture.** `docs/composites-architecture.md` — implementation blueprint
+derived from `composites-design-v2.md` (all four v2 decisions inherited: deadline
+auction, best-effort capture over the able set, terminal release, fee pinned at
+registration). Five flagged refinements: R1 exact minimal-price binary search
+(replaces the derived-candidate formula — exact under per-leg fee flooring and
+the threshold_value=0 edge), R2 remaining-budget eligibility term (closes a
+1-stroop solo-spend-then-commit capture brick), R3 named `SchedulePoint` struct,
+R4 protocol time in unix seconds everywhere (v2 mixed ledgers/seconds), R5
+clock-free `clear()` core.
+
+**Contract.** New `pooltypes.rs` / `clearing.rs` / `pool.rs` / `pool_test.rs`;
+extended mandate/registry/payment/storage/events/error/lib. Entry points:
+`register_pool`, `commit_child`, `evict_child`, `clear_pool`, `simulate_clear`,
+`get_pool`, `get_pool_members`; `register_mandate` gained `pool_id` +
+`price_schedule` (ABI break → redeploy; standalone callers pass `None, []`).
+Pool ids are sha256 of the terms (terms cannot be swapped under members);
+capture is CEI-ordered, all-or-nothing over the fired set, idempotent via the
+Open guard. **53/53 tests** (19 T1 + 34 composite/adversarial incl. an
+evil-asset reentry probe on `clear_pool` and an 8-member × 8-point resource
+ceiling test), fmt + clippy clean, `npm run verify` green.
+
+**Adversarial review (multi-agent, verified findings only).** 4 finder lenses +
+per-finding skeptic verification; every confirmed finding reproduced against the
+real code before being accepted. Contract findings fixed:
+- **Frozen-trustline capture brick (medium).** A SAC trustline the issuer
+  deauthorizes still reads full balance/allowance but reverts `transfer_from` —
+  one frozen member wedged a met pool for its whole window (evict blocked by
+  `MemberStillEligible`). Fix: eligibility (and commit preflight, and evict)
+  now probe the SAC's `authorized(id)` via `try_invoke_contract`, tolerant for
+  plain SEP-41 tokens. Regression test freezes a member mid-pool and proves
+  exclusion + eviction + capture-without-it.
+- `simulate_clear` now reports no-fire past the capture window (it previously
+  promised a fire `clear_pool` could no longer execute).
+- `register_pool` horizon math is checked (`u64::MAX` deadline → typed
+  `DeadlineTooFar`, not an overflow panic).
+- TTL horizon bumps added to `evict_child`, pooled revoke, and `clear_pool`
+  terminal writes (§3.4 "every touchpoint" rule now holds).
+
+**Deploys (testnet).** `CBDNSC72…VMQO` (pre-review build, orphaned) →
+**`CAO3X5WKCW7DGDB5UV6UPAMVA63LSMK2QPODZUAWZZBNJYLWXXJOOQPY`** (current,
+post-review fixes). `deployments.ts`/`.env` updated by the deploy script; T1
+`CB4KOT…7ZOA` untouched and still what the published SDK pins. Golden fixture
+in `apps/fulfillment-agent` now pins the id it was recorded against
+(`fixtures/payment-meta.json.registryId`) — it was latently coupled to the
+deploy cursor and broke on redeploy; caught by the verify gate.
+
+**e2e.** `npm run e2e:composites` (`scripts/e2e-composites.mjs`) — the spec's
+flagship group buy on live testnet: 3 independent buyers sign "3 @ 5 XLM or
+1 @ 10 XLM", vendor minimum 9 units + 40.5 XLM, uniform p\* = 4.5 XLM (below
+both posted tiers), merchant +40.5 XLM in ONE transaction, each buyer exactly
+13.5 XLM. Negatives on-chain: pre-deadline clear rejected (#29), double clear
+rejected (#12). **9/9.** Gotchas logged: CLI wants `Option<BytesN<32>>` as a
+JSON string (`--pool_id '"<hex>"'`); SAC `approve` silently fails past max TTL
+(use latest+~20d); parallel `commit_child` txs contend on the shared
+pool/member-list footprint — commits must be sequential (register/approve
+parallelize fine); auction deadline needs 220s headroom on slow testnet days.
+
+**Demo (reapp-protocol-demo, `/composites`).** New route + `/api/composites`
+NDJSON stream + `lib/composites-server.ts` (group-buy generator) +
+`lib/composites-client.ts` (vendored binding pinned to the composite deploy;
+T1 surfaces untouched). Live run in the UI: pool terms → three buyer agents
+(register/approve/commit with tx links) → simulate panel ("the allocation
+anyone can recompute") → live pre-deadline-rejection proof → countdown →
+atomic capture → uniform legs + punchline → double-clear-rejection proof →
+activity log, every row linking stellar.expert. Playwright visual test
+(`scripts/visual-composites.mjs`, screenshots in gitignored
+`proofs/composites-ui/`) passes all beats with zero console errors. UI review
+findings fixed: server-anchored countdown (client clock skew), headline total
+from per-child `spent` (chain truth, not balance reads), event-driven committed
+units, single in-flight step ping, interrupted-state badge, a11y dots +
+explorer hint parity, nav overflow on mobile.
 
 ### Branch & repo setup
 - `reapp-protocol` confirmed on `tranche-2` (cut from frozen `main`).

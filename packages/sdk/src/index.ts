@@ -242,6 +242,10 @@ export const reapp = {
       max_amount: mandate.maxAmount,
       expiry: BigInt(mandate.expiry),
       vc_hash: mandate.idBuffer,
+      // Standalone mandate: no clearing-pool linkage (composite mandates are
+      // registered with a pool id + price schedule via the pool surface).
+      pool_id: undefined,
+      price_schedule: [],
     });
     const sent = await at.signAndSend();
     sent.result.unwrap();
