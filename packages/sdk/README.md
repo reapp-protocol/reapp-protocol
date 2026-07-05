@@ -145,7 +145,7 @@ try {
 
 ## Network
 
-`@reapp-sdk/core` defaults to Stellar testnet and the MandateRegistry id pinned in `@reapp-sdk/stellar`'s `deployments.ts` (workspace: the Tranche 2 composite build `CAO3X5WKCW7DGDB5UV6UPAMVA63LSMK2QPODZUAWZZBNJYLWXXJOOQPY`; currently published npm versions pin the Tranche 1 contract `CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA`). Pass a custom `NetworkConfig` as the last argument to any call to point at a different RPC, passphrase, or contract.
+`@reapp-sdk/core` defaults to Stellar testnet and the MandateRegistry id pinned in `@reapp-sdk/stellar`'s `deployments.ts` (workspace: the Tranche 2 composite build `CBALARHTO5D7JLWHZ5KST4QNIRC64JI5H3DQDHMIUBSRLLOVS6FCWOQX`; currently published npm versions pin the Tranche 1 contract `CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA`). Pass a custom `NetworkConfig` as the last argument to any call to point at a different RPC, passphrase, or contract.
 
 ```ts
 reapp.testnet            // the default NetworkConfig

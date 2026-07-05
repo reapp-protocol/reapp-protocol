@@ -238,8 +238,12 @@ real code before being accepted. Contract findings fixed:
   terminal writes (§3.4 "every touchpoint" rule now holds).
 
 **Deploys (testnet).** `CBDNSC72…VMQO` (pre-review build, orphaned) →
-**`CAO3X5WKCW7DGDB5UV6UPAMVA63LSMK2QPODZUAWZZBNJYLWXXJOOQPY`** (current,
-post-review fixes). `deployments.ts`/`.env` updated by the deploy script; T1
+`CAO3X5WK…OQPY` (post-review fixes) →
+**`CBALARHTO5D7JLWHZ5KST4QNIRC64JI5H3DQDHMIUBSRLLOVS6FCWOQX`** (CURRENT,
+2026-07-05: same source, deployed from the v0.2.0 release artifact built by
+the StellarExpert workflow in reapp-protocol-contracts and SOURCE-VERIFIED
+there — validation status "verified", wasm `6333c20b…f16f44`, repo commit
+`1dcb566`; e2e 9/9 + visual gate re-run against it). `deployments.ts`/`.env` updated by the deploy script; T1
 `CB4KOT…7ZOA` untouched and still what the published SDK pins. Golden fixture
 in `apps/fulfillment-agent` now pins the id it was recorded against
 (`fixtures/payment-meta.json.registryId`) — it was latently coupled to the

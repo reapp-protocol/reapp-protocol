@@ -28,7 +28,7 @@ npm install @reapp-sdk/stellar @stellar/stellar-sdk
 | `token.approve(...)`, `token.balance(...)` | Minimal SEP-41 token helpers |
 
 `TESTNET.mandateRegistryId` points at the Tranche 2 composite build
-[`CAO3X5WKCW7DGDB5UV6UPAMVA63LSMK2QPODZUAWZZBNJYLWXXJOOQPY`](https://stellar.expert/explorer/testnet/contract/CAO3X5WKCW7DGDB5UV6UPAMVA63LSMK2QPODZUAWZZBNJYLWXXJOOQPY)
+[`CBALARHTO5D7JLWHZ5KST4QNIRC64JI5H3DQDHMIUBSRLLOVS6FCWOQX`](https://stellar.expert/explorer/testnet/contract/CBALARHTO5D7JLWHZ5KST4QNIRC64JI5H3DQDHMIUBSRLLOVS6FCWOQX)
 (MandateRegistry + clearing pools). The Tranche 1 source-verified contract
 [`CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA`](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA)
 stays live and is what currently PUBLISHED npm versions pin; publishing this
