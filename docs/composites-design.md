@@ -183,7 +183,7 @@ this exact function over the same stored state — a third party recomputing
 
 `allocation_root = sha256( p*_as_16B_BE || (mandate_id_0 || qty_0_as_16B_BE) || … )`
 over allocations in mandate_id order, via `env.crypto().sha256`. Emitted in
-`pool_cleared` so the chosen allocation is publicly auditable against the
+`pool_cleared` so the chosen allocation is publicly reviewable against the
 recomputation.
 
 ## 5. Lifecycle & entry points

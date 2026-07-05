@@ -16,7 +16,7 @@ listed here. Status legend:
 
 ## Contract: `contracts/mandate-registry` (Rust, soroban-sdk)
 
-The whole protocol. Small by design so it stays auditable. Money moves only
+The whole protocol. Small by design so it stays reviewable. Money moves only
 through `execute_payment`.
 
 | Path | What it does | Status |
@@ -78,7 +78,7 @@ The untrusted client. Published to npm.
 | `e2e-testnet.mjs` | `e2e:testnet`, `demo` | Full on-chain proof via the `stellar` CLI, no mocks. The flagship e2e. | Keep |
 | `e2e-sdk.mjs` | `e2e:sdk` | Same flow driven through the published `@reapp-sdk/core` surface. | Keep |
 | `e2e-x402.ts` | `e2e:x402` | The x402 round-trip e2e: buy sources, the budget blocks the last one on-chain. | Keep |
-| `audit-mandate.mjs` | `audit` | Independent read-only auditor: reads a mandate plus allowance and balance straight from chain. | Keep |
+| `audit-mandate.mjs` | `gate check` | Independent read-only gate-check tool: reads a mandate plus allowance and balance straight from chain. | Keep |
 | `verify.mjs` | `verify` | Local CI gate (also the pre-push hook): rustfmt, clippy, cargo test, clean build, npm test. | Keep |
 | `derive-freighter.mjs` | `keys:derive-freighter` | One-time setup: derives a Stellar secret key from a Freighter seed phrase. | Keep (setup) |
 | `screenshot-proofs.mjs` | (none) | Playwright. Screenshots the canonical contract's lifecycle txs (stellar.expert) into the gitignored `proofs/`. Reads the contract id from `deployments.ts`. | Keep |
@@ -93,10 +93,10 @@ The untrusted client. Published to npm.
 | `docs/history/code-review.md` | Code review export (~168 KB), created 2026-06-16. | Keep (archived) |
 | `docs/history/code_review_full.md` | Full file-by-file review with verbatim source inlined (~383 KB), created 2026-06-17. | Keep (archived) |
 | `docs/repo-inventory.md` | This file. | Keep |
-| `security/README.md` | Index of audit records. | Keep |
-| `security/audit-2026-06-10.md` | Contract audit (Step 1). | Keep |
-| `security/sdk-audit-2026-06-15.md` | SDK audit (Step 2). | Keep |
-| `security/x402-audit-2026-06-16.md` | x402 surface audit (Step 3). | Keep |
+| `security/README.md` | Index of gate check records. | Keep |
+| `security/audit-2026-06-10.md` | Contract gate check (Step 1). | Keep |
+| `security/sdk-audit-2026-06-15.md` | SDK gate check (Step 2). | Keep |
+| `security/x402-audit-2026-06-16.md` | x402 surface gate check (Step 3). | Keep |
 | `example-output/` (whole folder) | Per-step `*-verified.md`, `*-signoff.md`, e2e log, and `screenshots/`. | **Removed 2026-06-23** (stale: txs were from superseded pre-canonical deploys). The two genuine logs/dumps were moved to `docs/history/`. |
 | `docs/history/` | `testnet-e2e-run.md` + `e2e-testnet-run.log` from the superseded deploys, with a provenance README. | Keep (historical) |
 | `docs/playbook-testnet.md` | Testnet operating manual (moved from repo root `PLAYBOOK_TESTNET.md` 2026-06-23). | Keep |

@@ -5,8 +5,8 @@
 > execute a mandate-validated payment in under 10 lines of code.
 
 This document shows the published packages, the under-10-line flow running live on
-testnet, the API in full, an independent on-chain audit tool built on the published
-SDK, and the adversarial security audit of the SDK itself. Every on-chain claim
+testnet, the API in full, an independent on-chain gate check tool built on the published
+SDK, and the adversarial security gate check of the SDK itself. Every on-chain claim
 links to its transaction and was re-checked against Horizon, Stellar's canonical
 API.
 
@@ -36,8 +36,8 @@ with TypeScript types, and each ships only its built `dist`. Hosted docs:
 [reapp.live/docs](https://reapp.live/docs).
 
 > **Versions.** `@reapp-sdk/core` 0.2.0 and `@reapp-sdk/stellar` 0.1.3 are the
-> currently published, installable releases. `core` 0.2.0 is the audited build:
-> the SDK audit below hardened it with two low-severity input bounds (`toStroops`
+> currently published, installable releases. `core` 0.2.0 is the gate-checked build:
+> the SDK gate check below hardened it with two low-severity input bounds (`toStroops`
 > i128 and `createIntentMandate` expiry). A fresh `npm install @reapp-sdk/core`
 > pulls 0.2.0, confirmed by a clean-install smoke test against the live registry.
 
@@ -79,7 +79,7 @@ const hash = await reapp.agent({ mandate, signer: agent }).pay("1.00"); // agent
 ```
 
 After `pay` returns, one real payment has settled on testnet and `hash` is its
-transaction hash. The default network is the live, audited MandateRegistry from
+transaction hash. The default network is the live, gate-checked MandateRegistry from
 Step 1, so no configuration is needed to run against the real contract.
 
 ## How it works
@@ -202,9 +202,9 @@ agent-signed `invoke_host_function` against the MandateRegistry. The merchant's
 balance read back as exactly `10001.0000000` XLM, a clean `+1` over its 10,000 XLM
 friendbot start.
 
-## The audit tool: `npm run audit`
+## The gate check tool: `npm run audit`
 
-The repo ships an independent, on-chain auditor, built entirely on the published
+The repo ships an independent, on-chain gate-check tool, built entirely on the published
 `@reapp-sdk/stellar` surface. It is the repo script `npm run audit`
 (`scripts/audit-mandate.mjs`), not a binary bundled in the npm package, so any
 developer can reproduce it against their own mandates. The whole point of REAPP is
@@ -269,9 +269,9 @@ marked it revoked. An outside party reads that truth directly from the chain. Th
 "agent can move now" figure is `min(remaining budget, live allowance, balance)`, and
 zero whenever the mandate is revoked, expired, or exhausted. The allowance is the
 live on-chain SEP-41 allowance from the user to the contract, which is exactly why an
-auditor reads it rather than believing an interface.
+gate-check tool reads it rather than believing an interface.
 
-## Security audit of the SDK
+## Security gate check of the SDK
 
 A BulletproofBar adversarial sweep on 2026-06-15: 31 agents across 8 attack surfaces
 (amount and money math, custody boundary, SDK-cannot-bypass-the-contract, mandate-id
@@ -283,7 +283,7 @@ then a completeness critic looked for missed surfaces.
 **Verdict: airtight for testnet. 22 candidate findings, 0 confirmed defects, 0 testnet
 blockers.** Full record: [`security/sdk-audit-2026-06-15.md`](https://github.com/reapp-protocol/reapp-protocol/blob/main/security/sdk-audit-2026-06-15.md).
 
-What the audit confirmed holds:
+What the gate check confirmed holds:
 
 - The SDK has exactly one money path (`execute_payment`), holds no allowance, and supplies no recipient at pay time, so it cannot redirect funds or move more than the mandate.
 - `pay` re-reads the sequence from chain on every call and trusts no local limit; the contract re-validates everything atomically.
@@ -297,7 +297,7 @@ Two real but low-severity input-bound gaps were found and fixed in `@reapp-sdk/c
 exploitable, because the contract already rejects the dangerous outcomes, but the fix
 makes the SDK fail loudly on its own. The remaining items are info-level confirmations
 or pre-mainnet hardening (decimals source of truth, allowance window alignment, exact
-dependency pinning), documented in the audit record.
+dependency pinning), documented in the gate check record.
 
 ## Deliverable checklist
 
@@ -319,11 +319,11 @@ now and what is later work.
 
 | Feedback | Targets | Status now | Notes |
 |---|---|---|---|
-| 5. Protocol-enforced limits; the SDK cannot bypass the on-chain check | Tranche 1 | Addressed and independently audited | The SDK holds no allowance, exposes one money path, supplies no recipient at pay time, and re-reads state every call. The BulletproofBar SDK audit confirmed 0 defects against exactly this property, and `reapp audit` lets anyone verify it on-chain. |
+| 5. Protocol-enforced limits; the SDK cannot bypass the on-chain check | Tranche 1 | Addressed and independently gate-checked | The SDK holds no allowance, exposes one money path, supplies no recipient at pay time, and re-reads state every call. The BulletproofBar SDK gate check confirmed 0 defects against exactly this property, and `reapp gate check` lets anyone verify it on-chain. |
 | 1. Decouple mandate logic from the x402 wire format | Cross-cutting | Addressed at the SDK layer | The SDK takes plain Soroban types and an AP2-style mandate; it knows nothing about x402, so the wire format can change without touching it. The x402 flow itself is later work. |
-| 6. Exemplary reference agents; show the safe pattern, warn against unsafe ones | Tranche 2 | Partially addressed | The SDK README and the under-10-line flow show the safe pattern (mandate plus on-chain enforcement), and `reapp audit` demonstrates verifying rather than trusting. The full reference consumer and fulfillment agents are Tranche 2. |
+| 6. Exemplary reference agents; show the safe pattern, warn against unsafe ones | Tranche 2 | Partially addressed | The SDK README and the under-10-line flow show the safe pattern (mandate plus on-chain enforcement), and `reapp gate check` demonstrates verifying rather than trusting. The full reference consumer and fulfillment agents are Tranche 2. |
 | 4. Negative tests in CI from Tranche 1 | Tranche 1 | Addressed | The contract negative suite runs in CI on every push; the SDK e2e proves overspend and post-revoke rejection live on testnet. |
-| 2, 3, 7. Threat model and DFDs, multisig and key management, live failure drills | Tranche 3 | Future work | The SDK audit contributes an early threat-model artifact for the client layer. The formal documents, upgrade governance, and failure-mode drills are Tranche 3. |
+| 2, 3, 7. Threat model and DFDs, multisig and key management, live failure drills | Tranche 3 | Future work | The SDK gate check contributes an early threat-model artifact for the client layer. The formal documents, upgrade governance, and failure-mode drills are Tranche 3. |
 
 ## Reproduce it yourself
 
@@ -340,4 +340,4 @@ npm run audit -- 0a65c12bddf62e55bf86ad0d9733b908360728785bb858c8320dfb7e4e81d6b
 
 The first block installs the published SDK. The second runs the full on-chain flow
 through the SDK against the live contract (printing fresh explorer links for every
-step), then audits the revoked mandate from this document straight from the chain.
+step), then gate checks the revoked mandate from this document straight from the chain.

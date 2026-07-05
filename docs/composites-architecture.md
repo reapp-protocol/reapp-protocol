@@ -146,7 +146,7 @@ the preflight; a running sum is incoherent across prices and a checked-add DoS.
 Member list: `DataKey::PoolMembers(pool_id) -> Vec<BytesN<32>>`, mandate ids in
 commit order, max `MAX_POOL_MEMBERS`. The list mutates only while the pool is
 `Open` (commit pushes; revoke/evict remove); once the pool is terminal it is
-frozen as the audit record of who was in at close.
+frozen as the gate check record of who was in at close.
 
 ### 3.3 `ChildView` and `ClearOutcome` (`pooltypes.rs`)
 

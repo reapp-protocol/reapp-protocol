@@ -4,7 +4,7 @@ The Soroban layer for **REAPP**, agent-driven payments on Stellar, enforced
 on-chain by the **MandateRegistry** contract.
 
 This package is the low-level building block: a **typed MandateRegistry client**
-generated from the audited contract ABI, network config for testnet, a keypair
+generated from the gate-checked contract ABI, network config for testnet, a keypair
 signing adapter, and minimal SEP-41 token helpers.
 
 > **Most apps want [`@reapp-sdk/core`](https://www.npmjs.com/package/@reapp-sdk/core), not this.**

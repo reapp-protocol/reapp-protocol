@@ -2,7 +2,7 @@
 
 This is the operating manual for working against **Stellar testnet**. It covers
 everything a team member needs to change the contract, build and publish the
-SDK, run the reference apps, prove the flow on testnet, run the security audit,
+SDK, run the reference apps, prove the flow on testnet, run the security gate check,
 and push work that stays green. If you are new here, read "Core invariant",
 "What is pinned to testnet", and "One time setup" first, then jump to the recipe
 that matches your task.
@@ -11,7 +11,7 @@ that matches your task.
 > funding step, and explorer link below is testnet. The mainnet counterpart
 > will live in `docs/playbook-mainnet.md` and will differ in important ways (no
 > friendbot funding, real value at risk, a separate `MAINNET` network config,
-> hardware-backed keys, and the deferred hardening items from the audits). See
+> hardware-backed keys, and the deferred hardening items from the gate checks). See
 > "Going to mainnet" at the end for the preview. **Never reuse a testnet key,
 > contract id, or burner secret on mainnet.**
 
@@ -95,14 +95,14 @@ republish. See "I changed the contract" for the full sequence.
 ## Repository layout
 
 ```
-contracts/mandate-registry/   Rust / soroban-sdk, the enforcement contract (live on testnet, audited)
+contracts/mandate-registry/   Rust / soroban-sdk, the enforcement contract (live on testnet, gate-checked)
 packages/stellar/             @reapp-sdk/stellar, typed Soroban layer + TESTNET config + SEP-41 helpers
 packages/sdk/                 @reapp-sdk/core, thin untrusted client + Agent.fetch (x402)
 apps/fulfillment-agent/       reference 402-gated merchant: verifies payment on testnet before serving
 apps/consumer-agent/          reference ResearchAgent: buys sources via agent.fetch, budget enforced on testnet
-scripts/                      deploy (testnet), e2e (testnet), audit (testnet), key derivation, verify gate
+scripts/                      deploy (testnet), e2e (testnet), gate check (testnet), key derivation, verify gate
 scripts/e2e-testnet.mjs       npm run demo, the on-chain "aha" on testnet (happy path + rogue rejections)
-security/                     dated audit records (contract, SDK, x402)
+security/                     dated gate check records (contract, SDK, x402)
 docs/                         deliverable write-ups, this playbook, and the full code review
 .github/workflows/ci.yml      CI: Rust contract job + TypeScript workspaces job
 .githooks/pre-push            local pre-push gate that runs npm run verify
@@ -207,9 +207,9 @@ the testnet e2e); the SDK-driven scripts use the baked-in `TESTNET` constant.
 | `STELLAR_NETWORK` | nothing today | Declared in `.env.example` and reserved for the mainnet split, but no current script reads it. Keep it `testnet` for clarity. The network is actually selected by the values below and by the SDK `TESTNET` constant. |
 | `SOROBAN_RPC_URL` | `deploy:testnet`, `e2e:testnet` | Testnet RPC. `https://soroban-testnet.stellar.org`. |
 | `NETWORK_PASSPHRASE` | `deploy:testnet`, `e2e:testnet` | `Test SDF Network ; September 2015`. |
-| `REAPP_BURNER_PUBLIC_KEY` | `deploy:testnet`, `e2e:testnet`, `keys:derive-freighter`, `audit` | Your testnet public key (`G...`). For the auditor it is the funded account used for read-only RPC simulation. |
+| `REAPP_BURNER_PUBLIC_KEY` | `deploy:testnet`, `e2e:testnet`, `keys:derive-freighter`, `audit` | Your testnet public key (`G...`). For the gate-check tool it is the funded account used for read-only RPC simulation. |
 | `REAPP_BURNER_SECRET_KEY` | `deploy:testnet`, `e2e:testnet`, `e2e:sdk` | Your testnet secret key (`S...`, 56 chars). Signs register, approve, and deploy. Never commit. |
-| `MANDATE_REGISTRY_CONTRACT_ID` | `e2e:testnet` (written by `deploy:testnet`) | The deployed testnet contract id (`C...`). Note: `e2e:sdk`, `e2e:x402`, and `audit` ignore this and use the SDK `TESTNET` constant instead. |
+| `MANDATE_REGISTRY_CONTRACT_ID` | `e2e:testnet` (written by `deploy:testnet`) | The deployed testnet contract id (`C...`). Note: `e2e:sdk`, `e2e:x402`, and `gate check` ignore this and use the SDK `TESTNET` constant instead. |
 | `USDC_SAC_CONTRACT_ID` | nothing today | SEP-41 USDC placeholder, unused. Leave blank for XLM demos. |
 | `NO_COLOR` | all scripts (optional) | Set to `1` to drop ANSI colors from output (useful for log parsing). |
 
@@ -226,7 +226,7 @@ The reference apps read two extra variables at start time:
 
 Every change follows the same path. The gate that protects `main` is
 `npm run verify`, which mirrors CI. Milestone close-outs add the BulletproofBar
-audit gate on top.
+gate check gate on top.
 
 ```mermaid
 flowchart TD
@@ -239,9 +239,9 @@ flowchart TD
   CI -->|red| Edit
   CI -->|green| Gate{"Closing a milestone?"}
   Gate -->|no| Signoff["Sign-off, then merge"]
-  Gate -->|yes| Audit["BulletproofBar audit gate"]
-  Audit -->|defects| Edit
-  Audit -->|clean| Signoff
+  Gate -->|yes| Gate check["BulletproofBar gate check gate"]
+  Gate check -->|defects| Edit
+  Gate check -->|clean| Signoff
 ```
 
 Rule: **every push must be green.** Run `npm run verify` before you push. The
@@ -390,7 +390,7 @@ Two published packages, ESM with TypeScript types:
 `@reapp-sdk/core` depends on `@reapp-sdk/stellar`. The testnet contract id,
 native SAC, RPC, and passphrase are baked into `packages/stellar/src/config.ts`
 as the `TESTNET` constant. This is the single source of network truth for the
-SDK and for every SDK-driven script (`e2e:sdk`, `e2e:x402`, `audit`). There is
+SDK and for every SDK-driven script (`e2e:sdk`, `e2e:x402`, `gate check`). There is
 no `MAINNET` constant yet; adding one is the first step of the mainnet bring-up.
 
 To target a network other than the published default, build a custom
@@ -516,18 +516,18 @@ Notes that bite people:
 
 ---
 
-## Security audit (testnet)
+## Security gate check (testnet)
 
-Security is a gating deliverable, not a closing artifact. We audit before a
+Security is a gating deliverable, not a closing artifact. We gate check before a
 milestone closes, not after deploy. Two layers:
 
-### 1. The on-chain mandate auditor
+### 1. The on-chain mandate gate-check tool
 
 `npm run audit` reads a mandate straight from the testnet contract and verifies
 its spending limits. It trusts no app or SDK claim. It is read only and never
 signs or sends a transaction. It is hardwired to the SDK `TESTNET` constant
 (`const net = TESTNET` in `scripts/audit-mandate.mjs`), so it always reads from
-the testnet deployment regardless of your env file network values. Auditing a
+the testnet deployment regardless of your env file network values. Gate-checking a
 mainnet mandate will require a `MAINNET` config and a script change.
 
 ```bash
@@ -555,7 +555,7 @@ A worked example using the live Step 2 testnet mandate:
 npm run audit -- 2e7c7b8746beb91486fce40685a2656616851c07a93087146e6f0f8b5b5d4513
 ```
 
-### 2. The BulletproofBar audit gate
+### 2. The BulletproofBar gate check gate
 
 BulletproofBar is our multi-agent adversarial sweep, run per milestone before
 close-out. A pool of agents (12 to 31 per surface in the runs so far) attacks
@@ -799,7 +799,7 @@ flowchart TD
 
 Do not flip the live site or call the cutover done until all of these are green:
 
-1. BulletproofBar audit passes on every changed surface, zero confirmed blockers.
+1. BulletproofBar gate check passes on every changed surface, zero confirmed blockers.
 2. New contract verified on StellarExpert, on-chain hash equals the artifact hash,
    interface exposes the new method name.
 3. A real `register` then `execute_payment` on the new contract succeeded: money
@@ -834,7 +834,7 @@ flowchart LR
    the local env file).
 6. Update `packages/stellar/src/config.ts` `TESTNET.mandateRegistryId` to the
    new id, then bump and republish `@reapp-sdk/stellar` and `@reapp-sdk/core`.
-   Remember: `e2e:sdk`, `e2e:x402`, and `audit` will keep using the old id until
+   Remember: `e2e:sdk`, `e2e:x402`, and `gate check` will keep using the old id until
    you do this and rebuild.
 7. Re-run `npm run e2e:testnet`, `npm run e2e:sdk`, and `npm run e2e:x402` to
    confirm the live flow against the new deployment.
@@ -855,7 +855,7 @@ flowchart LR
 3. Bump `@reapp-sdk/core` (point its dependency at the new stellar version),
    `cd packages/sdk`, `npm publish --access public`.
 
-### I want to audit a live testnet mandate
+### I want to gate check a live testnet mandate
 
 ```bash
 npm run audit -- <64-hex-mandate-id>
@@ -889,12 +889,12 @@ get rejected on-chain is the fastest way to understand the invariant.
 | Deploy aborts: RPC or passphrase unset | `SOROBAN_RPC_URL` and `NETWORK_PASSPHRASE` must be set in the local env file (testnet values). |
 | Deploy exits immediately on the secret | `REAPP_BURNER_SECRET_KEY` must start with `S` and be exactly 56 chars. |
 | `e2e:testnet` / `demo` fail with "contract not set" | Deploy first; `MANDATE_REGISTRY_CONTRACT_ID` must be filled in the local env file. |
-| `e2e:sdk` / `e2e:x402` / `audit` still hit the old contract | They use the SDK `TESTNET` constant, not the local env file. Update `config.ts`, rebuild, and (for others) republish. |
+| `e2e:sdk` / `e2e:x402` / `gate check` still hit the old contract | They use the SDK `TESTNET` constant, not the local env file. Update `config.ts`, rebuild, and (for others) republish. |
 | e2e:x402 fails on startup | Port 8402 is in use. Free it. |
 | Funding fails intermittently | Friendbot rate limit. Wait and retry; the scripts sleep to let the ledger confirm. |
 | `npm run verify` fails before any build | `node_modules` missing. Run `npm install` (verify does not run `npm ci`). |
-| Auditor says "need a funded testnet source account" | Set `REAPP_BURNER_PUBLIC_KEY` or pass `--source G...`; the account must exist on testnet. |
-| Auditor says "mandate id must be 64 hex chars" | The id is a 32-byte hash in hex; check length. |
+| Gate-check tool says "need a funded testnet source account" | Set `REAPP_BURNER_PUBLIC_KEY` or pass `--source G...`; the account must exist on testnet. |
+| Gate-check tool says "mandate id must be 64 hex chars" | The id is a 32-byte hash in hex; check length. |
 | `npm publish` is rejected | Run `npm login`; publish `@reapp-sdk/stellar` before `@reapp-sdk/core`. |
 
 ---
@@ -927,14 +927,14 @@ Concretely, the mainnet bring-up will require:
 
 - A `MAINNET` `NetworkConfig` in `packages/stellar/src/config.ts` with the
   mainnet RPC, passphrase, the deployed mainnet contract id, and the mainnet
-  native SAC. `e2e:sdk`, `e2e:x402`, and `audit` must select it instead of
+  native SAC. `e2e:sdk`, `e2e:x402`, and `gate check` must select it instead of
   `TESTNET`.
 - A mainnet deploy path (the current `deploy.mjs` is testnet shaped: testnet
   explorer links, friendbot funding assumption, and a burner secret in the local env file).
   Mainnet should deploy from a hardware-backed or otherwise hardened key, not a
   hot burner sitting in the local env file.
 - Real funding. There is no friendbot on mainnet. Accounts hold real XLM.
-- The deferred hardening items from the audit records closed and re-audited (the
+- The deferred hardening items from the gate check records closed and re-checked in a follow-up gate check (the
   asset allowlist, the per-call price ceiling, stored dedup of x402 proofs, and
   anything else flagged as mainnet-only in `security/`).
 - A fresh BulletproofBar gate against the mainnet configuration before launch.

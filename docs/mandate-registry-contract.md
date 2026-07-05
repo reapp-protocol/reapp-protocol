@@ -35,7 +35,7 @@ treated as untrusted. The contract is the source of truth.
 | Source | Source-verified on StellarExpert: [`reapp-protocol-contracts`](https://github.com/reapp-protocol/reapp-protocol-contracts) @ commit `d1a2e3e` |
 | Explorer | [stellar.expert contract page](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA) |
 
-The contract is small on purpose. A small interface is an auditable interface.
+The contract is small on purpose. A small interface is an reviewable interface.
 
 ## How it works, in plain English
 
@@ -159,7 +159,7 @@ A read-only lookup.
 |---|---|
 | **Signer** | none, anyone can call it |
 | **Returns** | the stored mandate (status, spent, seq, and the rest) |
-| **Use** | audit, and reading the current `seq` before paying |
+| **Use** | gate check, and reading the current `seq` before paying |
 
 ## What it refuses
 
@@ -331,13 +331,13 @@ and every current doc point at. Listed here for the full record.
 Each deploy is a fresh contract id with its own bytecode hash; the earlier two are
 left on testnet for transparency and carry no funds or active mandates.
 
-## Security audit
+## Security gate check
 
-Internal adversarial audit on 2026-06-10: a 12-agent sweep across six attack
+Internal adversarial gate check on 2026-06-10: a 12-agent sweep across six attack
 surfaces (arithmetic and overflow, authorization, replay and sequencing, token
 interaction and reentrancy, state and storage, and logic and economics), with every
 finding independently re-verified against the code. This is the project's own review
-gate, not a third-party audit.
+gate, not a third-party security review.
 
 **Verdict: airtight-ship, 0 confirmed defects.**
 

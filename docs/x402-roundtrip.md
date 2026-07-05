@@ -151,23 +151,23 @@ were signed by the user (`GAMH…IDX6`); the three payments were signed by the a
 (`GDEA…FKWW`), a different key. The merchant account read back exactly
 `10003.0000000` XLM, a clean `+3` over its 10,000 XLM friendbot start.
 
-## Security audit
+## Security gate check
 
 A BulletproofBar adversarial sweep on 2026-06-16: 23 agents across six attack
 surfaces (merchant on-chain verification, replay and double-spend, `fetch` cannot
 bypass the contract, x402 wire-format parsing, the consumer agent pattern, and
 correctness), every finding independently re-verified against the code.
 
-The audit found and we fixed a **critical** access-control bug before sign-off, an
+The gate check found and we fixed a **critical** access-control bug before sign-off, an
 honest record kept here on purpose:
 
-| Found by the audit | Fixed |
+| Found by the gate check | Fixed |
 |---|---|
 | The merchant verified the `payment` event's topic and amount but not which contract emitted it. Any contract could publish a forged `("payment", merchant, price)` event and unlock the resource for free. | The merchant now requires the event to be emitted by the MandateRegistry (`StrKey.encodeContract(ev.contractId()) == mandateRegistryId`). Verified on-chain: the token's `transfer` event is correctly ignored, only the registry's `payment` event is honored. |
 | Replay check ran before the async on-chain verification, leaving a TOCTOU window for concurrent reuse. | The proof is reserved synchronously before the await, and released only on a verification failure. |
 
 Full record: [`security/x402-audit-2026-06-16.md`](https://github.com/reapp-protocol/reapp-protocol/blob/main/security/x402-audit-2026-06-16.md).
-After the fixes the surface re-audited clean for testnet. The remaining items
+After the fixes the surface passed a follow-up gate check clean for testnet. The remaining items
 (per-call price ceiling, binding a payment to a specific resource, deriving the price
 from the asset decimals) are mainnet-hardening notes, not testnet blockers.
 
@@ -187,8 +187,8 @@ from the asset decimals) are mainnet-hardening notes, not testnet blockers.
 | Feedback | Targets | Status now |
 |---|---|---|
 | 1. Decouple mandate logic from the x402 wire format | Tranche 1 | Addressed. All x402 HTTP shape is isolated in `x402.ts`; the mandate and contract know nothing about it, so x402 v0.2 or v0.3 touches only that file. |
-| 5. The SDK cannot bypass the on-chain check | Tranche 1 | Addressed and audited. `fetch` always settles through `execute_payment`; the merchant independently verifies the payment on-chain (and the emitting contract). |
-| 6. Reference agents exemplary, warn against unsafe patterns | Tranche 1 | Addressed. The merchant and ResearchAgent are commented as first-read examples and name the unsafe shortcuts they reject. The audit hardened the merchant's verification. |
+| 5. The SDK cannot bypass the on-chain check | Tranche 1 | Addressed and gate-checked. `fetch` always settles through `execute_payment`; the merchant independently verifies the payment on-chain (and the emitting contract). |
+| 6. Reference agents exemplary, warn against unsafe patterns | Tranche 1 | Addressed. The merchant and ResearchAgent are commented as first-read examples and name the unsafe shortcuts they reject. The gate check hardened the merchant's verification. |
 | 4. Negative tests in CI from Tranche 1 | Tranche 1 | The contract negative suite runs in CI on every push; the x402 e2e proves the budget block live. |
 | 7. Live failure-mode drills | Tranche 3 | Partial. The over-budget drill (4th purchase rejected) runs live. Merchant downtime and expiry-mid-flow drills, with a UX writeup, are Tranche 3. |
 | 2, 3. Threat model and DFDs, multisig and key management | Tranche 3 | Future work, as before. |

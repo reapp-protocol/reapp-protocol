@@ -11,7 +11,7 @@ reviewed.
 - `key-management.md`: 2-of-3 multisig holders, rotation, lost-key recovery.
   _(Authored in Tranche 3, since no key holders exist at MVP. The skill's
   testnet hot-key discipline is the dress rehearsal.)_
-- `scan-results/`: dependency audit + Soroban/WASM-aware contract scanner
+- `scan-results/`: dependency gate check + Soroban/WASM-aware contract scanner
   output, published with all findings remediated. _(Tranche 3.)_
 
 The enforcement half of mandate validation (scope / amount / expiry / replay)
