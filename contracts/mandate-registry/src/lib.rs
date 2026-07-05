@@ -6,7 +6,7 @@
 //! MandateRegistry — REAPP's on-chain enforcement layer.
 //!
 //! The contract is the entire protocol and is small by design: a small
-//! interface is auditable. Money moves only through `execute_payment` (solo)
+//! interface is easy to review. Money moves only through `execute_payment` (solo)
 //! and `clear_pool` (composite capture), each of which validates-and-consumes
 //! atomically before transferring. The SDK is untrusted; this contract is the
 //! source of truth.
@@ -122,7 +122,7 @@ impl MandateRegistry {
         registry::revoke_mandate(&env, mandate_id)
     }
 
-    /// Read-only accessor for the stored mandate (audit / preflight).
+    /// Read-only accessor for the stored mandate (inspection / preflight).
     pub fn get_mandate(env: Env, mandate_id: BytesN<32>) -> Result<Mandate, Error> {
         storage::get_mandate(&env, mandate_id)
     }
