@@ -14,9 +14,12 @@
   ],
   "type": "module",
   "bin": {
-    "reapp": "./dist/reapp-cli.bundle.mjs"
+    "reapp": "dist/reapp-cli.bundle.mjs"
   },
-  "files": ["dist/reapp-cli.bundle.mjs", "README.md"],
+  "files": [
+    "dist/reapp-cli.bundle.mjs",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "start": "tsx src/index.ts",
