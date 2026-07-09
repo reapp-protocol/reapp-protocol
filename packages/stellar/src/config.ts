@@ -10,7 +10,7 @@ export interface NetworkConfig {
   nativeSac: string;
 }
 
-/** Stellar testnet — the live, audited MandateRegistry deployment. */
+/** Stellar testnet — the live, gatechecked MandateRegistry deployment. */
 export const TESTNET: NetworkConfig = {
   rpcUrl: "https://soroban-testnet.stellar.org",
   networkPassphrase: "Test SDF Network ; September 2015",

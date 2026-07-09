@@ -6,19 +6,19 @@ Each step ends with an "Under the hood" line naming the smart-contract method be
 
 ## 🪜 The steps
 
-### Step 1: You add money to a wallet
+### First: You add money to a wallet
 
 You set up Freighter, a Stellar wallet, and load it with $100 of free testnet coins. It is your money, and only you control it.
 
 Under the hood: a normal Stellar account, funded by Friendbot (the testnet faucet). No smart contract yet.
 
-### Step 2: You set the spending rule
+### Second: You set the spending rule
 
 You set the rule: this agent, $10 at most, one store, an expiry date. You sign it, and the contract saves it as Active with $0 spent.
 
 Under the hood: `register_mandate`, which you sign. It checks that the budget is positive, the expiry is in the future, and the id is not already taken, then sets `spent = 0, seq = 0, status = Active` itself, so nobody can fake a balance.
 
-### Step 3: You let the contract pull up to $10
+### Third: You let the contract pull up to $10
 
 You sign an allowance that lets the contract pull up to $10 from your wallet. The allowance goes to the contract, never to the agent, and the money stays in your wallet until a payment actually happens.
 

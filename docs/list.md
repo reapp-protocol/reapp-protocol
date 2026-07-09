@@ -1,12 +1,12 @@
 # REAPP Documentation Index
 
-A quick-reference guide to every document in this submission: what each one is, who it is for, and where it sits. Use it as the cover page for the bundle.
+A quick-reference guide to every document in this repository: what each one is, who it is for, and where it sits. Use it as the cover page for the bundle.
 
-**Status:** Tranche 1 (Steps 1, 2, 3) is complete on Stellar **testnet**. The `MandateRegistry` contract is live, `@reapp-sdk/core` and `@reapp-sdk/stellar` are published to npm, and the full x402 round-trip runs end to end on testnet. Mainnet is future work; it is what this round funds.
+**Status:** The testnet release is live on Stellar. The `MandateRegistry` contract is deployed, `@reapp-sdk/core` and `@reapp-sdk/stellar` are published to npm, and the full x402 round-trip runs end to end on testnet. Mainnet remains future work.
 
-**Canonical contract:** [`CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA`](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA) on testnet, its source verified on StellarExpert. Every on-chain claim in the deliverable docs links to its transaction on StellarExpert and was re-checked against Horizon, Stellar's canonical API. (Earlier testnet iterations are listed under **Deployment history** in [`mandate-registry-contract.md`](mandate-registry-contract.md).)
+**Current testnet contract:** [`CBALARHTO5D7JLWHZ5KST4QNIRC64JI5H3DQDHMIUBSRLLOVS6FCWOQX`](https://stellar.expert/explorer/testnet/contract/CBALARHTO5D7JLWHZ5KST4QNIRC64JI5H3DQDHMIUBSRLLOVS6FCWOQX), the composite MandateRegistry now used by the workspace SDK config. The earlier source-verified simple contract remains live at [`CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA`](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA) and is preserved in the contract history.
 
-**The one idea behind all of it:** an AI agent cannot be trusted to police its own spending, so the spending limit lives inside a Soroban contract in the money path, not in the app or the SDK. Money moves only through `MandateRegistry.execute_payment`, which validates and consumes a mandate before it transfers. The user grants the token allowance to the contract, never to the agent or SDK. The SDK is untrusted; the contract is the source of truth.
+**The one idea behind all of it:** an AI agent cannot be trusted to police its own spending, so the spending limit lives inside a Soroban contract in the money path, not in the app or the SDK. Money moves only through `MandateRegistry.execute_payment`, which validates and consumes a mandate before it transfers. The user approves the token allowance for the contract, never for the agent or SDK. The SDK is untrusted; the contract is the source of truth.
 
 ---
 
@@ -15,17 +15,17 @@ A quick-reference guide to every document in this submission: what each one is, 
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{'fontSize':'14px','lineColor':'#94a3b8','primaryColor':'#1e293b','primaryTextColor':'#ffffff','primaryBorderColor':'#475569'}}}%%
 flowchart LR
-  A[README.md<br/>orientation] --> B[Deliverable docs<br/>contract · SDK · x402, with on-chain proof]
-  B --> D[Security gate checks<br/>adversarial review]
+  A[README.md<br/>orientation] --> B[Release docs<br/>contract · SDK · x402, with on-chain proof]
+  B --> D[Security gatechecks<br/>adversarial review]
   D --> E[Code reviews<br/>line-by-line depth]
   E --> F[playbook-testnet.md<br/>reproduce it yourself]
 ```
 
 1. **[README.md](../README.md)** to orient.
-2. The three **deliverable docs** (contract, SDK, x402) — each carries its own live on-chain proof, with every call linked to its transaction on StellarExpert.
-3. The three **security gate checks** for the adversarial review.
+2. The three **release docs** (contract, SDK, x402) — each carries its own live on-chain proof, with every call linked to its transaction on StellarExpert.
+3. The three **security gatechecks** for the adversarial review.
 4. The archived **code reviews** in [`history/`](history/) for line-by-line depth.
-5. **[playbook-testnet.md](playbook-testnet.md)** to reproduce any of it. The mainnet counterpart, `playbook-mainnet.md`, ships with the mainnet tranche.
+5. **[playbook-testnet.md](playbook-testnet.md)** to reproduce any of it. The mainnet counterpart, `playbook-mainnet.md`, ships with the mainnet release.
 
 ---
 
@@ -33,57 +33,47 @@ flowchart LR
 
 | Document | What it is |
 | --- | --- |
-| [`README.md`](../README.md) | The front door. Project overview, the core invariant, and current Tranche 1 status with links into each step. |
-| [`playbook-testnet.md`](playbook-testnet.md) | The operating manual for working against **Stellar testnet**: how to change the contract, build and publish the SDK, run the reference apps, prove the flow on testnet, run the security gate check, and push work that stays green. Every contract id, account, RPC, passphrase, and explorer link in it is testnet. |
-| `playbook-mainnet.md` *(forthcoming)* | The mainnet counterpart, shipping with the mainnet tranche. The same recipes against a separate `MAINNET` config: no friendbot funding, real value at risk, hardware-backed keys, and the deferred hardening items from the gate checks. Not in the repo yet. |
+| [`README.md`](../README.md) | The front door. Project overview, the core invariant, and current testnet status with links into each surface. |
+| [`playbook-testnet.md`](playbook-testnet.md) | The operating manual for working against **Stellar testnet**: how to change the contract, build and publish the SDK, run the reference apps, prove the flow on testnet, run the security gatecheck, and push work that stays green. Every contract id, account, RPC, passphrase, and explorer link in it is testnet. |
+| `playbook-mainnet.md` *(forthcoming)* | The mainnet counterpart, shipping with the mainnet release. The same recipes against a separate `MAINNET` config: no friendbot funding, real value at risk, hardware-backed keys, and the deferred hardening items from the gatechecks. Not in the repo yet. |
 
-## Tranche 1 deliverable reports
+## Testnet Release Reports
 
-The plain-English writeup of each milestone: what shipped, the full API or method list, and the evidence.
+The plain-English writeup of each shipped surface: what shipped, the full API or method list, and the evidence.
 
 | Document | What it is |
 | --- | --- |
-| [`mandate-registry-contract.md`](mandate-registry-contract.md) | **The contract (Step 1).** MandateRegistry explained in plain English, every method documented, every transaction it has handled on-chain, and the deployment history. Deployed, source-verified, and live on testnet. |
-| [`reapp-sdk-npm.md`](reapp-sdk-npm.md) | **The SDK (Step 2).** `@reapp-sdk/core` and `@reapp-sdk/stellar` on npm, the under-10-line payment flow running live on testnet, the full API, an on-chain gate check tool built on the SDK, and the SDK's own security gate check. |
-| [`x402-roundtrip.md`](x402-roundtrip.md) | **x402 (Step 3).** The `Agent.fetch(url)` round-trip (receive a 402, pay on-chain, get the resource), the reference 402-gated merchant, the ResearchAgent, all live on testnet with the budget enforced through the HTTP layer. |
+| [`mandate-registry-contract.md`](mandate-registry-contract.md) | **The contract.** MandateRegistry explained in plain English, every method documented, every transaction it has handled on-chain, and the deployment history. Deployed, source-verified, and live on testnet. |
+| [`reapp-sdk-npm.md`](reapp-sdk-npm.md) | **The SDK.** `@reapp-sdk/core` and `@reapp-sdk/stellar` on npm, the under-10-line payment flow running live on testnet, the full API, an on-chain gatecheck tool built on the SDK, and the SDK's own security gatecheck. |
+| [`x402-roundtrip.md`](x402-roundtrip.md) | **x402.** The `Agent.fetch(url)` round-trip (receive a 402, pay on-chain, get the resource), the reference 402-gated merchant, the ResearchAgent, all live on testnet with the budget enforced through the HTTP layer. |
 
 ## Code reviews
 
 Large, generated, point-in-time snapshots — archived under
 [`history/`](history/), not maintained. Use them for line-by-line depth; for the
-current state, read the source and the `security/` gate checks.
+current state, read the source and the `security/` gatechecks.
 
 | Document | What it is |
 | --- | --- |
 | [`history/code-review.md`](history/code-review.md) | A focused review up front (verdict, architecture, what stops each attack, findings) followed by an exhaustive method-by-method reference. Scope: the contract, the SDK, and the reference apps. |
 | [`history/code_review_full.md`](history/code_review_full.md) | The full annotated source listing. Every meaningful file with its role, an explanation of what the code does function by function, and the verbatim source inlined, preceded by five architecture Mermaid diagrams. The complete read-the-whole-thing reference. |
 
-## Security gate checks
+## Security gatechecks
 
 Adversarial, multi-agent reviews. Each candidate finding was independently re-verified against the source before it counted.
 
 | Document | What it is |
 | --- | --- |
-| [`security/README.md`](../security/README.md) | What lives in `security/` and why. Security artifacts are gating deliverables (Stellar feedback), not closing ones; this notes the threat-model, data-flow, and key-management work scheduled for Tranche 3. |
-| [`security/audit-2026-06-10.md`](../security/audit-2026-06-10.md) | **Contract gate check.** 12-agent sweep across 6 attack surfaces (arithmetic, authorization, replay, reentrancy, state machine, economic logic). Verdict: airtight-ship, 0 confirmed defects. Notes the dead-code replay guard found and fixed during the pass. |
-| [`security/sdk-audit-2026-06-15.md`](../security/sdk-audit-2026-06-15.md) | **SDK gate check.** 31 agents across 8 surfaces against `@reapp-sdk/core` and `@reapp-sdk/stellar`. Verdict: airtight for testnet, 0 confirmed defects; two low-severity input gaps fixed in 0.1.2 during the pass. |
-| [`security/x402-audit-2026-06-16.md`](../security/x402-audit-2026-06-16.md) | **x402 gate check.** 23 agents across 6 surfaces against `Agent.fetch`, the merchant, and the ResearchAgent. Found and fixed a critical forged-`payment`-event access-control bypass and a medium replay TOCTOU; the critical fix is verified on-chain. |
+| [`security/README.md`](../security/README.md) | What lives in `security/` and why. Security artifacts are release gates, not closing artifacts; this notes the threat-model, data-flow, and key-management work scheduled for mainnet hardening. |
+| [`security/gatecheck-2026-06-10.md`](../security/gatecheck-2026-06-10.md) | **Contract gatecheck.** 12-agent sweep across 6 attack surfaces (arithmetic, authorization, replay, reentrancy, state machine, economic logic). Verdict: airtight-ship, 0 confirmed defects. Notes the dead-code replay guard found and fixed during the pass. |
+| [`security/sdk-gatecheck-2026-06-15.md`](../security/sdk-gatecheck-2026-06-15.md) | **SDK gatecheck.** 31 agents across 8 surfaces against `@reapp-sdk/core` and `@reapp-sdk/stellar`. Verdict: airtight for testnet, 0 confirmed defects; two low-severity input gaps fixed in 0.1.2 during the pass. |
+| [`security/x402-gatecheck-2026-06-16.md`](../security/x402-gatecheck-2026-06-16.md) | **x402 gatecheck.** 23 agents across 6 surfaces against `Agent.fetch`, the merchant, and the ResearchAgent. Found and fixed a critical forged-`payment`-event access-control bypass and a medium replay TOCTOU; the critical fix is verified on-chain. |
 
 ## On-chain proof
 
-The on-chain proof lives **inside the three deliverable docs above**, not in a
-separate bundle: each one links every call to its transaction on StellarExpert and
-re-checks it against Horizon. The contract's full deploy lineage is recorded under
-**Deployment history** in [`mandate-registry-contract.md`](mandate-registry-contract.md).
-
-> An earlier standalone `example-output/` proof bundle (per-step `*-verified.md`,
-> `*-signoff.md`, an e2e log, and screenshots) was removed. It duplicated the
-> deliverable docs, and its captured transactions were from **superseded
-> pre-canonical testnet deploys** (`CB2LY7XI`, `CA3X…`) rather than the canonical
-> `CB4KOTLG` contract — so it is reproduced freshly via `npm run e2e:testnet` rather
-> than kept as stale artifacts. See `playbook-testnet.md` to regenerate it on demand.
-> The two genuine logs/dumps were retained under [`history/`](history/) for
-> provenance, clearly labelled as superseded.
+The on-chain proof lives in the release docs and can be regenerated with the e2e
+scripts. Stale generated proof bundles were removed so the repo does not carry
+fixed-id artifacts that drift from the current contract config.
 
 ## Package READMEs
 

@@ -1,7 +1,7 @@
 /**
  * `reapp mandate create` — register an AP2 IntentMandate on-chain (REAPP-44).
  *
- * Builds the mandate from the stored testnet keys, registers it, and grants the
+ * Builds the mandate from the stored testnet keys, registers it, and approves the
  * SEP-41 allowance to the CONTRACT (never to the agent) — both user-signed.
  * Persists the inputs so `reapp pay` rebuilds the identical mandate id. Mirrors
  * the demo's reapp-server.setup(). The contract is the source of truth; this

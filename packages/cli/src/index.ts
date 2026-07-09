@@ -35,7 +35,7 @@ program
 const mandate = program.command("mandate").description("manage AP2 mandates");
 mandate
   .command("create")
-  .description("register an AP2 mandate on-chain and grant the SEP-41 allowance")
+  .description("register an AP2 mandate on-chain and approve the SEP-41 allowance")
   .option("-b, --budget <xlm>", "mandate cap in XLM (default: from reapp.config.json)")
   .option("-e, --expiry <seconds>", "seconds until the mandate expires", "3600")
   .option("-f, --force", "replace an existing stored mandate")

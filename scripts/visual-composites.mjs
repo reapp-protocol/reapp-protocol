@@ -7,7 +7,7 @@
  *
  * Drives a full live group-buy run in headless Chromium against the local
  * server (which itself runs the real flow on Stellar testnet), captures
- * screenshots at each story beat, and asserts the run reaches the cleared
+ * temporary visual artifacts at each story beat, and asserts the run reaches the cleared
  * state with all three buyers captured at the uniform price.
  *
  * Output lives in the gitignored proofs/ dir at the repo root (regenerated
@@ -22,7 +22,7 @@ mkdirSync(OUT, { recursive: true });
 
 const BASE = process.env.DEMO_BASE ?? "http://127.0.0.1:3000";
 const shot = (page, name, opts = {}) =>
-  page.screenshot({ path: `${OUT}/${name}.png`, ...opts }).then(() => console.log(`  📸 ${name}.png`));
+  page.screenshot({ path: `${OUT}/${name}.png`, ...opts }).then(() => console.log(`  capture ${name}.png`));
 
 const failures = [];
 const check = (label, ok) => {
@@ -33,7 +33,7 @@ const check = (label, ok) => {
 async function main() {
   const browser = await chromium.launch();
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
-  // Skip the once-per-session 3D intro so screenshots start at the page itself.
+  // Skip the once-per-session 3D intro so captures start at the page itself.
   await context.addInitScript(() => sessionStorage.setItem("reapp_intro_seen_v1", "1"));
   const page = await context.newPage();
   const consoleErrors = [];
@@ -123,7 +123,7 @@ async function main() {
   console.log(
     failures.length
       ? `\n✖ visual test finished with ${failures.length} failure(s): ${failures.join(" · ")}`
-      : "\n✦ visual test passed — screenshots in proofs/composites-ui/",
+      : "\n✦ visual test passed — artifacts in proofs/composites-ui/",
   );
   process.exit(failures.length ? 1 : 0);
 }

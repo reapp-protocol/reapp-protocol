@@ -4,7 +4,7 @@
  *
  *   npm run e2e:x402
  *
- * Proves the Step 3 deliverable: Agent.fetch(url) receives a 402, settles the
+ * Proves the x402 release path: Agent.fetch(url) receives a 402, settles the
  * payment on-chain through the SDK, and receives the resource — and that the
  * contract still enforces the budget through the HTTP layer.
  *
@@ -100,8 +100,8 @@ async function main() {
   log(RULE(c.magenta));
   field("merchant earned", c.green(xlm(earned)) + c.dim(" (paid by the user, through the contract)"));
 
-  // The deliverable: 3 paid+received, the 4th blocked by the contract, exactly
-  // 3 XLM moved to the merchant (asserted as a delta, robust to friendbot's grant).
+  // The requirement: 3 paid+received, the 4th blocked by the contract, exactly
+  // 3 XLM moved to the merchant (asserted as a delta, robust to friendbot funding).
   const pass =
     paid.length === 3 &&
     blocked.length === 1 &&

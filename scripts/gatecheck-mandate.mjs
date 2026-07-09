@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 /**
- * reapp audit — independent, on-chain auditor for a REAPP mandate.
+ * reapp gatecheck — independent, on-chain checker for a REAPP mandate.
  *
- *   node scripts/audit-mandate.mjs <mandate-id-hex> [--source <PUBKEY>] [--json]
- *   npm run audit -- <mandate-id-hex>
+ *   node scripts/gatecheck-mandate.mjs <mandate-id-hex> [--source <PUBKEY>] [--json]
+ *   npm run gatecheck -- <mandate-id-hex>
  *
  * The whole point of REAPP is that the spending limit lives in the contract, not
  * the app or the SDK. This tool proves that from the outside: it reads the mandate
  * straight from the MandateRegistry (the source of truth), plus the on-chain
- * SEP-41 allowance the user granted the contract and the user's balance, and
+ * SEP-41 allowance the user approved for the contract and the user's balance, and
  * reports the TRUE amount the agent can still spend — derived purely from chain
  * state, trusting no application claim.
  *
@@ -59,7 +59,7 @@ function parseArgs(args) {
 /** A read-only "signer": a real, funded source account for simulation. get_mandate
  *  and the SEP-41 reads never sign, so signTransaction is never invoked. */
 function readOnlySigner(publicKey) {
-  const refuse = async () => { throw new Error("audit is read-only; it never signs or sends"); };
+  const refuse = async () => { throw new Error("gatecheck is read-only; it never signs or sends"); };
   return { publicKey, keypair: null, signTransaction: refuse, signAuthEntry: refuse };
 }
 
@@ -85,7 +85,7 @@ async function main() {
   const { id, source, json } = parseArgs(argv.slice(2));
   const net = TESTNET;
 
-  if (!id) die("usage: node scripts/audit-mandate.mjs <mandate-id-hex> [--source <PUBKEY>] [--json]");
+  if (!id) die("usage: node scripts/gatecheck-mandate.mjs <mandate-id-hex> [--source <PUBKEY>] [--json]");
   if (!/^[0-9a-fA-F]{64}$/.test(id)) die(`mandate id must be 64 hex chars (a 32-byte sha256); got ${JSON.stringify(id)}`);
   if (!source || !source.startsWith("G")) die("need a funded testnet source account for the read: pass --source <PUBKEY> or set REAPP_BURNER_PUBLIC_KEY in .env");
 
@@ -156,7 +156,7 @@ async function main() {
   const statusColor = status === "Active" ? c.green : status === "Exhausted" ? c.yellow : c.red;
   console.log("");
   console.log(RULE(c.magenta));
-  console.log(`  ${c.bold(c.magenta("REAPP"))}  ${c.dim("·")}  ${c.bold("mandate audit")} ${c.dim("— read straight from the contract, no app trust")}`);
+  console.log(`  ${c.bold(c.magenta("REAPP"))}  ${c.dim("·")}  ${c.bold("mandate gatecheck")} ${c.dim("— read straight from the contract, no app trust")}`);
   console.log(RULE(c.magenta));
   const f = (l, v) => console.log(`  ${c.gray("·")} ${c.dim(`${l}`.padEnd(18))} ${v}`);
   f("network", "testnet");

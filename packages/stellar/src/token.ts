@@ -1,4 +1,4 @@
-/** Minimal SEP-41 helpers (approve + balance) for granting the contract its
+/** Minimal SEP-41 helpers (approve + balance) for approving the contract for its
  *  allowance and reading balances — built directly on @stellar/stellar-sdk so
  *  the SDK has no CLI dependency. */
 import {
@@ -26,7 +26,7 @@ async function settle(server: rpc.Server, hash: string): Promise<void> {
   }
 }
 
-/** User grants the contract a SEP-41 allowance: approve(from=owner, spender, amount). */
+/** User approves the contract for a SEP-41 allowance: approve(from=owner, spender, amount). */
 export async function approve(
   net: NetworkConfig,
   tokenId: string,

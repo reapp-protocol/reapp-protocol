@@ -4,7 +4,7 @@ The Soroban layer for **REAPP**, agent-driven payments on Stellar, enforced
 on-chain by the **MandateRegistry** contract.
 
 This package is the low-level building block: a **typed MandateRegistry client**
-generated from the gate-checked contract ABI, network config for testnet, a keypair
+generated from the gatechecked contract ABI, network config for testnet, a keypair
 signing adapter, and minimal SEP-41 token helpers.
 
 > **Most apps want [`@reapp-sdk/core`](https://www.npmjs.com/package/@reapp-sdk/core), not this.**
@@ -27,11 +27,11 @@ npm install @reapp-sdk/stellar @stellar/stellar-sdk
 | `keypairSigner(keypair, passphrase)` | Adapt a Stellar `Keypair` into a transaction signer |
 | `token.approve(...)`, `token.balance(...)` | Minimal SEP-41 token helpers |
 
-`TESTNET.mandateRegistryId` points at the Tranche 2 composite build
+`TESTNET.mandateRegistryId` points at the composite build
 [`CBALARHTO5D7JLWHZ5KST4QNIRC64JI5H3DQDHMIUBSRLLOVS6FCWOQX`](https://stellar.expert/explorer/testnet/contract/CBALARHTO5D7JLWHZ5KST4QNIRC64JI5H3DQDHMIUBSRLLOVS6FCWOQX)
-(MandateRegistry + clearing pools). The Tranche 1 source-verified contract
+(MandateRegistry + clearing pools). The source-verified simple contract
 [`CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA`](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA)
-stays live and is what currently PUBLISHED npm versions pin; publishing this
+stays live and is what current published npm versions pin; publishing this
 package is the deliberate cutover step.
 
 ## Example: read a mandate straight from the contract

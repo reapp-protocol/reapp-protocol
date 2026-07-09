@@ -198,7 +198,7 @@ pub fn commit_child(env: &Env, mandate_id: BytesN<32>) -> Result<(), Error> {
 }
 
 /// Remove an objectively-ineligible member and free its slot. Permissionless
-/// garbage collection: it can NEVER evict a still-eligible member, so it grants
+/// garbage collection: it can NEVER evict a still-eligible member, so it gives
 /// no discretion — it only reclaims the scarce MAX_POOL_MEMBERS slots that
 /// dust/pulled-allowance squatters would otherwise hold. Not needed for
 /// correctness (the clearing filter already excludes ineligible members).
@@ -233,7 +233,7 @@ pub fn evict_child(env: &Env, pool_id: BytesN<32>, mandate_id: BytesN<32>) -> Re
 }
 
 /// The composite money path: the deadline auction's close. Callable by anyone,
-/// never before the deadline (pre-deadline feasibility grants no one a timing
+/// never before the deadline (pre-deadline feasibility gives no one a timing
 /// option — p* is a function of the committed set at close). Within the
 /// capture window: recompute the canonical outcome and, if it fires, settle
 /// every leg in this one transaction (all-or-nothing over the fired set).

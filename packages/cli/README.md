@@ -25,7 +25,7 @@ reapp <command>
 ```sh
 reapp init             # scaffold reapp.config.json in the current directory
 reapp setup            # generate + fund testnet keys (user / agent / merchant)
-reapp mandate create   # register an AP2 mandate on-chain + grant the allowance
+reapp mandate create   # register an AP2 mandate on-chain + approve the allowance
 reapp pay              # agent-signed payment; budget enforced on-chain
 ```
 
@@ -52,13 +52,13 @@ rejects the fourth. No LLM key required. See it running live in your browser at
 | --- | --- |
 | `reapp init [-f]` | Write `reapp.config.json` in the current directory. |
 | `reapp setup [-f]` | Generate three testnet burners and fund them via friendbot. |
-| `reapp mandate create [-b <xlm>] [-e <seconds>] [-f]` | Register an AP2 mandate on-chain and grant the SEP-41 allowance to the contract. |
+| `reapp mandate create [-b <xlm>] [-e <seconds>] [-f]` | Register an AP2 mandate on-chain and approve the SEP-41 allowance for the contract. |
 | `reapp pay [amount]` | Make an agent-signed payment against the active mandate. |
 | `reapp demo research-agent` | Run the full budget-capped flow end-to-end on testnet. |
 
 ## How it works
 
-The user grants the SEP-41 allowance to the **contract**, never to the agent or
+The user approves the SEP-41 allowance for the **contract**, never for the agent or
 the SDK. Money moves only through `MandateRegistry.execute_payment`, which
 validates-and-consumes the mandate atomically before it transfers. A compromised
 agent or SDK cannot exceed the mandate — `reapp pay` past the budget is rejected

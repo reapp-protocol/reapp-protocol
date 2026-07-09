@@ -116,7 +116,7 @@ export async function runDemo(target = "research-agent"): Promise<void> {
   const mandate = reapp.createIntentMandate(inputs);
   await reapp.registerMandate(mandate, { signer: user.secret() });
   await reapp.approveBudget(mandate, { signer: user.secret() });
-  log.chain("mandate registered + allowance granted to contract", { budget: `${BUDGET} XLM`, id: short(mandate.id) });
+  log.chain("mandate registered + allowance approved for contract", { budget: `${BUDGET} XLM`, id: short(mandate.id) });
 
   const rclient = registryClient(TESTNET, keypairSigner(agent, TESTNET.networkPassphrase));
 

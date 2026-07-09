@@ -78,26 +78,25 @@ The untrusted client. Published to npm.
 | `e2e-testnet.mjs` | `e2e:testnet`, `demo` | Full on-chain proof via the `stellar` CLI, no mocks. The flagship e2e. | Keep |
 | `e2e-sdk.mjs` | `e2e:sdk` | Same flow driven through the published `@reapp-sdk/core` surface. | Keep |
 | `e2e-x402.ts` | `e2e:x402` | The x402 round-trip e2e: buy sources, the budget blocks the last one on-chain. | Keep |
-| `audit-mandate.mjs` | `gate check` | Independent read-only gate-check tool: reads a mandate plus allowance and balance straight from chain. | Keep |
+| `gatecheck-mandate.mjs` | `gatecheck` | Independent read-only gatecheck tool: reads a mandate plus allowance and balance straight from chain. | Keep |
 | `verify.mjs` | `verify` | Local CI gate (also the pre-push hook): rustfmt, clippy, cargo test, clean build, npm test. | Keep |
 | `derive-freighter.mjs` | `keys:derive-freighter` | One-time setup: derives a Stellar secret key from a Freighter seed phrase. | Keep (setup) |
-| `screenshot-proofs.mjs` | (none) | Playwright. Screenshots the canonical contract's lifecycle txs (stellar.expert) into the gitignored `proofs/`. Reads the contract id from `deployments.ts`. | Keep |
 
 ## Other top-level
 
 | Path | What it does | Status |
 |---|---|---|
-| `docs/mandate-registry-contract.md` | Step 1 writeup: the contract, every method, on-chain activity, deployment history. | Keep |
-| `docs/reapp-sdk-npm.md` | Step 2 writeup: `@reapp-sdk/core` + `@reapp-sdk/stellar` on npm, the under-10-line flow. | Keep |
-| `docs/x402-roundtrip.md` | Step 3 writeup: the `Agent.fetch` x402 round-trip, merchant, ResearchAgent. | Keep |
+| `docs/mandate-registry-contract.md` | Contract writeup: every method, on-chain activity, deployment history. | Keep |
+| `docs/reapp-sdk-npm.md` | SDK writeup: `@reapp-sdk/core` + `@reapp-sdk/stellar` on npm, the under-10-line flow. | Keep |
+| `docs/x402-roundtrip.md` | x402 writeup: the `Agent.fetch` x402 round-trip, merchant, ResearchAgent. | Keep |
 | `docs/history/code-review.md` | Code review export (~168 KB), created 2026-06-16. | Keep (archived) |
 | `docs/history/code_review_full.md` | Full file-by-file review with verbatim source inlined (~383 KB), created 2026-06-17. | Keep (archived) |
 | `docs/repo-inventory.md` | This file. | Keep |
-| `security/README.md` | Index of gate check records. | Keep |
-| `security/audit-2026-06-10.md` | Contract gate check (Step 1). | Keep |
-| `security/sdk-audit-2026-06-15.md` | SDK gate check (Step 2). | Keep |
-| `security/x402-audit-2026-06-16.md` | x402 surface gate check (Step 3). | Keep |
-| `example-output/` (whole folder) | Per-step `*-verified.md`, `*-signoff.md`, e2e log, and `screenshots/`. | **Removed 2026-06-23** (stale: txs were from superseded pre-canonical deploys). The two genuine logs/dumps were moved to `docs/history/`. |
+| `security/README.md` | Index of gatecheck records. | Keep |
+| `security/gatecheck-2026-06-10.md` | Contract gatecheck record. | Keep |
+| `security/sdk-gatecheck-2026-06-15.md` | SDK gatecheck record. | Keep |
+| `security/x402-gatecheck-2026-06-16.md` | x402 surface gatecheck record. | Keep |
+| `example-output/` (whole folder) | Old generated proof bundle. | **Removed 2026-06-23** because it pointed at superseded testnet deploys. |
 | `docs/history/` | `testnet-e2e-run.md` + `e2e-testnet-run.log` from the superseded deploys, with a provenance README. | Keep (historical) |
 | `docs/playbook-testnet.md` | Testnet operating manual (moved from repo root `PLAYBOOK_TESTNET.md` 2026-06-23). | Keep |
 
@@ -118,14 +117,13 @@ load-bearing. The real cut candidates cluster in a few places:
 
 1. **Dead code, removed.** `scripts/lib/env.ts` was an env bootstrap helper that
    nothing imported (every script loads `dotenv` inline). Removed 2026-06-17.
-2. **`example-output/` evidence — removed 2026-06-23.** The markdown and log
-   artifacts duplicated the canonical deliverable docs, and their captured
-   transactions were from superseded pre-canonical testnet deploys (`CB2LY7XI`,
-   `CA3X…`), not the canonical `CB4KOTLG` contract. The proof now lives inline in
-   the deliverable docs and is regenerable via `npm run e2e:testnet`.
+2. **`example-output/` evidence — removed 2026-06-23.** The generated proof bundle
+   duplicated the release docs, and its captured transactions were from
+   superseded testnet deploys (`CB2LY7XI`, `CA3X…`), not the source-verified simple
+   `CB4KOTLG` contract. Fresh proof is regenerable via the e2e scripts.
 3. **Code-review dumps — moved to `docs/history/`.** `code-review.md` (2026-06-16)
    and `code_review_full.md` (2026-06-17) are point-in-time snapshots (they still
-   describe the removed `example-output/` folder); regenerate from the current tree
+   describe the removed proof bundle); regenerate from the current tree
    if a fresh review is needed.
 
 ## Cleanup log
@@ -133,18 +131,16 @@ load-bearing. The real cut candidates cluster in a few places:
 - 2026-06-17: Removed `scripts/lib/env.ts` and the now-empty `scripts/lib/`.
   Unused env bootstrap helper, imported by nothing.
 - 2026-06-23: Removed most of `example-output/` (3 `*-verified.md`, 3 `*-signoff.md`,
-  7 screenshots). The verified docs spliced superseded-contract transactions
-  (`CA3X…`) with the canonical contract's id and WASM hash; not safely fixable,
-  superseded by the inline proof in the deliverable docs. The two genuine
-  logs/dumps (`testnet-e2e-run.md`, the e2e log) were **moved** to `docs/history/`
-  with a provenance README rather than deleted. Renamed
-  `docs/tranche-1-step-{1,2,3}.md` → `mandate-registry-contract.md` /
+  and generated images). The verified docs spliced superseded-contract transactions
+  (`CA3X…`) with the source-verified simple contract's id and WASM hash; not safely fixable.
+  The two genuine logs/dumps (`testnet-e2e-run.md`, the e2e log) were **moved**
+  to `docs/history` with a provenance README rather than deleted. Renamed
+  old step docs → `mandate-registry-contract.md` /
   `reapp-sdk-npm.md` / `x402-roundtrip.md`, moved `PLAYBOOK_TESTNET.md` →
   `docs/playbook-testnet.md`, and added a **Deployment history** section to the
-  Step 1 doc. Extracted contract addresses to a single `packages/stellar/src/deployments.ts`.
+  the contract doc. Extracted contract addresses to a single `packages/stellar/src/deployments.ts`.
 - 2026-06-24: Aligned all explorer links on stellar.expert (scripts + playbook).
-  Archived the two code-review dumps to `docs/history/`. Brought
-  `scripts/screenshot-proofs.mjs` to spec (reads the contract id from
-  `deployments.ts`, stellar.expert urls, canonical lifecycle txs, output to the
-  gitignored `proofs/`). Removed the `playbook/demo.ts` alias and repointed
+  Archived the two code-review dumps to `docs/history/`. Removed the stale
+  old proof capture script after the e2e scripts became the source of fresh proof.
+  Removed the `playbook/demo.ts` alias and repointed
   `npm run demo` straight at `scripts/e2e-testnet.mjs`.

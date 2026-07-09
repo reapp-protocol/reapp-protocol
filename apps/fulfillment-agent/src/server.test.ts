@@ -88,7 +88,7 @@ test("accepts an overpayment", () => {
 });
 
 test("REJECTS a forged event: right topics and amount, wrong emitting contract", () => {
-  // The exact bypass the audit caught: a ("payment", merchant, price) event that
+  // The exact bypass the gatecheck caught: a ("payment", merchant, price) event that
   // would unlock the resource, but emitted by the token (or any attacker) contract.
   assert.equal(selectPayment([paymentEvent({ contractId: SAC })], CHECK).ok, false);
 });

@@ -146,7 +146,7 @@ the preflight; a running sum is incoherent across prices and a checked-add DoS.
 Member list: `DataKey::PoolMembers(pool_id) -> Vec<BytesN<32>>`, mandate ids in
 commit order, max `MAX_POOL_MEMBERS`. The list mutates only while the pool is
 `Open` (commit pushes; revoke/evict remove); once the pool is terminal it is
-frozen as the gate check record of who was in at close.
+frozen as the gatecheck record of who was in at close.
 
 ### 3.3 `ChildView` and `ClearOutcome` (`pooltypes.rs`)
 
@@ -664,5 +664,5 @@ conventions:
 6. `events.rs` + `lib.rs` dispatch; `pool_test.rs` negative sweep; reentry
    probes; resource-ceiling test; snapshot regeneration.
 7. `npm run verify` gate; redeploy batched with the admin/pause/fee pass per
-   the T2 sequencing decision (one redeploy, one re-verify, one
+   the composite sequencing decision (one redeploy, one re-verify, one
    deployment-history entry).

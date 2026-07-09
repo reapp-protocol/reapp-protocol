@@ -3,10 +3,9 @@
 **Status:** DESIGN v2 — supersedes composites-design.md. This revision folds in
 the 41 findings from the 4-lens adversarial design review (economic / platform /
 security / completeness). Every critical and high is resolved here; the change
-log is §11. Source of truth for intent is composites-brief.md; where this doc
-now diverges from the brief it is flagged in §10 (the brief itself has holes the
-review caught — those are noted, not silently followed). Deploy/redeploy, SDK
-bindings, and CLI are OUT of scope for this pass — contract code + tests only.
+log is §11. Meaningful deltas from earlier planning are flagged in §10.
+Deploy/redeploy, SDK bindings, and CLI are OUT of scope for this pass — contract
+code + tests only.
 
 ---
 
@@ -613,7 +612,7 @@ Consumer-visible shape changes vs the deployed contract, each asserted:
 `register_mandate` gains 2 params; `Mandate`/`get_mandate` gains 3 fields;
 `payment` event data gains `fee`; 10 new events; new error codes. A test asserts
 the exact `payment` tuple at rate 0 (`fee == 0`) and rate > 0. `test_snapshots/`
-regenerated. Doc note: `npm run audit`, the demo, and any indexer must handle the
+regenerated. Doc note: `npm run gatecheck`, the demo, and any indexer must handle the
 new `payment` arity — this is the same class of break as the ABI change and is
 flagged as such (not "byte-identical"; the *transfer legs and stored money state*
 are byte-identical at rate 0, the *event* is not).

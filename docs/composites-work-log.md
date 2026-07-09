@@ -1,8 +1,9 @@
-# Tranche 2 — Work Log
+# Composite release — Work Log
 
-Running log of everything done on the `tranche-2` branch. Newest session at the
-top. T1 stays frozen on `main` during the Stellar Foundation review; the live,
-source-verified contract is `CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA`.
+Running log of everything done on the `composites` branch. Newest session at the
+top. The simple source-verified contract stays live at
+`CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA`; the current composite
+deployment is tracked below.
 
 Commit SHAs are the source of truth for dates; the session headings are
 approximate.
@@ -65,13 +66,13 @@ reverted diff under "Housekeeping" below.
 **Recommended fix.**
 - Minimal: re-apply only the core change — call `execute_payment` with a sane
   `timeoutInSeconds` (e.g. 60, not the arbitrary 180). Makes `pay` reliable.
-- Proper (T3 settlement refactor): replace hand-rolled waits with the SDK's
+- Proper (next SDK settlement refactor): replace hand-rolled waits with the SDK's
   `rpc.Server.pollTransaction` + a backoff `sleepStrategy`, wrap in an
   `AbortController` deadline, classify outcomes explicitly (SUCCESS / FAILED /
   EXPIRED), and on any ambiguous error **reconcile against chain state**
   (`get_mandate` / `getTransaction`) before reporting success or failure.
 
-**Constraint.** The fix touches `@reapp-sdk/core`, which is frozen for the T1
+**Constraint.** The fix touches `@reapp-sdk/core`, which is frozen for the simple
 review — do not change it without explicit sign-off (and a heads-up to Alex).
 
 **Decision (resolved):** re-applied the targeted core `timeoutInSeconds` fix — see
@@ -88,7 +89,7 @@ human-paced) is unaffected; the demo avoids it the same way. For the same reason
 just-over-budget attempt can surface as `#8 BadSequence` instead of `#6
 BudgetExceeded` — overspend is still blocked either way.
 
-Fix (folds into the T3 settlement refactor): on `BadSequence`, re-read `seq` and
+Fix (folds into the next SDK settlement refactor): on `BadSequence`, re-read `seq` and
 retry once; and have `pay` classify outcomes (contract rejection vs tx/RPC error)
 so the CLI message isn't "rejected by the contract" for a tx-level failure.
 
@@ -121,12 +122,11 @@ happens, with a timestamp.
   production deploy — held for explicit okay. Published `@reapp-sdk/core` lacks the
   C1 fix, which is why the flow carries its own seq-polling reliability layer.
 
-- **2026-06-30 02:02 +07** — T2 isolation decision + deploy. To avoid confusing the
-  Stellar Foundation during the T1 review, all Tranche 2 surfaces on reapp.live are
-  cordoned under a single `T2` nav button → `/t2` hub (T1 pages Docs · Research ·
-  Video untouched). Key framing: the FREEZE is on the `reapp-protocol` repo
-  (contract/SDK the Foundation reviews); `reapp-protocol-demo` (reapp.live) is the
-  demo site and can carry T2. Restructured `/demo` → `/t2` + `/t2/demo`, updated
+- **2026-06-30 02:02 +07** — composites isolation decision + deploy. To keep the
+  simple and composite surfaces separated, all composite release surfaces on reapp.live are
+  cordoned under a single `composites` nav button → `/t2` hub (simple pages Docs · Research ·
+  Video untouched). Key framing: the freeze was on the simple contract/SDK path;
+  `reapp-protocol-demo` (reapp.live) is the demo site and can carry composites. Restructured `/demo` → `/t2` + `/t2/demo`, updated
   Nav + AGENTS.md, `next build` clean. Committed + pushed `reapp-protocol-demo`
   `main` (`cdd6235..b5e9e70`) → Railway auto-deploy to reapp.live in progress
   (root 200, `/t2` 404 until the build lands).
@@ -142,8 +142,8 @@ happens, with a timestamp.
 
 - **2026-06-30 02:18 +07** — reapp.live `/t2/demo` failed live (`Error(Contract,
   #9)` on first buy in one run; `NOT_FOUND` on register when reproduced). Root
-  cause: the page uses the PUBLISHED `@reapp-sdk/core@0.2.0`, which has no
-  settlement fix (the C1 fix is only on tranche-2, unpublished), so its register/
+  cause: the page uses the published `@reapp-sdk/core@0.2.0`, which has no
+  settlement fix (the C1 fix is only on composites, unpublished), so its register/
   approve/pay writes intermittently return before settling — surfacing as
   NOT_FOUND, BadSequence, or a transient `#9`. Ruled out a real zero-amount bug:
   `toStroops("1.00",7)=10000000` always. Fix: added an application-layer
@@ -151,9 +151,9 @@ happens, with a timestamp.
   reconciles against on-chain state (register confirms via `get_mandate`; pay
   treats "seq advanced" as success even if the client threw; `#6` = budget block;
   transient errors retry). Verified locally (3 bought, 4th blocked); deployed
-  `797e35d..74d6297`. The proper SDK-level fix is still the T3 settlement refactor.
+  `797e35d..74d6297`. The proper SDK-level fix is still the next SDK settlement refactor.
 
-- **2026-06-30 04:20 +07** — Reworked the reapp.live T2 demo into a **live terminal
+- **2026-06-30 04:20 +07** — Reworked the reapp.live composites demo into a **live terminal
   that runs the REAL CLI**, after the in-app reimplementation kept failing. Root
   cause recap: the page used the published `@reapp-sdk/core@0.2.0` (no settlement
   fix), so writes were flaky (NOT_FOUND/#8/#9), and my reconcile-by-seq had a bug
@@ -170,13 +170,13 @@ happens, with a timestamp.
 - **2026-06-30 04:39 +07** — REAPP-48 prep (README + publish). Marked REAPP-47 +
   REAPP-65 Done (delivered by the live terminal). Wrote `packages/cli/README.md`.
   Publish approach = **self-contained bundle** (fixed core inlined): reliable
-  `npx`, zero impact on the frozen SDK / T1 review, no Alex heads-up. Reconfigured
+  `npx`, zero impact on the frozen SDK / simple review, no Alex heads-up. Reconfigured
   `packages/cli/package.json`: `bin` → `dist/reapp-cli.bundle.mjs`, runtime dep =
   `@stellar/stellar-sdk` only (core/stellar/commander → devDeps, inlined via
   `cli:bundle`), `prepack` regenerates the bundle, version `0.1.0`, CLI `--version`
   → `0.1.0`. `npm pack` dry-run = 3 files (README + 146KB bundle + package.json),
   35KB tarball. NOT published yet: npm not authed in this env (E401) — user runs
-  `npm publish -w reapp-protocol-cli`. When the fixed core ships in T3, switch the
+  `npm publish -w reapp-protocol-cli`. When the fixed core ships in next SDK, switch the
   CLI to depend on it instead of inlining.
 
 ## CI / security notes
@@ -195,7 +195,7 @@ happens, with a timestamp.
 
 ### D5 — Composite mandates Stage 1 (clearing pools): built, deployed, demoed
 
-The Tranche 2 trust core, end to end in one session: architecture → contract →
+The Composite release trust core, end to end in one session: architecture → contract →
 tests → testnet deploy → e2e → live visual demo, with a multi-agent adversarial
 review gate (BulletproofBar-style) between build and ship.
 
@@ -216,7 +216,7 @@ extended mandate/registry/payment/storage/events/error/lib. Entry points:
 `price_schedule` (ABI break → redeploy; standalone callers pass `None, []`).
 Pool ids are sha256 of the terms (terms cannot be swapped under members);
 capture is CEI-ordered, all-or-nothing over the fired set, idempotent via the
-Open guard. **53/53 tests** (19 T1 + 34 composite/adversarial incl. an
+Open guard. **53/53 tests** (19 simple + 34 composite/adversarial incl. an
 evil-asset reentry probe on `clear_pool` and an 8-member × 8-point resource
 ceiling test), fmt + clippy clean, `npm run verify` green.
 
@@ -243,7 +243,7 @@ real code before being accepted. Contract findings fixed:
 2026-07-05: same source, deployed from the v0.2.0 release artifact built by
 the StellarExpert workflow in reapp-protocol-contracts and SOURCE-VERIFIED
 there — validation status "verified", wasm `6333c20b…f16f44`, repo commit
-`1dcb566`; e2e 9/9 + visual gate re-run against it). `deployments.ts`/`.env` updated by the deploy script; T1
+`1dcb566`; e2e 9/9 + visual gate re-run against it). `deployments.ts`/`.env` updated by the deploy script; simple
 `CB4KOT…7ZOA` untouched and still what the published SDK pins. Golden fixture
 in `apps/fulfillment-agent` now pins the id it was recorded against
 (`fixtures/payment-meta.json.registryId`) — it was latently coupled to the
@@ -263,12 +263,12 @@ parallelize fine); auction deadline needs 220s headroom on slow testnet days.
 **Demo (reapp-protocol-demo, `/composites`).** New route + `/api/composites`
 NDJSON stream + `lib/composites-server.ts` (group-buy generator) +
 `lib/composites-client.ts` (vendored binding pinned to the composite deploy;
-T1 surfaces untouched). Live run in the UI: pool terms → three buyer agents
+simple surfaces untouched). Live run in the UI: pool terms → three buyer agents
 (register/approve/commit with tx links) → simulate panel ("the allocation
 anyone can recompute") → live pre-deadline-rejection proof → countdown →
 atomic capture → uniform legs + punchline → double-clear-rejection proof →
 activity log, every row linking stellar.expert. Playwright visual test
-(`scripts/visual-composites.mjs`, screenshots in gitignored
+(`scripts/visual-composites.mjs`, temporary artifacts in gitignored
 `proofs/composites-ui/`) passes all beats with zero console errors. UI review
 findings fixed: server-anchored countdown (client clock skew), headline total
 from per-child `spent` (chain truth, not balance reads), event-driven committed
@@ -276,7 +276,7 @@ units, single in-flight step ping, interrupted-state badge, a11y dots +
 explorer hint parity, nav overflow on mobile.
 
 ### Branch & repo setup
-- `reapp-protocol` confirmed on `tranche-2` (cut from frozen `main`).
+- `reapp-protocol` confirmed on `composites` (cut from frozen `main`).
 - `reapp-protocol-demo` git remote repointed from the old `…/reapp-protocol-live.git`
   to `…/reapp-protocol-demo.git` (repo renamed live → demo). Local-only config change.
 
@@ -290,7 +290,7 @@ explorer hint parity, nav overflow on mobile.
   `~/.reapp/credentials.json` (dir 0700, file 0600, outside any repo). Verified
   on-chain: user account funded with 10000 XLM via Horizon.
 - **REAPP-44** `mandate create` — commit `42b07b1`. Builds the AP2 IntentMandate
-  from stored keys, registers it on-chain, grants the SEP-41 allowance to the
+  from stored keys, registers it on-chain, approves the SEP-41 allowance to the
   contract (both user-signed), persists inputs to `~/.reapp/mandate.json` so `pay`
   rebuilds the identical id. Verified end-to-end on testnet (register + approve
   tx hashes confirmed). Also fixed the root `build` script to pre-build
@@ -316,7 +316,7 @@ explorer hint parity, nav overflow on mobile.
   Verified live on testnet: 3 sources purchased, 4th blocked by the contract.
   Mitigates **C2** in-command by polling the mandate `seq` between purchases
   (`waitForSeq`) so a slow testnet doesn't cause the stale-read BadSequence race —
-  the general SDK-level fix is still the T3 settlement refactor.
+  the general SDK-level fix is still the next SDK settlement refactor.
 
 ### Housekeeping
 - Reverted two **uncommitted** Jun-27 working-tree edits in the frozen packages

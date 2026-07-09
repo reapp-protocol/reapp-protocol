@@ -7,7 +7,7 @@
  * Real testnet, real SEP-41 token (the native XLM asset contract), real funded
  * accounts. Proves the full flow + the bypass-proof property on live testnet:
  *
- *   user (deployer)  — funds + grants the SEP-41 allowance to the contract
+ *   user (deployer)  — funds + approves the SEP-41 allowance for the contract
  *   agent (fresh)    — the ONLY signer that can call execute_payment
  *   merchant (fresh) — receives the funds
  *
@@ -179,7 +179,7 @@ async function main() {
   if (!SAC) die("could not resolve native asset contract id.");
   field("asset (SAC)", c.yellow(SAC));
 
-  step("User grants SEP-41 allowance to the contract");
+  step("User approves SEP-41 allowance for the contract");
   note("The USER approves the CONTRACT (never the agent) as spender. This is the");
   note("custody model: funds stay in the user's wallet until the contract pulls");
   note("them — and the agent has NO allowance, so it can't move money directly.");

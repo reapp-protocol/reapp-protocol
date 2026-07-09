@@ -477,7 +477,7 @@ fn commit_negatives() {
 fn commit_insufficient_funds_preflight() {
     let w = setup();
     let pid = w.pool(9, 0, 1);
-    // no allowance granted at all
+    // no allowance approved at all
     let user = Address::generate(&w.env);
     StellarAssetClient::new(&w.env, &w.asset).mint(&user, &FUNDED);
     let id = w.child(&user, 34, &pid, &[(5, 3)]);

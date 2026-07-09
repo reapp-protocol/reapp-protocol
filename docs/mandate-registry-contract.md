@@ -1,17 +1,17 @@
-# Tranche 1, Step 1: MandateRegistry on Stellar Testnet
+# Simple MandateRegistry on Stellar Testnet
 
 [![tests](https://img.shields.io/badge/tests-19%2F19%20passing-2ea44f)](https://github.com/reapp-protocol/reapp-protocol/actions/workflows/ci.yml)
-[![testnet: MandateRegistry](https://img.shields.io/badge/testnet-MandateRegistry-7b3fe4)](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA)
+[![testnet: Simple MandateRegistry](https://img.shields.io/badge/testnet-Simple%20MandateRegistry-7b3fe4)](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA)
 
-> The MandateRegistry is deployed on testnet and **source-verified on StellarExpert**: [`CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA`](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA). Its identity, verification, and on-chain activity are below.
+> This document records the source-verified simple MandateRegistry deployment on Stellar testnet: [`CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA`](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA). The workspace SDK config now points at the composite deployment; this page preserves the simple contract's identity, verification, and historical on-chain activity.
 
-> **Deliverable.** MandateRegistry Soroban contract deployed on testnet. Contract
+> **Release.** MandateRegistry Soroban contract deployed on testnet. Contract
 > live on testnet with `register_mandate`, `validate_mandate`,
 > `execute_payment`, and `revoke_mandate` callable. Integration tests passing,
 > including negative cases for unauthorized callers and overspend attempts.
 
-This document explains the contract in plain English, documents every method, and
-shows every transaction it has handled on-chain.
+This document explains the simple contract in plain English, documents every method,
+and records its historical on-chain activity.
 
 ## What it is
 
@@ -35,7 +35,7 @@ treated as untrusted. The contract is the source of truth.
 | Source | Source-verified on StellarExpert: [`reapp-protocol-contracts`](https://github.com/reapp-protocol/reapp-protocol-contracts) @ commit `d1a2e3e` |
 | Explorer | [stellar.expert contract page](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA) |
 
-The contract is small on purpose. A small interface is an reviewable interface.
+The contract is small on purpose. A small interface is a reviewable interface.
 
 ## How it works, in plain English
 
@@ -159,7 +159,7 @@ A read-only lookup.
 |---|---|
 | **Signer** | none, anyone can call it |
 | **Returns** | the stored mandate (status, spent, seq, and the rest) |
-| **Use** | gate check, and reading the current `seq` before paying |
+| **Use** | gatecheck, and reading the current `seq` before paying |
 
 ## What it refuses
 
@@ -244,7 +244,7 @@ cd contracts/mandate-registry && cargo test
 test result: ok. 19 passed; 0 failed; 0 ignored
 ```
 
-The deliverable names two negatives. Both are covered by dedicated tests.
+The requirements name two negative paths. Both are covered by dedicated tests.
 
 **Unauthorized callers**
 
@@ -274,8 +274,8 @@ The full suite, grouped by what it covers:
 | Token safety | `insufficient_allowance_blocks_payment`, `reentry_probe::reentrancy_via_evil_token` |
 
 These run on every push through the CI workflow. That matches the Stellar feedback
-that the negative tests should run continuously in CI from Tranche 1, not be added
-at the end.
+that the negative tests should run continuously from the first release, not be
+added at the end.
 
 ## On-chain activity
 
@@ -291,7 +291,7 @@ Every call below is on the source-verified contract `CB4KOTLG…7ZOA`, each link
 ### What this shows
 
 - **A full lifecycle on the source-verified contract**: `register_mandate`, then `execute_payment` (1 XLM moved on-chain), then `revoke_mandate`, all successful, with the read-only `get_mandate` used to read state.
-- **The contract is the source of truth**: the SEP-41 allowance is granted to the contract, not the agent, and `execute_payment` is the only path that moves funds.
+- **The contract is the source of truth**: the SEP-41 allowance is approved for the contract, not the agent, and `execute_payment` is the only path that moves funds.
 
 The rejection paths (overspend, replay, pay-after-revoke, and unauthorized callers) are proven by the 19/19 Rust suite and the end-to-end run, and are enforced on-chain by the typed errors (`BudgetExceeded`, `BadSequence`, `MandateRevoked`) and host-level `require_auth`.
 
@@ -317,23 +317,22 @@ The hash is `4eb1b943…d8c69e`, and the [contract page](https://stellar.expert/
 
 ## Deployment history
 
-The contract was iterated on testnet before the canonical deploy. Earlier instances
-were throwaway testnet builds, are **unverified**, and are superseded; only
-`CB4KOTLG…7ZOA` is the source-verified, canonical contract that the SDK, the apps,
-and every current doc point at. Listed here for the full record.
+The simple contract was iterated on testnet before the source-verified deploy.
+Earlier instances were throwaway testnet builds, are **unverified**, and are
+superseded. Listed here for the full record.
 
 | Deploy | Contract id | WASM hash | Created | Status |
 |---|---|---|---|---|
 | Early build | [`CB2LY7XI…H3RD`](https://stellar.expert/explorer/testnet/contract/CB2LY7XIGP7324LTFWUWV5K54AKNCERCUC2N67TKGTCPK4Y2TVVYH3RD) | `a58290d7…` | 2026-06-09 | Superseded · unverified · before the reentrancy regression test (18 tests) |
-| e2e iteration | [`CA3X76MR…SBQCL`](https://stellar.expert/explorer/testnet/contract/CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL) | `59298a08…` | 2026-06-09 | Superseded · unverified · the Step 1–3 hardening runs (19 tests) |
-| **Canonical** | [`CB4KOTLG…7ZOA`](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA) | `4eb1b943…` | 2026-06-19 | **Live · source-verified · the contract this repo deploys and documents** |
+| e2e iteration | [`CA3X76MR…SBQCL`](https://stellar.expert/explorer/testnet/contract/CA3X76MRIEHP7LVY6H4FIAOTRQYLSMD6NXUMVM5ZR56EOCCWMT6SBQCL) | `59298a08…` | 2026-06-09 | Superseded · unverified · the testnet hardening runs (19 tests) |
+| **Source-verified simple** | [`CB4KOTLG…7ZOA`](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA) | `4eb1b943…` | 2026-06-19 | **Live · source-verified · preserved as the simple contract record** |
 
 Each deploy is a fresh contract id with its own bytecode hash; the earlier two are
 left on testnet for transparency and carry no funds or active mandates.
 
-## Security gate check
+## Security gatecheck
 
-Internal adversarial gate check on 2026-06-10: a 12-agent sweep across six attack
+Internal adversarial gatecheck on 2026-06-10: a 12-agent sweep across six attack
 surfaces (arithmetic and overflow, authorization, replay and sequencing, token
 interaction and reentrancy, state and storage, and logic and economics), with every
 finding independently re-verified against the code. This is the project's own review
@@ -353,13 +352,13 @@ Three items are deferred to mainnet hardening and are not testnet blockers: an a
 allowlist, aligning storage TTL with the mandate expiry, and revisiting the
 `validate_mandate` name.
 
-## Deliverable checklist
+## Release Checklist
 
-Every clause of the Tranche 1 Step 1 deliverable, with where it is proven.
+Every clause of the contract release, with where it is proven.
 
 | Clause | Status | Evidence |
 |---|---|---|
-| MandateRegistry deployed and live on testnet | Met | Contract `CB4KOTLG…7ZOA`, WASM `4eb1b943…`, deployed 2026-06-19, source-verified on StellarExpert. The same id is hard-coded in the SDK config (`packages/stellar`, v0.1.3). Live behavior confirmed end to end (register, approve, pay, revoke). The on-chain activity is shown in the table below |
+| MandateRegistry deployed and live on testnet | Met | Simple contract `CB4KOTLG…7ZOA`, WASM `4eb1b943…`, deployed 2026-06-19, source-verified on StellarExpert. Live behavior confirmed end to end (register, approve, pay, revoke). The on-chain activity is shown in the table below |
 | `register_mandate` callable | Met | Live on-chain; tests `happy_path_runs_every_method`, `register_requires_user_auth` |
 | `validate_mandate` callable | Met | Read-only dry run by design (mutates nothing); exercised as the e2e preflight before each `execute_payment`, as documented above |
 | `execute_payment` callable | Met | Live on-chain, 1 XLM moved (confirmed on Horizon); tests `happy_path_runs_every_method`, `property_spent_equals_transferred` |
@@ -368,20 +367,20 @@ Every clause of the Tranche 1 Step 1 deliverable, with where it is proven.
 | Negatives: unauthorized callers | Met | `execute_requires_agent_auth`, `register_requires_user_auth`, `revoke_requires_user_auth`; mirrored on-chain by the rejected `GDNV…5ARS` payment |
 | Negatives: overspend | Met | `overspend_single_rejected`, `overspend_cumulative_rejected` |
 
-The Step 1 deliverable is met on every clause.
+The contract release is met on every clause.
 
 ## Mapping to Stellar's feedback
 
-Stellar gave seven pieces of feedback. Most of it points at Tranche 2 and Tranche
-3. This table is honest about which parts Step 1 addresses now and which are future
-work, so nothing is oversold.
+Stellar gave seven pieces of feedback. Some are addressed now and some belong to
+mainnet hardening. This table is honest about what is live today and what remains
+future work, so nothing is oversold.
 
 | Feedback | Targets | Status now | Notes |
 |---|---|---|---|
 | 1. Decouple mandate logic from the x402 wire format | Cross-cutting | Addressed at the contract layer | MandateRegistry takes plain Soroban types and knows nothing about x402, so it adapts to x402 v0.2 or v0.3 without a redesign. The x402 flow itself is later work and is not built yet |
-| 2. Threat model, data flow diagrams, and negative suite as gating deliverables | Tranche 3 | Negative suite done; threat model and diagrams not yet written | The negative test suite runs in CI from the first commit. The formal threat model and data flow diagrams are Tranche 3 documents and do not exist yet |
-| 3. 2-of-3 multisig and timelock, with documented key management | Tranche 3 | Not started | The contract has no upgrade path or admin today, so there is nothing to govern yet. Multisig, timelock, and key documentation are mainnet work |
-| 4. Negative tests in CI from Tranche 1 | Tranche 1 | Addressed for every applicable case | Unauthorized callers, expired, overspend, and replay all run in CI from the first commit. Unauthorized upgrades have no test because there is no upgrade mechanism yet |
-| 5. Protocol-enforced limits; the SDK cannot bypass the on-chain check | Tranche 1 | Addressed | `execute_payment` re-validates against stored state on every call and is the only money path. The SDK holds no allowance and is treated as untrusted, so a buggy or skipped SDK check cannot exceed the mandate |
-| 6. Exemplary reference consumer and fulfillment agents | Tranche 2 | Not started | Both reference agents are stubs today. The safe pattern is shown in the SDK and its documentation |
-| 7. Live failure-mode drills and a UX writeup | Tranche 3 | Partial | The core paths plus overspend and revoke have live testnet evidence. The named drills (merchant downtime mid-transaction, expiry mid-flow) and their UX writeup are future work |
+| 2. Threat model, data flow diagrams, and negative suite as release gates | Mainnet hardening | Negative suite done; threat model and diagrams not yet written | The negative test suite runs in CI from the first commit. The formal threat model and data flow diagrams are mainnet hardening documents and do not exist yet |
+| 3. 2-of-3 multisig and timelock, with documented key management | Mainnet hardening | Not started | The contract has no upgrade path or admin today, so there is nothing to govern yet. Multisig, timelock, and key documentation are mainnet work |
+| 4. Negative tests in CI from the first release | Current testnet release | Addressed for every applicable case | Unauthorized callers, expired, overspend, and replay all run in CI from the first commit. Unauthorized upgrades have no test because there is no upgrade mechanism yet |
+| 5. Protocol-enforced limits; the SDK cannot bypass the on-chain check | Current testnet release | Addressed | `execute_payment` re-validates against stored state on every call and is the only money path. The SDK holds no allowance and is treated as untrusted, so a buggy or skipped SDK check cannot exceed the mandate |
+| 6. Exemplary reference consumer and fulfillment agents | Reference-app release | Not started | Both reference agents are stubs today. The safe pattern is shown in the SDK and its documentation |
+| 7. Live failure-mode drills and a UX writeup | Mainnet hardening | Partial | The core paths plus overspend and revoke have live testnet evidence. The named drills, including merchant downtime mid-transaction and expiry mid-flow, are future work |

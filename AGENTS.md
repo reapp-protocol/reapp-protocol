@@ -13,7 +13,7 @@ agent or SDK cannot exceed the mandate.
 
 **The core invariant:** money moves only through `MandateRegistry.execute_payment`,
 which validates-and-consumes the mandate atomically *before* it transfers. The user
-grants the SEP-41 allowance to the **contract**, never to the agent or SDK. The SDK
+approves the SEP-41 allowance for the **contract**, never for the agent or SDK. The SDK
 is untrusted; the contract is the source of truth. When changing anything, preserve
 this: never let a spend path bypass `execute_payment`, and never move the allowance
 or enforcement into TypeScript.
@@ -46,15 +46,15 @@ On-chain scripts (need a funded testnet burner in `.env` — copy `.env.example`
 - `npm run e2e:x402` — full x402 round-trip: ResearchAgent buys from the 402-gated
   merchant via `agent.fetch`; three settle on-chain, the fourth is budget-rejected.
 - `npm run e2e:testnet`, `npm run e2e:sdk` — lower-level on-chain e2e.
-- `npm run audit` — independent on-chain mandate gate-check tool.
+- `npm run gatecheck` — independent on-chain mandate gatecheck tool.
 - `npm run deploy:testnet` — deploy the contract; fill the resulting ids into `.env`.
 - `npm run keys:derive-freighter` — scan BIP39 indexes to match a Freighter pubkey
   (seed typed at runtime, never stored).
 
 ## Architecture
 
-Data/trust flow: **user** signs a mandate → SDK registers it + grants the
-allowance *to the contract* → **agent** calls `execute_payment` → contract
+Data/trust flow: **user** signs a mandate → SDK registers it + approves the
+allowance *for the contract* → **agent** calls `execute_payment` → contract
 validates+consumes, then does the SEP-41 `transfer_from(user → merchant)`.
 
 ### `contracts/mandate-registry/` — Rust / soroban-sdk (the enforcement layer)
@@ -100,9 +100,9 @@ The under-10-line flow (`reapp.createIntentMandate` → `registerMandate` →
   402's `payTo` to the mandate merchant) are fail-fast convenience only. The real
   boundary is always the contract + the merchant's on-chain verification. Don't
   present an SDK check as the enforcement.
-- The contract is gate-checked and live on testnet; treat its interface as a published
+- The contract is gatechecked and live on testnet; treat its interface as a published
   contract. The negative/§10 suite is not optional and must stay green from commit one.
-- `security/` holds the contract, SDK, and x402 gate check records; the deliverable docs
+- `security/` holds the contract, SDK, and x402 gatecheck records; the release docs
   `docs/mandate-registry-contract.md`, `docs/reapp-sdk-npm.md`, and `docs/x402-roundtrip.md`
   document each shipped step. Update them when the matching surface changes.
 - Testnet only in this repo: hot burner keys, never reused on mainnet, never committed.

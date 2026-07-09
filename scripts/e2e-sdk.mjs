@@ -75,6 +75,7 @@ async function main() {
     asset, maxAmount: "5.00", expiry: Math.floor(Date.now() / 1000) + 3600,
   });
   field("mandate id", c.dim(mandate.id));
+  field("gatecheck", c.dim(`npm run gatecheck -- ${mandate.id}`));
   record("createIntentMandate", Boolean(mandate.id));
 
   step("registerMandate  (SDK, user-signed)");
@@ -83,7 +84,7 @@ async function main() {
   record("registerMandate", Boolean(regHash));
 
   step("approveBudget  (SDK, user-signed SEP-41)");
-  note("User grants the CONTRACT (not the agent) a 5 XLM allowance.");
+  note("User approves the CONTRACT (not the agent) for a 5 XLM allowance.");
   const apprHash = await reapp.approveBudget(mandate, { signer: user });
   field("tx", c.link(`https://stellar.expert/explorer/testnet/tx/${apprHash}`));
   record("approveBudget", Boolean(apprHash));
@@ -125,6 +126,7 @@ async function main() {
   log(`  ${all ? c.green("✦") : c.red("✖")} ${c.bold("SDK E2E SUMMARY")}  ${c.dim(`${pass}/${results.length} passed`)}`);
   log(RULE(paint));
   for (const r of results) log(`  ${r.ok ? c.green("✓") : c.red("✖")} ${r.label}`);
+  if (all) log(`  ${c.cyan("→")} ${c.bold("gatecheck")} ${c.dim(`npm run gatecheck -- ${mandate.id}`)}`);
   log(RULE(paint));
   log("");
   exit(all ? 0 : 1);

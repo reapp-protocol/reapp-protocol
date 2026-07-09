@@ -252,7 +252,7 @@ export const reapp = {
     return sent.sendTransactionResponse?.hash ?? "";
   },
 
-  /** Grant the contract a SEP-41 allowance up to the mandate budget (user-signed). */
+  /** Approve the contract for a SEP-41 allowance up to the mandate budget (user-signed). */
   async approveBudget(
     mandate: IntentMandate,
     opts: SignerInput,

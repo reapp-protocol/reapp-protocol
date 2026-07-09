@@ -45,7 +45,7 @@ The flow has three signers and one contract. The user authorizes, the agent spen
 
 1. `createIntentMandate` builds the mandate object and its canonical id locally. No network call happens here. The id is a hash of the mandate fields and becomes the on-chain storage key.
 2. `registerMandate` writes the mandate to the contract, signed by the user. The contract sets `spent` to 0, `seq` to 0, and `status` to Active itself, so a caller cannot seed tampered state.
-3. `approveBudget` grants a SEP-41 allowance up to the budget. The allowance goes to the **contract**, never to the agent or the SDK. This is the custody boundary: the agent can ask the contract to move money, but only the contract holds the right to pull from the user.
+3. `approveBudget` approves a SEP-41 allowance up to the budget. The allowance goes to the **contract**, never to the agent or the SDK. This is the custody boundary: the agent can ask the contract to move money, but only the contract holds the right to pull from the user.
 4. `pay` calls `execute_payment`, signed by the agent. The contract re-checks the agent, the sequence, the merchant scope, the expiry, and the remaining budget, then advances `spent` and `seq` and transfers the funds from user to merchant in one atomic step. If any check fails, the whole call reverts and `pay` throws.
 
 ## Paying for a resource (x402)
@@ -91,7 +91,7 @@ Stores the mandate on-chain. Signed by the user. Returns the transaction hash.
 
 ### `reapp.approveBudget(mandate, { signer }, net?)`
 
-Grants the contract a SEP-41 allowance up to the mandate budget. Signed by the user. Returns the transaction hash.
+Approves the contract for a SEP-41 allowance up to the mandate budget. Signed by the user. Returns the transaction hash.
 
 ### `reapp.agent({ mandate, signer }, net?).pay(amount)`
 
@@ -145,7 +145,7 @@ try {
 
 ## Network
 
-`@reapp-sdk/core` defaults to Stellar testnet and the MandateRegistry id pinned in `@reapp-sdk/stellar`'s `deployments.ts` (workspace: the Tranche 2 composite build `CBALARHTO5D7JLWHZ5KST4QNIRC64JI5H3DQDHMIUBSRLLOVS6FCWOQX`; currently published npm versions pin the Tranche 1 contract `CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA`). Pass a custom `NetworkConfig` as the last argument to any call to point at a different RPC, passphrase, or contract.
+`@reapp-sdk/core` defaults to Stellar testnet and the MandateRegistry id pinned in `@reapp-sdk/stellar`'s `deployments.ts` (workspace: the composite build `CBALARHTO5D7JLWHZ5KST4QNIRC64JI5H3DQDHMIUBSRLLOVS6FCWOQX`; currently published npm versions pin the source-verified simple contract `CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA`). Pass a custom `NetworkConfig` as the last argument to any call to point at a different RPC, passphrase, or contract.
 
 ```ts
 reapp.testnet            // the default NetworkConfig

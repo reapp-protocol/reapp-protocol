@@ -1,6 +1,6 @@
-# Tranche 1, Step 3: x402 Payment Round-Trip on Testnet
+# x402 Payment Round-Trip on Testnet
 
-> **Deliverable.** x402 testnet payment round-trip working end to end.
+> **Release.** x402 testnet payment round-trip working end to end.
 > `Agent.fetch(url)` receives a 402, validates the mandate, signs the XDR, pays,
 > and receives the resource. Reviewers can reproduce the full ResearchAgent
 > scenario on testnet using the SDK.
@@ -16,7 +16,7 @@ transaction and was re-checked against Horizon.
 
 x402 is HTTP 402 Payment Required, used as a real payment handshake: an agent asks
 for a resource, the server answers "pay first", the agent pays, and the server
-serves the resource. Step 3 wires that handshake to REAPP, so the payment is a
+serves the resource. This release wires that handshake to REAPP, so the payment is a
 mandate-validated, on-chain `execute_payment` rather than a trusted off-chain claim.
 
 The round-trip, end to end:
@@ -35,8 +35,8 @@ Two properties make this safe, and they map directly to the Stellar feedback:
 | Fact | Value |
 |---|---|
 | Network | Stellar testnet |
-| Contract | [`CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA`](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA) (the source-verified MandateRegistry) |
-| SDK | `@reapp-sdk/core` 0.2.0 on npm, adds `Agent.fetch(url)`, built on the Step 2 `pay` path |
+| Contract | [`CBALARHTO5D7JLWHZ5KST4QNIRC64JI5H3DQDHMIUBSRLLOVS6FCWOQX`](https://stellar.expert/explorer/testnet/contract/CBALARHTO5D7JLWHZ5KST4QNIRC64JI5H3DQDHMIUBSRLLOVS6FCWOQX) (the current composite MandateRegistry) |
+| SDK | `@reapp-sdk/core` 0.2.0 on npm, adds `Agent.fetch(url)`, built on the SDK `pay` path |
 | Asset | native XLM (a real SEP-41 token via its SAC) |
 
 ## The round-trip
@@ -122,56 +122,38 @@ caps the spend at 3 XLM, so the agent buys three sources and the contract blocks
 fourth. The agent then works with what it could afford. The agent is untrusted; the
 contract is the leash.
 
-## Proof: the round-trip live on testnet, no mocks
+## Proof: run the round-trip live on testnet, no mocks
 
 `npm run e2e:x402` funds fresh actors, signs a 3 XLM mandate, starts the merchant,
-and runs the ResearchAgent. The run below is the canonical evidence.
+and runs the ResearchAgent against the current `TESTNET.mandateRegistryId`. It prints
+fresh StellarExpert links for the user-signed authorization calls and each
+agent-signed payment.
 
-- **Run:** 2026-06-19, ledgers 3,169,539 to 3,169,547
-- **Contract:** [`CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA`](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA)
-- **Mandate:** `86b4…4479`, budget 3 XLM
-- **Actors:** user [`GAMH…IDX6`](https://stellar.expert/explorer/testnet/account/GAMH7BXFSGLC6ZUTPMBPFQQLXJ6GT6SFVAGZC6S3DKISBSBM35QGIDX6) · agent [`GDEA…FKWW`](https://stellar.expert/explorer/testnet/account/GDEAXIXR2AIM7BILXPTIZ25546QW4IY5FFCBY6DEMDAOO3R3X3KSFKWW) · merchant [`GAA2…4OE3`](https://stellar.expert/explorer/testnet/account/GAA2BBN5EB6OH573AMWDZJZJVU7UESCQHG4JKW22DKRIXVYA77VP4OE3)
+The expected result is 3 of 4 sources served, the 4th blocked by the contract, and
+the merchant earning exactly 3 XLM. The budget holds through the HTTP layer because
+every x402 payment still routes through `execute_payment`.
 
-| Step | x402 | On-chain |
-|---|---|---|
-| Authorize | user signs the 3 XLM mandate | register [tx `af93aa7a…`](https://stellar.expert/explorer/testnet/tx/af93aa7a71196390502d8df0d3bef4ee4402f83d9cbe3416e9da6f095636cdf3), approve [tx `24997f20…`](https://stellar.expert/explorer/testnet/tx/24997f205abe0515707fd245754eb9e5ee553212cd43756b5a62a21eddd4fc01) |
-| `fetch(/source/market)` | 402, pay 1 XLM, resource served | **agent-signed** [tx `b4d749b2…`](https://stellar.expert/explorer/testnet/tx/b4d749b258b618465b8dfecc63d0deaad7c86ddeb14b48850bb217a80defb57b) |
-| `fetch(/source/academic)` | 402, pay 1 XLM, resource served | [tx `34542bd9…`](https://stellar.expert/explorer/testnet/tx/34542bd90be9383fdff2278c02c4f04ffb1fed780bb48c3726f8fb0be1500f0f) |
-| `fetch(/source/news)` | 402, pay 1 XLM, resource served | [tx `bf3df55e…`](https://stellar.expert/explorer/testnet/tx/bf3df55efb9894695e2135967bafe23ffe9558b5a37c923eafd0b691b2a1942c) |
-| `fetch(/source/patents)` | 402, payment **rejected on-chain** | `BudgetExceeded`, no transaction, no resource |
-
-**Result: 3 of 4 sources served, the 4th blocked by the contract, merchant earned
-exactly 3 XLM.** The budget held through the HTTP layer.
-
-### Independent confirmation
-
-Every transaction was re-verified against Horizon. The four method transactions
-return `successful: true` at ledgers 3,169,539 to 3,169,547. The register and approve
-were signed by the user (`GAMH…IDX6`); the three payments were signed by the agent
-(`GDEA…FKWW`), a different key. The merchant account read back exactly
-`10003.0000000` XLM, a clean `+3` over its 10,000 XLM friendbot start.
-
-## Security gate check
+## Security gatecheck
 
 A BulletproofBar adversarial sweep on 2026-06-16: 23 agents across six attack
 surfaces (merchant on-chain verification, replay and double-spend, `fetch` cannot
 bypass the contract, x402 wire-format parsing, the consumer agent pattern, and
 correctness), every finding independently re-verified against the code.
 
-The gate check found and we fixed a **critical** access-control bug before sign-off, an
+The gatecheck found and we fixed a **critical** access-control bug before sign-off, an
 honest record kept here on purpose:
 
-| Found by the gate check | Fixed |
+| Found by the gatecheck | Fixed |
 |---|---|
 | The merchant verified the `payment` event's topic and amount but not which contract emitted it. Any contract could publish a forged `("payment", merchant, price)` event and unlock the resource for free. | The merchant now requires the event to be emitted by the MandateRegistry (`StrKey.encodeContract(ev.contractId()) == mandateRegistryId`). Verified on-chain: the token's `transfer` event is correctly ignored, only the registry's `payment` event is honored. |
 | Replay check ran before the async on-chain verification, leaving a TOCTOU window for concurrent reuse. | The proof is reserved synchronously before the await, and released only on a verification failure. |
 
-Full record: [`security/x402-audit-2026-06-16.md`](https://github.com/reapp-protocol/reapp-protocol/blob/main/security/x402-audit-2026-06-16.md).
-After the fixes the surface passed a follow-up gate check clean for testnet. The remaining items
+Full record: [`security/x402-gatecheck-2026-06-16.md`](https://github.com/reapp-protocol/reapp-protocol/blob/main/security/x402-gatecheck-2026-06-16.md).
+After the fixes the surface passed a follow-up gatecheck clean for testnet. The remaining items
 (per-call price ceiling, binding a payment to a specific resource, deriving the price
 from the asset decimals) are mainnet-hardening notes, not testnet blockers.
 
-## Deliverable checklist
+## Release Checklist
 
 | Clause | Status | Evidence |
 |---|---|---|
@@ -186,12 +168,12 @@ from the asset decimals) are mainnet-hardening notes, not testnet blockers.
 
 | Feedback | Targets | Status now |
 |---|---|---|
-| 1. Decouple mandate logic from the x402 wire format | Tranche 1 | Addressed. All x402 HTTP shape is isolated in `x402.ts`; the mandate and contract know nothing about it, so x402 v0.2 or v0.3 touches only that file. |
-| 5. The SDK cannot bypass the on-chain check | Tranche 1 | Addressed and gate-checked. `fetch` always settles through `execute_payment`; the merchant independently verifies the payment on-chain (and the emitting contract). |
-| 6. Reference agents exemplary, warn against unsafe patterns | Tranche 1 | Addressed. The merchant and ResearchAgent are commented as first-read examples and name the unsafe shortcuts they reject. The gate check hardened the merchant's verification. |
-| 4. Negative tests in CI from Tranche 1 | Tranche 1 | The contract negative suite runs in CI on every push; the x402 e2e proves the budget block live. |
-| 7. Live failure-mode drills | Tranche 3 | Partial. The over-budget drill (4th purchase rejected) runs live. Merchant downtime and expiry-mid-flow drills, with a UX writeup, are Tranche 3. |
-| 2, 3. Threat model and DFDs, multisig and key management | Tranche 3 | Future work, as before. |
+| 1. Decouple mandate logic from the x402 wire format | Current testnet release | Addressed. All x402 HTTP shape is isolated in `x402.ts`; the mandate and contract know nothing about it, so x402 v0.2 or v0.3 touches only that file. |
+| 5. The SDK cannot bypass the on-chain check | Current testnet release | Addressed and gatechecked. `fetch` always settles through `execute_payment`; the merchant independently verifies the payment on-chain and the emitting contract. |
+| 6. Reference agents exemplary, warn against unsafe patterns | Current testnet release | Addressed. The merchant and ResearchAgent are commented as first-read examples and name the unsafe shortcuts they reject. The gatecheck hardened the merchant's verification. |
+| 4. Negative tests in CI from the first release | Current testnet release | The contract negative suite runs in CI on every push; the x402 e2e proves the budget block live. |
+| 7. Live failure-mode drills | Mainnet hardening | Partial. The over-budget drill, where the fourth purchase is rejected, runs live. Merchant downtime and expiry-mid-flow drills belong to mainnet hardening. |
+| 2, 3. Threat model and DFDs, multisig and key management | Mainnet hardening | Future work, as before. |
 
 ## Reproduce it yourself
 
