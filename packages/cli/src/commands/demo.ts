@@ -1,5 +1,5 @@
 /**
- * `reapp demo research-agent` — the "aha" walkthrough (REAPP-46).
+ * `reapp demo research-agent` — the "aha" walkthrough.
  *
  * Self-contained and runs cold: spins up three ephemeral testnet accounts,
  * registers a real on-chain mandate, then has the agent buy research sources one

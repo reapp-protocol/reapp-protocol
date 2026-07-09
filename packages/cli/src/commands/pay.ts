@@ -1,5 +1,5 @@
 /**
- * `reapp pay [amount]` — agent-signed payment against the active mandate (REAPP-45).
+ * `reapp pay [amount]` — agent-signed payment against the active mandate.
  *
  * Rebuilds the stored mandate (same nonce -> same id), then has the AGENT sign
  * execute_payment. Budget, expiry, and replay are enforced ON-CHAIN: when the
@@ -9,11 +9,31 @@
  */
 import { reapp } from "@reapp-sdk/core";
 import { log, c } from "../ui.js";
-import { configExists, loadConfig } from "../config.js";
+import { configExists, loadConfig, networkConfig } from "../config.js";
 import { credentialsExist, loadCredentials } from "../secrets.js";
 import { mandateExists, loadMandate } from "../mandate-store.js";
 
 const short = (s: string) => (s ? `${s.slice(0, 6)}…${s.slice(-4)}` : "");
+
+function rejectionSummary(reason: string): string {
+  const code = (reason.match(/Error\(Contract,\s*#(\d+)\)/) ?? [])[1];
+  switch (code) {
+    case "4":
+      return "MandateExpired";
+    case "5":
+      return "MandateRevoked";
+    case "6":
+      return "BudgetExceeded";
+    case "7":
+      return "MerchantOutOfScope";
+    case "8":
+      return "BadSequence";
+    case "9":
+      return "InvalidAmount";
+    default:
+      return reason.split("\n")[0] ?? reason;
+  }
+}
 
 export async function runPay(amountArg?: string): Promise<void> {
   if (!configExists()) {
@@ -30,6 +50,7 @@ export async function runPay(amountArg?: string): Promise<void> {
   }
 
   const config = loadConfig();
+  const net = networkConfig(config);
   const creds = loadCredentials();
   const stored = loadMandate();
   const txUrl = (hash: string) => `${config.explorer}/tx/${hash}`;
@@ -39,7 +60,7 @@ export async function runPay(amountArg?: string): Promise<void> {
 
   log.step("execute_payment (agent-signed)", { amount: `${amount} XLM`, mandate: short(mandate.id) });
   try {
-    const hash = await reapp.agent({ mandate, signer: creds.agentSecret }).pay(amount);
+    const hash = await reapp.agent({ mandate, signer: creds.agentSecret }, net).pay(amount);
     log.chain("payment settled on-chain", { tx: short(hash) });
     console.log(
       "\n" +
@@ -52,7 +73,7 @@ export async function runPay(amountArg?: string): Promise<void> {
     );
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);
-    log.err("payment rejected by the contract", { reason });
+    log.err("payment rejected by the contract", { reason: rejectionSummary(reason) });
     log.info("budget, expiry, and replay are enforced on-chain — the CLI cannot override them");
     process.exitCode = 1;
   }

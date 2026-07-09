@@ -1,5 +1,5 @@
 /**
- * `reapp mandate create` — register an AP2 IntentMandate on-chain (REAPP-44).
+ * `reapp mandate create` — register an AP2 IntentMandate on-chain.
  *
  * Builds the mandate from the stored testnet keys, registers it, and approves the
  * SEP-41 allowance to the CONTRACT (never to the agent) — both user-signed.
@@ -9,7 +9,7 @@
  */
 import { reapp, type CreateIntentMandateInput } from "@reapp-sdk/core";
 import { log, c } from "../ui.js";
-import { configExists, loadConfig } from "../config.js";
+import { configExists, loadConfig, networkConfig } from "../config.js";
 import { credentialsExist, loadCredentials } from "../secrets.js";
 import { mandateExists, saveMandate, type StoredMandate } from "../mandate-store.js";
 
@@ -32,6 +32,7 @@ export async function runMandateCreate(opts: MandateCreateOptions = {}): Promise
   }
 
   const config = loadConfig();
+  const net = networkConfig(config);
   const creds = loadCredentials();
   const txUrl = (hash: string) => `${config.explorer}/tx/${hash}`;
 
@@ -59,10 +60,10 @@ export async function runMandateCreate(opts: MandateCreateOptions = {}): Promise
     id: short(mandate.id),
   });
 
-  const registerTx = await reapp.registerMandate(mandate, { signer: creds.userSecret });
+  const registerTx = await reapp.registerMandate(mandate, { signer: creds.userSecret }, net);
   log.chain("register_mandate confirmed", { tx: short(registerTx) });
 
-  const approveTx = await reapp.approveBudget(mandate, { signer: creds.userSecret });
+  const approveTx = await reapp.approveBudget(mandate, { signer: creds.userSecret }, net);
   log.chain("approveBudget confirmed (SEP-41 allowance to contract)", { tx: short(approveTx) });
 
   const stored: StoredMandate = { inputs, id: mandate.id, registerTx, approveTx };

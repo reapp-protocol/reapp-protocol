@@ -2,11 +2,11 @@
  * Project config: a committable `reapp.config.json` written by `reapp init` into
  * the current directory. It holds NO secrets — the network, the on-chain contract
  * id (the source of truth), the explorer base, and the demo price/budget defaults.
- * Keys live elsewhere (`reapp setup`, REAPP-43) and are never written here.
+ * Keys live elsewhere (`reapp setup`) and are never written here.
  */
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { TESTNET } from "@reapp-sdk/stellar";
+import { TESTNET, type NetworkConfig } from "@reapp-sdk/stellar";
 
 export const CONFIG_FILE = "reapp.config.json";
 
@@ -28,6 +28,10 @@ export function defaultConfig(): ReappConfig {
     unlockPrice: "1.00",
     budget: "3.00",
   };
+}
+
+export function networkConfig(config: ReappConfig): NetworkConfig {
+  return { ...TESTNET, mandateRegistryId: config.contractId };
 }
 
 export function configPath(cwd: string = process.cwd()): string {

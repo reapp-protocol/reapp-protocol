@@ -1,22 +1,35 @@
 /**
- * `reapp setup` — configure keys + fund testnet accounts (REAPP-43).
+ * `reapp setup` — configure keys + fund testnet accounts.
  *
  * Generates three fresh testnet burners (user / agent / merchant), funds them
  * via friendbot, and persists the secrets to ~/.reapp/credentials.json (0600,
  * outside the repo). Idempotent: refuses to overwrite existing credentials
  * unless --force is passed. Mirrors the demo's reapp-server.init().
  */
-import { Keypair } from "@stellar/stellar-sdk";
+import { Keypair, rpc } from "@stellar/stellar-sdk";
 import { log, c } from "../ui.js";
-import { configExists, loadConfig, defaultConfig } from "../config.js";
+import { configExists, loadConfig, defaultConfig, networkConfig } from "../config.js";
 import { credentialsExist, credentialsPath, saveCredentials, type Credentials } from "../secrets.js";
 
 export type SetupOptions = { force?: boolean };
 
 const short = (s: string) => (s ? `${s.slice(0, 6)}…${s.slice(-4)}` : "");
 
-async function friendbot(pub: string): Promise<void> {
-  await fetch(`https://friendbot.stellar.org/?addr=${pub}`).catch(() => undefined);
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+async function fund(pub: string, server: rpc.Server): Promise<void> {
+  for (let round = 0; round < 4; round += 1) {
+    await fetch(`https://friendbot.stellar.org/?addr=${pub}`).catch(() => undefined);
+    for (let i = 0; i < 8; i += 1) {
+      try {
+        await server.getAccount(pub);
+        return;
+      } catch {
+        await sleep(1000);
+      }
+    }
+  }
+  throw new Error(`friendbot could not fund ${short(pub)} after several attempts`);
 }
 
 export async function runSetup(opts: SetupOptions = {}): Promise<void> {
@@ -31,6 +44,8 @@ export async function runSetup(opts: SetupOptions = {}): Promise<void> {
   }
 
   const config = configExists() ? loadConfig() : defaultConfig();
+  const net = networkConfig(config);
+  const server = new rpc.Server(net.rpcUrl);
   const accountUrl = (pub: string) => `${config.explorer}/account/${pub}`;
 
   const user = Keypair.random();
@@ -43,13 +58,8 @@ export async function runSetup(opts: SetupOptions = {}): Promise<void> {
   });
 
   log.step("funding via friendbot");
-  await Promise.all([
-    friendbot(user.publicKey()),
-    friendbot(agent.publicKey()),
-    friendbot(merchant.publicKey()),
-  ]);
-  await new Promise((r) => setTimeout(r, 3000)); // brief settle
-  log.chain("accounts funded + settled");
+  await Promise.all([fund(user.publicKey(), server), fund(agent.publicKey(), server), fund(merchant.publicKey(), server)]);
+  log.chain("accounts funded + visible on Soroban RPC");
 
   const creds: Credentials = {
     network: config.network,

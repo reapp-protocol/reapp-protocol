@@ -2,9 +2,6 @@
 /**
  * reapp — CLI for the REAPP MandateRegistry. The contract is the source of truth;
  * this tool is a thin, untrusted client over the published @reapp-sdk packages.
- *
- * Commands land incrementally: init (REAPP-42) first; setup/mandate/pay/demo
- * follow in REAPP-43..46.
  */
 import { Command } from "commander";
 import { runInit } from "./commands/init.js";
