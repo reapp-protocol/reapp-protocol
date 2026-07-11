@@ -1,46 +1,107 @@
-# reapp-protocol
+# ⚡ reapp-protocol
 
-Agent-driven payments on Stellar. A user signs an AP2 **IntentMandate**, an AI
-agent pays for a 402-gated resource via **x402**, and a Soroban contract
-(**MandateRegistry**) enforces scope, budget, expiry, and replay at consume
-time, so a compromised agent or SDK cannot exceed the mandate.
+**Protocol, SDK, CLI, and reference agents for mandate-enforced agent payments on Stellar. The SDK prepares requests; the contract decides whether money moves.**
 
-> **Status:** Testnet release live across contract, SDK, and x402.
-> **Contract.** `MandateRegistry` deployed, gatechecked, and live on Stellar testnet
-> (19/19 tests, 9/9 on-chain e2e, CI green). See
-> [docs/mandate-registry-contract.md](docs/mandate-registry-contract.md).
-> **SDK.** `@reapp-sdk/core` and `@reapp-sdk/stellar` published to npm; the
-> under-10-line flow runs 8/8 live on testnet; SDK independently gatechecked (0 defects).
-> See [docs/reapp-sdk-npm.md](docs/reapp-sdk-npm.md).
-> **x402.** The x402 round-trip works end to end on testnet: `Agent.fetch(url)`
-> receives a 402, pays on-chain, and gets the resource, with the budget enforced
-> through the HTTP layer. Reference merchant and ResearchAgent, independently
-> gatechecked. See [docs/x402-roundtrip.md](docs/x402-roundtrip.md).
+[![Stellar](https://img.shields.io/badge/Stellar-Testnet-7B73FF?logo=stellar&logoColor=white)](https://stellar.expert/explorer/testnet/contract/CC6JMPDHRPBR2HBLJKRCIKV54HXDV2RFXDKW6MALQKWM6JEAJQHICRWE)
+[![CI](https://github.com/reapp-protocol/reapp-protocol/actions/workflows/ci.yml/badge.svg)](https://github.com/reapp-protocol/reapp-protocol/actions/workflows/ci.yml)
+[![TypeScript](https://img.shields.io/badge/TypeScript-SDK-3178C6?logo=typescript&logoColor=white)](packages/sdk)
+[![npm](https://img.shields.io/badge/npm-%40reapp--sdk%2Fcore-CB3837?logo=npm&logoColor=white)](https://www.npmjs.com/package/@reapp-sdk/core)
+[![x402](https://img.shields.io/badge/x402-Reference%20Flow-00A67E)](docs/x402-roundtrip.md)
 
-## The core invariant
+---
 
-Money moves only through `MandateRegistry.execute_payment`, which
-validates-and-consumes the mandate before it transfers. The user approves the
-SEP-41 allowance for the **contract**, never for the agent or SDK. The SDK is
-untrusted; the contract is the source of truth.
+## 🔒 One Enforced Payment Path
 
-## Layout
+A user defines the budget and scope. An agent can request payment, but only the MandateRegistry can validate, consume, and transfer against that authorization.
 
+```mermaid
+flowchart LR
+    U["User\nsigns IntentMandate"] --> R["Register mandate\napprove contract allowance"]
+    R --> C["MandateRegistry\nauthoritative boundary"]
+
+    A["Agent"] --> F["agent.fetch()"]
+    F --> M["Fulfillment API"]
+    M -->|"402 requirement"| F
+    F --> P["execute_payment"]
+    P --> C
+
+    C --> V["Re-check\nauth · scope · budget\nexpiry · sequence"]
+    V --> X["Consume mandate\nspent + sequence"]
+    X --> T["SEP-41 transfer_from"]
+    T --> M
+    M -->|"verify transaction + contract event"| D["Serve resource"]
+    D --> A
+
+    SDK["SDK / CLI\nuntrusted convenience layer"] -.-> A
+    SDK -.-> U
+
+    style C fill:#1a1a2e,stroke:#7B73FF,color:#fff
+    style V fill:#16213e,stroke:#00d9a5,color:#fff
+    style X fill:#16213e,stroke:#00d9a5,color:#fff
+    style T fill:#16213e,stroke:#e94560,color:#fff
 ```
-contracts/mandate-registry/   Rust / soroban-sdk, the enforcement contract (live, gatechecked)
-packages/sdk/                 @reapp-sdk/core, thin untrusted client + Agent.fetch (x402)
-packages/stellar/             @reapp-sdk/stellar, typed Soroban layer
-apps/fulfillment-agent/       reference 402-gated merchant: verifies payment on-chain before serving
-apps/consumer-agent/          reference ResearchAgent: buys sources via agent.fetch, budget enforced on-chain
-scripts/gatecheck-mandate.mjs     npm run gatecheck, independent on-chain mandate gatecheck tool
-scripts/e2e-testnet.mjs       npm run demo, the on-chain "aha" (happy path + rogue rejections)
-security/                     contract, SDK, and x402 gatecheck records
+
+> **Core invariant:** money moves only through `MandateRegistry.execute_payment`, which validates and consumes the mandate before transfer. The user approves the SEP-41 allowance for the **contract**, never for the agent, SDK, or CLI.
+
+---
+
+## Why REAPP Is Different
+
+| Property | Protocol guarantee |
+|---|---|
+| Contract-authoritative limits | Budget, merchant scope, asset, expiry, caller authorization, and sequence are re-checked on every payment. |
+| Atomic enforcement | Mandate consumption and token transfer happen in one transaction; a failed transfer reverts the state change. |
+| SDK cannot bypass policy | The SDK and CLI hold no spending authority. They submit requests to the same contract boundary as any other caller. |
+| Replay resistance | Every spend supplies the current mandate sequence; stale and out-of-order calls are rejected. |
+| Adaptable HTTP layer | x402 request and response parsing is isolated from the mandate model and contract interface. |
+| Controlled evolution | Testnet contracts support admin pause and 24-hour timelocked same-address upgrades while preserving storage and contract ID. |
+
+---
+
+## 🌐 Current Testnet Surfaces
+
+| Surface | Current source or deployment |
+|---|---|
+| Default simple MandateRegistry | [`CC6JMPDH…CRWE`](https://stellar.expert/explorer/testnet/contract/CC6JMPDHRPBR2HBLJKRCIKV54HXDV2RFXDKW6MALQKWM6JEAJQHICRWE) — pause, authority rotation, and 24-hour same-address upgrades |
+| Composite MandateRegistry | [`CCYRF7FK…HEYW`](https://stellar.expert/explorer/testnet/contract/CCYRF7FKYGSNWX5I7WLYXZ6LNUNVCSPE4BOTQFVWVTABOHAP52DYHEYW) — deterministic clearing pools with the same operational controls |
+| Contract releases and hashes | [`reapp-protocol-contracts`](https://github.com/reapp-protocol/reapp-protocol-contracts) |
+| High-level SDK | [`@reapp-sdk/core`](https://www.npmjs.com/package/@reapp-sdk/core) — mandates, payments, and `agent.fetch()` |
+| Stellar binding | [`@reapp-sdk/stellar`](https://www.npmjs.com/package/@reapp-sdk/stellar) — typed contract client, network config, signers, and SEP-41 helpers |
+| CLI | [`reapp-protocol-cli`](https://www.npmjs.com/package/reapp-protocol-cli) — setup, mandate creation, payment, and demo flow |
+
+The contract is authoritative. SDK-side checks only fail fast; they never replace on-chain validation.
+
+---
+
+## 📁 Repository Map
+
+| Path | Purpose |
+|---|---|
+| [`packages/sdk`](packages/sdk) | `@reapp-sdk/core`: thin client plus the isolated x402 adapter |
+| [`packages/stellar`](packages/stellar) | `@reapp-sdk/stellar`: generated binding, network config, signer, and token helpers |
+| [`packages/cli`](packages/cli) | `reapp-protocol-cli`: terminal workflow and project setup |
+| [`apps/consumer-agent`](apps/consumer-agent) | Reference ResearchAgent that buys data through `agent.fetch()` |
+| [`apps/fulfillment-agent`](apps/fulfillment-agent) | Reference 402-gated API that verifies settlement before serving |
+| [`scripts`](scripts) | Testnet demos, live flows, deployment, and gate check tooling |
+| [`security`](security) | Contract, SDK, and x402 gate check records |
+
+---
+
+## 🚀 Run the Flow
+
+```bash
+npm install
+npm run build
+npm test
 ```
 
-## Run it
+After completing the [testnet setup](docs/playbook-testnet.md):
 
-- `npm run demo` runs the on-chain flow on testnet: a user authorizes a mandate, the agent pays, 1 XLM moves, and the contract refuses the rogue cases (overspend, replay, pay-after-revoke).
-- `npm run e2e:x402` runs the full x402 round-trip: the ResearchAgent buys sources from the 402-gated merchant via `agent.fetch`, three settle on-chain, and the fourth is rejected by the budget.
+```bash
+npm run demo
+npm run e2e:x402
+```
 
-The SDK is untrusted; the limit lives in the contract, so a hostile agent changes
-nothing.
+`npm run demo` exercises the mandate payment path plus overspend, replay, and post-revocation rejection. `npm run e2e:x402` runs the reference consumer and fulfillment agents through a real 402 challenge, on-chain settlement, and verified resource response.
+
+*The SDK is untrusted. The contract enforces the limit.*
