@@ -1,4 +1,4 @@
-# @reapp-sdk/stellar
+# @reapp-sdk/stellar 0.2.0
 
 The Soroban layer for **REAPP**, agent-driven payments on Stellar, enforced
 on-chain by the **MandateRegistry** contract.
@@ -23,16 +23,18 @@ npm install @reapp-sdk/stellar @stellar/stellar-sdk
 |---|---|
 | `TESTNET` | `NetworkConfig` for Stellar testnet: RPC, passphrase, live MandateRegistry id, native asset |
 | `registryClient(net, signer)` | Factory for the typed MandateRegistry client |
-| `Client`, `Mandate`, `Errors` | Typed contract bindings: methods, the mandate struct, and typed error codes |
+| `Client`, `Mandate`, `PendingUpgrade`, `Errors` | Typed contract bindings generated from the exact `0.2.0` release WASM |
 | `keypairSigner(keypair, passphrase)` | Adapt a Stellar `Keypair` into a transaction signer |
 | `token.approve(...)`, `token.balance(...)` | Minimal SEP-41 token helpers |
 
-`TESTNET.mandateRegistryId` points at the composite build
-[`CBALARHTO5D7JLWHZ5KST4QNIRC64JI5H3DQDHMIUBSRLLOVS6FCWOQX`](https://stellar.expert/explorer/testnet/contract/CBALARHTO5D7JLWHZ5KST4QNIRC64JI5H3DQDHMIUBSRLLOVS6FCWOQX)
-(MandateRegistry + clearing pools). The source-verified simple contract
-[`CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA`](https://stellar.expert/explorer/testnet/contract/CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA)
-stays live and is what current published npm versions pin; publishing this
-package is the deliberate cutover step.
+`TESTNET.mandateRegistryId` points at the upgradeable simple contract
+[`CC6JMPDHRPBR2HBLJKRCIKV54HXDV2RFXDKW6MALQKWM6JEAJQHICRWE`](https://stellar.expert/explorer/testnet/contract/CC6JMPDHRPBR2HBLJKRCIKV54HXDV2RFXDKW6MALQKWM6JEAJQHICRWE).
+Its on-chain WASM hash is
+`13f7023d4a361b6e49d3d39f61f55c5eeece51a602013a3cddae420d2ce8552b`,
+matching the [`simple-v0.2.0` release artifact](https://github.com/reapp-protocol/reapp-protocol-contracts/releases/tag/simple-v0.2.0_contracts_simple_mandate_registry_mandate-registry_pkg0.2.0_cli25.1.0).
+The binding exposes `get_admin`, `set_admin`, `pause`, `unpause`, `is_paused`,
+and the 24-hour `schedule_upgrade`, `cancel_upgrade`, and `execute_upgrade`
+lifecycle alongside the unchanged mandate interface.
 
 ## Example: read a mandate straight from the contract
 
@@ -45,6 +47,14 @@ const registry = registryClient(TESTNET, signer);
 
 const mandate = (await registry.get_mandate({ mandate_id })).result.unwrap();
 console.log(mandate.status, mandate.spent); // e.g. Active, 0
+```
+
+Operational reads are typed too:
+
+```ts
+const admin = (await registry.get_admin()).result;
+const paused = (await registry.is_paused()).result;
+const delay = (await registry.get_upgrade_delay()).result; // 86400n
 ```
 
 The contract is the source of truth: every spend is validated and consumed

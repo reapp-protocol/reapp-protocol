@@ -15,7 +15,7 @@ const program = new Command();
 program
   .name("reapp")
   .description("Agent payments on Stellar, enforced on-chain by the REAPP MandateRegistry.")
-  .version("0.1.0");
+  .version("0.1.1");
 
 program
   .command("init")

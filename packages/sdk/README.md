@@ -133,6 +133,11 @@ When `pay` (or any call) is rejected on-chain, the SDK throws and the reason map
 | `Errors[7]` | MerchantOutOfScope | The payee is not the mandate's merchant |
 | `Errors[8]` | BadSequence | A replayed or out-of-order payment |
 | `Errors[9]` | InvalidAmount | A non-positive amount |
+| `Errors[10]` | Paused | The contract's money path is paused |
+| `Errors[11]` | UpgradeNotScheduled | No upgrade is pending |
+| `Errors[12]` | UpgradeNotReady | The 24-hour delay has not elapsed |
+| `Errors[13]` | UpgradeAlreadyScheduled | An upgrade is already pending |
+| `Errors[14]` | UpgradeRequiresPause | Execution requires paused state |
 
 ```ts
 try {
@@ -145,7 +150,11 @@ try {
 
 ## Network
 
-`@reapp-sdk/core` defaults to Stellar testnet and the MandateRegistry id pinned in `@reapp-sdk/stellar`'s `deployments.ts` (workspace: the composite build `CBALARHTO5D7JLWHZ5KST4QNIRC64JI5H3DQDHMIUBSRLLOVS6FCWOQX`; currently published npm versions pin the source-verified simple contract `CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA`). Pass a custom `NetworkConfig` as the last argument to any call to point at a different RPC, passphrase, or contract.
+`@reapp-sdk/core` defaults to Stellar testnet and the upgradeable simple
+MandateRegistry pinned in `@reapp-sdk/stellar`:
+[`CC6JMPDHRPBR2HBLJKRCIKV54HXDV2RFXDKW6MALQKWM6JEAJQHICRWE`](https://stellar.expert/explorer/testnet/contract/CC6JMPDHRPBR2HBLJKRCIKV54HXDV2RFXDKW6MALQKWM6JEAJQHICRWE).
+Pass a custom `NetworkConfig` as the last argument to any call to select a
+different compatible deployment, RPC, or passphrase.
 
 ```ts
 reapp.testnet            // the default NetworkConfig
