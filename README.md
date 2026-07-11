@@ -67,6 +67,7 @@ flowchart LR
 | Contract releases and hashes | [`reapp-protocol-contracts`](https://github.com/reapp-protocol/reapp-protocol-contracts) |
 | High-level SDK | [`@reapp-sdk/core`](https://www.npmjs.com/package/@reapp-sdk/core) — mandates, payments, and `agent.fetch()` |
 | Stellar binding | [`@reapp-sdk/stellar`](https://www.npmjs.com/package/@reapp-sdk/stellar) — typed contract client, network config, signers, and SEP-41 helpers |
+| AP2 bridge | [`packages/ap2`](packages/ap2) — version-pinned, fail-closed AP2 IntentMandate mapping into the contract mandate |
 | CLI | [`reapp-protocol-cli`](https://www.npmjs.com/package/reapp-protocol-cli) — setup, mandate creation, payment, and demo flow |
 
 The contract is authoritative. SDK-side checks only fail fast; they never replace on-chain validation.
@@ -79,6 +80,7 @@ The contract is authoritative. SDK-side checks only fail fast; they never replac
 |---|---|
 | [`packages/sdk`](packages/sdk) | `@reapp-sdk/core`: thin client plus the isolated x402 adapter |
 | [`packages/stellar`](packages/stellar) | `@reapp-sdk/stellar`: generated binding, network config, signer, and token helpers |
+| [`packages/ap2`](packages/ap2) | `@reapp-sdk/ap2`: AP2 v0.2.0 IntentMandate bridge with deterministic binding evidence |
 | [`packages/cli`](packages/cli) | `reapp-protocol-cli`: terminal workflow and project setup |
 | [`apps/consumer-agent`](apps/consumer-agent) | Reference ResearchAgent that buys data through `agent.fetch()` |
 | [`apps/fulfillment-agent`](apps/fulfillment-agent) | Reference 402-gated API that verifies settlement before serving |

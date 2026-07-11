@@ -1,18 +1,15 @@
 {
-  "name": "@reapp-sdk/core",
-  "version": "0.2.2",
-  "description": "Thin, untrusted client for the REAPP MandateRegistry. The contract is the source of truth.",
+  "name": "@reapp-sdk/ap2",
+  "version": "0.1.0",
+  "description": "Version-pinned AP2 IntentMandate bridge for REAPP's contract-enforced Stellar payments.",
   "keywords": [
+    "ap2",
     "stellar",
     "soroban",
     "reapp",
+    "intent-mandate",
     "agent-payments",
-    "x402",
-    "ap2",
-    "mandate",
-    "payments",
-    "ai-agents",
-    "sdk"
+    "ai-agents"
   ],
   "type": "module",
   "main": "./dist/index.js",
@@ -26,10 +23,10 @@
   "files": ["dist"],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "node --import tsx --test src/x402.test.ts src/fetch.test.ts test/index.test.mjs"
+    "test": "node --import tsx --test src/index.test.ts"
   },
   "dependencies": {
-    "@reapp-sdk/stellar": "^0.2.0",
+    "@reapp-sdk/core": "^0.2.2",
     "@stellar/stellar-sdk": "^14.5.0",
     "buffer": "6.0.3"
   },

@@ -88,6 +88,13 @@ The under-10-line flow (`reapp.createIntentMandate` → `registerMandate` →
   *settlement* proof (payment already happened on-chain); the merchant re-verifies
   the txHash on-chain — the header is never trusted on its own.
 
+### `packages/ap2/` — `@reapp-sdk/ap2` (version-pinned bridge)
+Maps the supported AP2 v0.2.0 human-not-present IntentMandate subset into the
+existing core mandate without changing core's canonical hash. Unsupported SKU,
+refundability, multi-merchant, and cart-confirmation semantics fail closed. AP2
+normalization and evidence stay separate from x402, and the contract remains the
+only enforcement boundary.
+
 ### `apps/`
 - `fulfillment-agent/` — reference 402-gated merchant; verifies payment on-chain
   before serving.
