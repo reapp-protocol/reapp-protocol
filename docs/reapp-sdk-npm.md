@@ -24,22 +24,26 @@ payment, or paying after the user revokes. This is the same principle as the con
 now carried all the way to the developer surface: the contract is the source of
 truth, and the SDK is a thin, replaceable client on top of it.
 
-It ships as two packages so an integrator takes only what they need.
+It ships as two SDK packages so an integrator takes only what they need, plus a
+separate command-line package for the complete testnet workflow.
 
 | Package | npm | What it is |
 |---|---|---|
 | `@reapp-sdk/core` | [npmjs.com/package/@reapp-sdk/core](https://www.npmjs.com/package/@reapp-sdk/core) | The high-level client. Create an agent and run a mandate-validated payment in under 10 lines. |
 | `@reapp-sdk/stellar` | [npmjs.com/package/@reapp-sdk/stellar](https://www.npmjs.com/package/@reapp-sdk/stellar) | The low-level Soroban layer: typed MandateRegistry bindings, network config, a signing adapter, and SEP-41 helpers. |
+| `reapp-protocol-cli` | [npmjs.com/package/reapp-protocol-cli](https://www.npmjs.com/package/reapp-protocol-cli) | The testnet CLI: initialize a project, create burner accounts, register a mandate, approve its budget, and make agent-signed payments. |
 
-Both are live on npm under the public, owned `@reapp-sdk` scope, Apache-2.0, ESM
-with TypeScript types, and each ships only its built `dist`. Hosted docs:
+All three releases are live on npm under the owned REAPP package names, Apache-2.0,
+ESM with TypeScript types where applicable, and each ships only its built output. Hosted docs:
 [reapp.live/docs](https://reapp.live/docs).
 
-> **Versions.** `@reapp-sdk/core` 0.2.0 and `@reapp-sdk/stellar` 0.1.3 are the
-> currently published, installable releases. `core` 0.2.0 is the gatechecked build:
-> the SDK gatecheck below hardened it with two low-severity input bounds (`toStroops`
-> i128 and `createIntentMandate` expiry). A fresh `npm install @reapp-sdk/core`
-> pulls 0.2.0, confirmed by a clean-install smoke test against the live registry.
+> **Versions.** `@reapp-sdk/stellar` 0.2.0, `@reapp-sdk/core` 0.2.1, and
+> `reapp-protocol-cli` 0.1.1 are the currently published, installable releases.
+> The Stellar binding was generated from the exact simple-contract 0.2.0 release
+> WASM and defaults to the current testnet contract. A clean temporary project
+> installed all three exact versions from the public registry, imported both SDK
+> packages, confirmed the typed `Paused` failure, confirmed the configured contract
+> ID, and ran `reapp --version` successfully.
 
 ## Install
 
@@ -164,6 +168,11 @@ agent or SDK cannot get around, because they are enforced on-chain.
 | `Errors[7]` | MerchantOutOfScope | The payee is not the mandate's merchant |
 | `Errors[8]` | BadSequence | A replayed or out-of-order payment |
 | `Errors[9]` | InvalidAmount | A non-positive amount |
+| `Errors[10]` | Paused | A money-moving call while the contract is paused |
+| `Errors[11]` | UpgradeNotScheduled | No upgrade is pending |
+| `Errors[12]` | UpgradeNotReady | The fixed upgrade delay has not elapsed |
+| `Errors[13]` | UpgradeAlreadyScheduled | An upgrade is already pending |
+| `Errors[14]` | UpgradeRequiresPause | Upgrade execution was attempted before pausing |
 
 ## Proof: run the flow live on testnet, no mocks
 
@@ -239,7 +248,7 @@ What the gatecheck confirmed holds:
 - The SDK has exactly one money path (`execute_payment`), holds no allowance, and supplies no recipient at pay time, so it cannot redirect funds or move more than the mandate.
 - `pay` re-reads the sequence from chain on every call and trusts no local limit; the contract re-validates everything atomically.
 - No secret is logged, serialized, or placed in any error message.
-- Both published packages ship `dist` only, run no install scripts, and contain no secrets.
+- All three published packages ship built output only, run no install scripts, and contain no secrets.
 
 Two real but low-severity input-bound gaps were found and fixed in `@reapp-sdk/core`
 0.2.0 during this pass: `toStroops` now rejects amounts that do not fit i128, and
@@ -254,10 +263,10 @@ dependency pinning), documented in the gatecheck record.
 
 | Clause | Status | Evidence |
 |---|---|---|
-| SDK core package published to npm | Met | [`@reapp-sdk/core`](https://www.npmjs.com/package/@reapp-sdk/core) and [`@reapp-sdk/stellar`](https://www.npmjs.com/package/@reapp-sdk/stellar) live on npm, public scope, Apache-2.0 |
-| Package installable via npm | Met | `npm install @reapp-sdk/core @stellar/stellar-sdk`; ships `dist` with types, pulls `@reapp-sdk/stellar` automatically, no install scripts |
+| Compatibility packages published to npm | Met | [`@reapp-sdk/stellar@0.2.0`](https://www.npmjs.com/package/@reapp-sdk/stellar/v/0.2.0), [`@reapp-sdk/core@0.2.1`](https://www.npmjs.com/package/@reapp-sdk/core/v/0.2.1), and [`reapp-protocol-cli@0.1.1`](https://www.npmjs.com/package/reapp-protocol-cli/v/0.1.1) are live and public |
+| Packages installable via npm | Met | A clean temporary project installed all three exact versions, imported the SDKs, verified the configured contract and typed failures, and ran CLI version `0.1.1` |
 | Create an agent | Met | `reapp.agent({ mandate, signer })`, bound to a registered mandate |
-| Connect to the testnet contract | Met | Defaults to the live MandateRegistry `CBALAR…WOQX` with no configuration |
+| Connect to the testnet contract | Met | Defaults to the current MandateRegistry `CC6JMPDH…CRWE` with no configuration |
 | Execute a mandate-validated payment | Met | `agent.pay("1.00")` settles through `execute_payment`; prove it fresh with `npm run e2e:sdk` |
 | Under 10 lines of code | Met | The REAPP integration is four calls, well under 10 lines (imports and key setup aside); proven end to end by `npm run e2e:sdk` |
 
