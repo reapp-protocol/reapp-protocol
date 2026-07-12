@@ -10,8 +10,13 @@
     "test": "node --import tsx --test src/server.test.ts"
   },
   "dependencies": {
+    "@reapp-sdk/express-middleware": "*",
+    "express": "^5.2.1"
+  },
+  "devDependencies": {
     "@reapp-sdk/core": "*",
     "@reapp-sdk/stellar": "*",
-    "@stellar/stellar-sdk": "^14.5.0"
+    "@stellar/stellar-sdk": "^14.5.0",
+    "@types/express": "^5.0.6"
   }
 }

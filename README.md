@@ -103,9 +103,9 @@ After completing the [testnet setup](docs/playbook-testnet.md):
 
 ```bash
 npm run demo
-npm run e2e:x402
+npm run agents:testnet
 ```
 
-`npm run demo` exercises the mandate payment path plus overspend, replay, and post-revocation rejection. `npm run e2e:x402` runs the reference consumer and fulfillment agents through a real 402 challenge, on-chain settlement, and verified resource response.
+`npm run demo` exercises the mandate payment path plus overspend, replay, and post-revocation rejection. `npm run agents:testnet` creates and funds fresh testnet actors, starts the Express fulfillment agent, and runs the consumer through real `agent.fetch()` purchases, contract settlement, independent verification, and a budget-exhaustion rejection. No local keys or environment file are required.
 
 *The SDK is untrusted. The contract enforces the limit.*

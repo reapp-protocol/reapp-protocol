@@ -20,6 +20,7 @@
     "e2e:composites": "node scripts/e2e-composites.mjs",
     "e2e:sdk": "node scripts/e2e-sdk.mjs",
     "e2e:x402": "tsx scripts/e2e-x402.ts",
+    "agents:testnet": "tsx scripts/e2e-x402.ts",
     "gatecheck": "node scripts/gatecheck-mandate.mjs"
   },
   "devDependencies": {

@@ -1,8 +1,8 @@
 #!/usr/bin/env tsx
 /**
- * PRODUCTION x402 round-trip end-to-end — NO MOCKS, live testnet.
+ * LIVE x402 round-trip end-to-end — NO MOCKS, Stellar testnet.
  *
- *   npm run e2e:x402
+ *   npm run agents:testnet
  *
  * Proves the x402 release path: Agent.fetch(url) receives a 402, settles the
  * payment on-chain through the SDK, and receives the resource — and that the
@@ -68,7 +68,7 @@ async function main() {
   field("approve", tx(appr));
 
   log(`\n${c.cyan("▸")} ${c.bold("Start the 402-gated merchant")}`);
-  const { url } = startServer({ merchant: merchant.publicKey(), port: 8402 });
+  const { server, url } = await startServer({ merchant: merchant.publicKey(), port: 0 });
   field("merchant API", c.link(url));
   field("price", "1.00 XLM / source");
   const merchBefore = await token.balance(TESTNET, asset, merchant.publicKey()).catch(() => 0n);
@@ -113,6 +113,7 @@ async function main() {
   log(`  ${pass ? c.green("✦") : c.red("✖")} ${c.bold("x402 E2E")}  ${c.dim(pass ? "round-trip works; budget enforced through the HTTP layer" : "FAILED")}`);
   log(RULE(pass ? c.green : c.red));
   log("");
+  await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   exit(pass ? 0 : 1);
 }
 

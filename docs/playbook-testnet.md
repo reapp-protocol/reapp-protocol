@@ -2,7 +2,7 @@
 
 This is the operating manual for working against **Stellar testnet**. It covers
 everything a team member needs to change the contract, build and publish the
-SDK, run the reference apps, prove the flow on testnet, run the security gatecheck,
+SDK, run the reference apps, prove the flow on testnet, run the security gate check,
 and push work that stays green. If you are new here, read "Core invariant",
 "What is pinned to testnet", and "One time setup" first, then jump to the recipe
 that matches your task.
@@ -11,12 +11,13 @@ that matches your task.
 > funding step, and explorer link below is testnet. The mainnet counterpart
 > will live in `docs/playbook-mainnet.md` and will differ in important ways (no
 > friendbot funding, real value at risk, a separate `MAINNET` network config,
-> hardware-backed keys, and the deferred hardening items from the gatechecks). See
+> hardware-backed keys, and the deferred hardening items from the gate check records). See
 > "Going to mainnet" at the end for the preview. **Never reuse a testnet key,
 > contract id, or burner secret on mainnet.**
 
 > **Status today:** The testnet release is live. `MandateRegistry` is live on
-> **testnet**, `@reapp-sdk/stellar` and `@reapp-sdk/core` are published to npm
+> **testnet**, `@reapp-sdk/stellar`, `@reapp-sdk/core`, `@reapp-sdk/ap2`, and
+> `@reapp-sdk/express-middleware` are published to npm
 > pointed at the **testnet** deployment, and the full x402 round trip runs on
 > testnet. We are not on mainnet yet.
 
@@ -453,28 +454,34 @@ hitting the old contract.
 Two reference implementations show the safe pattern end to end against testnet.
 They are private workspace packages (not published).
 
-Start the merchant (fulfillment agent). It serves 402-gated sources at 1.00
-testnet XLM each and verifies payment on testnet before serving:
+Run both agents from the repository root with one command:
 
 ```bash
-cd apps/fulfillment-agent
-REAPP_MERCHANT=G... npm run start
+npm run agents:testnet
 ```
 
-It listens on port `8402` by default. Override with `PORT`. Run its tests with
-`npm run test` from the same directory (covers the 402 challenge, on-chain
-payment verification, and replay protection).
+The command generates fresh user, agent, and merchant keys; funds them through
+testnet friendbot; registers and approves a 3 XLM mandate; starts the Express
+fulfillment agent on an available local port; and runs the ResearchAgent through
+four `agent.fetch()` purchases. Three settle and are served. The fourth exceeds
+the mandate and is rejected on-chain. No environment file or stored key is
+required.
 
-Run the consumer (ResearchAgent). It signs and registers a mandate, then buys
-sources through `agent.fetch`, with the budget enforced on testnet:
+The fulfillment agent uses `@reapp-sdk/express-middleware` to verify the RPC
+network, successful transaction, trusted registry event, event-derived mandate,
+matching SEP-41 transfer, and atomic settlement redemption before its Express
+handler runs. The consumer sends every purchase through `agent.fetch()` and
+never transfers tokens directly.
+
+To run only the fulfillment server against an existing funded testnet merchant:
 
 ```bash
-cd apps/consumer-agent
-REAPP_MERCHANT=G... npm run start
+REAPP_MERCHANT=G... REAPP_READ_SOURCE=G... \
+  npm run start -w @reapp-sdk/fulfillment-agent
 ```
 
-The merchant tracks payment proofs in memory only. A production merchant must
-persist them to prevent replay.
+The demo's in-memory redemption store is one-process only. A production service
+must inject a durable shared store with atomic consume-once behavior.
 
 ---
 
@@ -486,7 +493,7 @@ read the local env file and which use the SDK `TESTNET` constant:
 - `npm run demo` and `npm run e2e:testnet` read the contract id and network from
   the local env file. The contract must be deployed and `MANDATE_REGISTRY_CONTRACT_ID` set,
   or they fail with a "contract not set" error.
-- `npm run e2e:sdk` and `npm run e2e:x402` use the published SDK `TESTNET`
+- `npm run e2e:sdk` and `npm run agents:testnet` use the published SDK `TESTNET`
   constant and ignore the network values in the local env file. They always hit the testnet
   contract baked into the SDK.
 
@@ -497,13 +504,13 @@ All of them fund their fresh accounts via friendbot, which is testnet only.
 | `npm run demo` | The on-chain aha. User authorizes, agent pays, 1 XLM moves on testnet, then the contract rejects the rogue cases (overspend, replay, pay after revoke). Wraps the testnet e2e. |
 | `npm run e2e:testnet` | Production grade contract flow with real testnet accounts and the real XLM SEP-41 asset. Ensures the native SAC, funds agent and merchant via friendbot, approves the contract as spender, registers, gets, validates and consumes, executes payment, checks balances, revokes, and confirms revoke blocks payment. |
 | `npm run e2e:sdk` | The published `@reapp-sdk/core` surface doing the full flow on testnet: `createIntentMandate`, `registerMandate`, `approveBudget`, `agent.pay`, an over-budget pay that is rejected, revoke, and a post-revoke pay that is rejected. 8 of 8 checks. |
-| `npm run e2e:x402` | The full x402 round trip on testnet. Starts a local 402 merchant on port 8402, the ResearchAgent buys 1 XLM sources against a 3 XLM mandate, three settle on-chain, the fourth is rejected by the budget so no resource is served. |
+| `npm run agents:testnet` | The full x402 round trip on testnet. Starts the Express merchant on an available port, the ResearchAgent buys 1 XLM sources against a 3 XLM mandate, three settle and are independently verified, and the fourth is rejected by the budget so no resource is served. |
 
 A clean from-scratch run of either SDK or x402 e2e:
 
 ```bash
 npm install && npm run build && npm run e2e:sdk
-npm install && npm run build && npm run e2e:x402
+npm install && npm run build && npm run agents:testnet
 ```
 
 Notes that bite people:
@@ -512,7 +519,6 @@ Notes that bite people:
   ledger confirm.
 - The Stellar CLI caches named identities under `~/.stellar/keys/`. The testnet
   e2e creates `reapp-agent` and `reapp-merchant` and reuses them on later runs.
-- `npm run e2e:x402` binds port 8402. Free the port first.
 
 ---
 

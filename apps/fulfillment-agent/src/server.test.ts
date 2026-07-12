@@ -1,160 +1,147 @@
-import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
-import { xdr } from "@stellar/stellar-sdk";
-import { TESTNET } from "@reapp-sdk/stellar";
+import { once } from "node:events";
+import type { Server } from "node:http";
+import { afterEach, test } from "node:test";
+import { encodePaymentProof } from "@reapp-sdk/core";
 import {
-  extractContractEvents,
-  interpretEvents,
-  selectPayment,
-  ProofLedger,
-  type DecodedEvent,
-  type PaymentCheck,
-} from "./server.ts";
+  InMemoryRedemptionStore,
+  type PaymentVerifier,
+  type VerifiedPayment,
+} from "@reapp-sdk/express-middleware";
+import { TESTNET } from "@reapp-sdk/stellar";
+import { createFulfillmentApp } from "./server.js";
 
-// A real, successful `execute_payment` captured from Stellar testnet via Soroban
-// RPC. Decoding it here proves the merchant's verification works against actual
-// Soroban output (TransactionMetaV4), not against hand-built XDR that might not
-// match reality. See fixtures/payment-meta.json for the source tx hash.
-const here = dirname(fileURLToPath(import.meta.url));
-const fixture = JSON.parse(
-  readFileSync(join(here, "fixtures", "payment-meta.json"), "utf8"),
-) as { txHash: string; metaXdr: string; note: string; registryId: string };
+const merchant = "GCREL554SPELMSCEIQQVYS2TPDWONZ6AVQXMUNBEGGZ2X5FNYHDC2RZG";
+const user = "GBE3PH4ZYVYUXZWZL4YJP22H5J46U6VQVF6SYNJ3GGU3RHBN4M77VNBG";
+const agent = "GAHGD3Q6ZKKJFM4FM5M6DSDNTT6KGCEZRZ2NLBBGILZFSKNUFT7VTORQ";
+const txHash = "a".repeat(64);
+const mandateId = "b".repeat(64);
+const servers: Server[] = [];
 
-// The trusted emitter is the deployment the fixture was RECORDED against, not
-// the current deployment cursor: these tests exercise the decode/verify path
-// against real Soroban output, and must stay green across redeploys. A live
-// server still trusts TESTNET.mandateRegistryId (see server.ts).
-const REGISTRY = fixture.registryId;
-const MERCHANT = "GCREL554SPELMSCEIQQVYS2TPDWONZ6AVQXMUNBEGGZ2X5FNYHDC2RZG"; // paid in the fixture
-const OTHER = "GAHGD3Q6ZKKJFM4FM5M6DSDNTT6KGCEZRZ2NLBBGILZFSKNUFT7VTORQ"; // a different account
-const SAC = TESTNET.nativeSac; // the token contract (not the registry)
-const PRICE = 10_000_000n; // 1.00 XLM, the unlock price
-const CHECK: PaymentCheck = { merchant: MERCHANT, registryId: REGISTRY, priceStroops: PRICE };
-
-// The golden fixture is a real execute_payment on the source-verified MandateRegistry
-// (TESTNET.mandateRegistryId), captured from testnet, with the registry as the trusted emitter.
-
-/** A well-formed decoded payment event from the registry; override per case. */
-const paymentEvent = (over: Partial<DecodedEvent> = {}): DecodedEvent => ({
-  contractId: REGISTRY,
-  topic0: "payment",
-  topic1: MERCHANT,
-  amount: PRICE,
-  ...over,
+afterEach(async () => {
+  await Promise.all(servers.splice(0).map((server) =>
+    new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()))));
 });
 
-// ---------- golden: the real on-chain payment, decoded end to end ----------
-
-test("golden: the real tx decodes to two events, one emitted by the registry", () => {
-  const meta = xdr.TransactionMeta.fromXDR(fixture.metaXdr, "base64");
-  const decoded = interpretEvents(extractContractEvents(meta));
-  // The tx carries two contract events: the token's transfer and the registry's payment.
-  assert.equal(decoded.length, 2);
-  const reg = decoded.find((e) => e.contractId === REGISTRY);
-  assert.ok(reg, "expected an event emitted by the MandateRegistry");
-  assert.equal(reg.topic0, "payment");
-  assert.equal(String(reg.topic1), MERCHANT);
-  assert.equal(reg.amount, PRICE);
-  // The token's own transfer event is present too, and is emitted by a DIFFERENT
-  // contract, so the merchant must be able to tell them apart.
-  const other = decoded.find((e) => e.contractId !== REGISTRY);
-  assert.ok(other, "expected the token's transfer event to also be present");
-  assert.notEqual(other.contractId, REGISTRY);
+const verifiedPayment = (): VerifiedPayment => ({
+  txHash,
+  ledger: 100,
+  mandateId,
+  user,
+  agent,
+  amount: "1",
+  amountStroops: 10_000_000n,
+  merchant,
+  asset: TESTNET.nativeSac,
+  registryId: TESTNET.mandateRegistryId,
+  scheme: "reapp-soroban",
+  network: "stellar-testnet",
 });
 
-test("golden: selectPayment accepts the real payment to this merchant", () => {
-  const meta = xdr.TransactionMeta.fromXDR(fixture.metaXdr, "base64");
-  const verdict = selectPayment(interpretEvents(extractContractEvents(meta)), CHECK);
-  assert.deepEqual(verdict, { ok: true, amount: PRICE });
+const successfulVerifier = (onVerify?: (hash: string) => void): PaymentVerifier => ({
+  async verify(hash) {
+    onVerify?.(hash);
+    return { ok: true, payment: verifiedPayment() };
+  },
 });
 
-test("golden: the same real tx does NOT unlock for a different merchant", () => {
-  const meta = xdr.TransactionMeta.fromXDR(fixture.metaXdr, "base64");
-  const verdict = selectPayment(interpretEvents(extractContractEvents(meta)), { ...CHECK, merchant: OTHER });
-  assert.equal(verdict.ok, false);
+const proof = (overrides: Record<string, string> = {}): string => encodePaymentProof({
+  scheme: "reapp-soroban",
+  network: "stellar-testnet",
+  txHash,
+  mandateId,
+  amount: "1.00",
+  ...overrides,
 });
 
-// ---------- selectPayment: the security decision, exhaustively ----------
+async function start(verifier: PaymentVerifier, store = new InMemoryRedemptionStore()): Promise<string> {
+  const server = createFulfillmentApp({ merchant, verifier, redemptionStore: store }).listen(0);
+  servers.push(server);
+  await once(server, "listening");
+  const address = server.address();
+  if (!address || typeof address === "string") throw new Error("test server did not bind TCP");
+  return `http://127.0.0.1:${address.port}`;
+}
 
-test("accepts a valid registry payment that meets the price", () => {
-  assert.deepEqual(selectPayment([paymentEvent()], CHECK), { ok: true, amount: PRICE });
+test("unpaid known resource returns the exact REAPP payment requirement", async () => {
+  let verifies = 0;
+  const url = await start(successfulVerifier(() => { verifies += 1; }));
+  const response = await fetch(`${url}/source/market`);
+  assert.equal(response.status, 402);
+  assert.equal(verifies, 0);
+  assert.equal(response.headers.get("cache-control"), "private, no-store");
+  assert.match(response.headers.get("vary") ?? "", /X-PAYMENT/i);
+  const body = await response.json() as { accepts: Array<{ extra: { contract: string }; asset: string }> };
+  assert.equal(body.accepts[0]?.extra.contract, TESTNET.mandateRegistryId);
+  assert.equal(body.accepts[0]?.asset, TESTNET.nativeSac);
 });
 
-test("accepts an overpayment", () => {
-  assert.deepEqual(selectPayment([paymentEvent({ amount: PRICE + 5n })], CHECK), { ok: true, amount: PRICE + 5n });
+test("unknown resources return 404 before asking for payment", async () => {
+  let verifies = 0;
+  const url = await start(successfulVerifier(() => { verifies += 1; }));
+  const response = await fetch(`${url}/source/not-real`, {
+    headers: { "X-PAYMENT": proof() },
+  });
+  assert.equal(response.status, 404);
+  assert.equal(verifies, 0);
 });
 
-test("REJECTS a forged event: right topics and amount, wrong emitting contract", () => {
-  // The exact bypass the gatecheck caught: a ("payment", merchant, price) event that
-  // would unlock the resource, but emitted by the token (or any attacker) contract.
-  assert.equal(selectPayment([paymentEvent({ contractId: SAC })], CHECK).ok, false);
+test("verified settlement serves content and uses chain-derived evidence", async () => {
+  let verifierHash = "";
+  const url = await start(successfulVerifier((hash) => { verifierHash = hash; }));
+  const response = await fetch(`${url}/source/academic`, {
+    headers: {
+      "X-PAYMENT": proof({
+        txHash: txHash.toUpperCase(),
+        mandateId: "caller-supplied-lie",
+        amount: "999999",
+      }),
+    },
+  });
+  assert.equal(response.status, 200);
+  assert.equal(verifierHash, txHash);
+  assert.equal(response.headers.get("cache-control"), "private, no-store");
+  const body = await response.json() as {
+    source: string;
+    settledTx: string;
+    mandateId: string;
+    settledAmount: string;
+  };
+  assert.equal(body.source, "academic");
+  assert.equal(body.settledTx, txHash);
+  assert.equal(body.mandateId, mandateId);
+  assert.equal(body.settledAmount, "1");
 });
 
-test("REJECTS an event with no emitting contract", () => {
-  assert.equal(selectPayment([paymentEvent({ contractId: null })], CHECK).ok, false);
+test("one settlement serves exactly once across different resources", async () => {
+  const url = await start(successfulVerifier());
+  const first = await fetch(`${url}/source/market`, { headers: { "X-PAYMENT": proof() } });
+  const replay = await fetch(`${url}/source/news`, { headers: { "X-PAYMENT": proof() } });
+  assert.equal(first.status, 200);
+  assert.equal(replay.status, 409);
+  assert.deepEqual(await replay.json(), { error: "this payment was already redeemed" });
 });
 
-test("REJECTS a payment to a different merchant", () => {
-  assert.equal(selectPayment([paymentEvent({ topic1: OTHER })], CHECK).ok, false);
+test("invalid settlement and unavailable verification never serve content", async () => {
+  const invalidUrl = await start({
+    verify: async () => ({ ok: false, kind: "invalid", reason: "wrong asset transfer" }),
+  });
+  const invalid = await fetch(`${invalidUrl}/source/market`, { headers: { "X-PAYMENT": proof() } });
+  assert.equal(invalid.status, 402);
+
+  const unavailableUrl = await start({
+    verify: async () => ({ ok: false, kind: "unavailable", reason: "RPC unavailable" }),
+  });
+  const unavailable = await fetch(`${unavailableUrl}/source/market`, { headers: { "X-PAYMENT": proof() } });
+  assert.equal(unavailable.status, 503);
+  const body = await unavailable.json() as Record<string, unknown>;
+  assert.equal("accepts" in body, false);
 });
 
-test("REJECTS a non-payment topic from the registry (e.g. transfer)", () => {
-  assert.equal(selectPayment([paymentEvent({ topic0: "transfer" })], CHECK).ok, false);
-});
-
-test("REJECTS an underpayment, with a clear reason", () => {
-  const verdict = selectPayment([paymentEvent({ amount: PRICE - 1n })], CHECK);
-  assert.equal(verdict.ok, false);
-  assert.match((verdict as { ok: false; reason: string }).reason, /below the price/);
-});
-
-test("REJECTS an event whose amount could not be decoded", () => {
-  assert.equal(selectPayment([paymentEvent({ amount: null })], CHECK).ok, false);
-});
-
-test("REJECTS when there are no events at all", () => {
-  const verdict = selectPayment([], CHECK);
-  assert.equal(verdict.ok, false);
-  assert.match((verdict as { ok: false; reason: string }).reason, /no Soroban contract events/);
-});
-
-test("ignores a forged sibling event and still finds the genuine registry payment", () => {
-  // Exactly the real shape: a token transfer event next to the registry payment.
-  const events: DecodedEvent[] = [
-    { contractId: SAC, topic0: "transfer", topic1: OTHER, amount: PRICE },
-    paymentEvent(),
-  ];
-  assert.deepEqual(selectPayment(events, CHECK), { ok: true, amount: PRICE });
-});
-
-test("does not unlock when the only payment-shaped event is forged", () => {
-  const events: DecodedEvent[] = [{ contractId: SAC, topic0: "payment", topic1: MERCHANT, amount: PRICE }];
-  assert.equal(selectPayment(events, CHECK).ok, false);
-});
-
-// ---------- ProofLedger: the replay / TOCTOU guard ----------
-
-test("ProofLedger reserves a proof once and blocks the replay", () => {
-  const ledger = new ProofLedger();
-  assert.equal(ledger.reserve("abc"), true);
-  assert.equal(ledger.reserve("abc"), false); // replay blocked
-  assert.equal(ledger.has("abc"), true);
-});
-
-test("ProofLedger releases a proof so a transient failure does not burn it", () => {
-  const ledger = new ProofLedger();
-  assert.equal(ledger.reserve("xyz"), true);
-  ledger.release("xyz");
-  assert.equal(ledger.has("xyz"), false);
-  assert.equal(ledger.reserve("xyz"), true); // can retry after release
-});
-
-test("ProofLedger tracks proofs independently", () => {
-  const ledger = new ProofLedger();
-  ledger.reserve("one");
-  assert.equal(ledger.reserve("two"), true);
-  assert.equal(ledger.reserve("one"), false);
+test("redemption store failure returns 503 and never reaches fulfillment", async () => {
+  const url = await start(successfulVerifier(), {
+    consumeOnce: () => { throw new Error("shared store offline"); },
+  });
+  const response = await fetch(`${url}/source/market`, { headers: { "X-PAYMENT": proof() } });
+  assert.equal(response.status, 503);
 });
