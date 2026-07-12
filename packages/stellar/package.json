@@ -1,6 +1,6 @@
 {
   "name": "@reapp-sdk/stellar",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Soroban client + typed MandateRegistry bindings, network config, and signing helpers for REAPP.",
   "keywords": [
     "stellar",
@@ -28,6 +28,8 @@
     "build": "tsc"
   },
   "dependencies": {
+    "@types/json-schema": "^7.0.15",
+    "@types/urijs": "^1.19.26",
     "@stellar/stellar-sdk": "^14.5.0",
     "buffer": "6.0.3"
   },
