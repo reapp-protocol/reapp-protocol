@@ -14,6 +14,7 @@ diagrams, and full negative suite are merged and reviewed.
 - `scan-results/`: dependency gatecheck + Soroban/WASM-aware contract scanner
   output, published with all findings remediated. _(Mainnet hardening.)_
 
-The enforcement half of mandate validation (scope / amount / expiry / replay)
-ships as the contract negative suite in
-`contracts/mandate-registry/src/test.rs`, running in CI from commit one.
+Signed AP2 admission validation ships in `packages/ap2` with 59 tests covering
+signature, binding, trusted signer, merchant scope, amount, expiry, and atomic
+admission replay. Payment enforcement remains in the contract negative suite
+at `contracts/mandate-registry/src/test.rs`, running in CI from commit one.

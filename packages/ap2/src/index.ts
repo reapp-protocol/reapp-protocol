@@ -1,14 +1,25 @@
 /**
- * @reapp-sdk/ap2 — a narrow AP2 v0.2.0 IntentMandate bridge for REAPP.
+ * @reapp-sdk/ap2 — signed AP2 v0.2 REAPP profile validation and binding.
  *
- * This package translates a supported human-not-present AP2 IntentMandate into
- * the existing REAPP core mandate. It does not implement AP2 credential
- * signing, checkout mandates, payment mandates, or the x402 wire format.
- * Contract enforcement remains authoritative for every payment.
+ * This package signs and validates the supported human-not-present AP2
+ * IntentMandate profile, then translates it into the existing REAPP core
+ * mandate. It does not claim universal AP2 VC/JWS support and has no dependency
+ * on the x402 wire format. Contract enforcement remains authoritative for
+ * every payment.
  */
 import { Buffer } from "buffer";
-import { Address, StrKey, hash } from "@stellar/stellar-sdk";
+import { Address, Keypair, StrKey, hash } from "@stellar/stellar-sdk";
 import { reapp, type IntentMandate } from "@reapp-sdk/core";
+import { createSignedAp2Credential, type SignedAp2Mandate } from "./credential.js";
+
+export {
+  REAPP_AP2_CREDENTIAL_VERSION,
+  REAPP_AP2_SIGNATURE_ALGORITHM,
+  type ReappAp2CredentialPayload,
+  type SignedAp2Mandate,
+} from "./credential.js";
+export * from "./replay-store.js";
+export * from "./validator.js";
 
 export const AP2_SPEC_VERSION = "0.2.0" as const;
 export const AP2_INTENT_DATA_KEY = "ap2.mandates.IntentMandate" as const;
@@ -112,6 +123,31 @@ function requireExactText(label: string, value: unknown): string {
   return value;
 }
 
+function requirePlainObject(label: string, value: unknown): Record<string, unknown> {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    Array.isArray(value) ||
+    Object.getPrototypeOf(value) !== Object.prototype
+  ) {
+    throw new Error(`${label} must be a plain object.`);
+  }
+  return value as Record<string, unknown>;
+}
+
+function rejectUnknownKeys(
+  label: string,
+  value: unknown,
+  allowed: readonly string[],
+): Record<string, unknown> {
+  const object = requirePlainObject(label, value);
+  const unknown = Object.keys(object).filter((key) => !allowed.includes(key));
+  if (unknown.length > 0) {
+    throw new Error(`${label} contains unsupported field ${JSON.stringify(unknown[0])}.`);
+  }
+  return object;
+}
+
 function requireStellarAddress(label: string, value: unknown): string {
   const address = requireExactText(label, value);
   try {
@@ -122,22 +158,73 @@ function requireStellarAddress(label: string, value: unknown): string {
   return address;
 }
 
+function requireEd25519Address(label: string, value: unknown): string {
+  const address = requireExactText(label, value);
+  if (!StrKey.isValidEd25519PublicKey(address)) {
+    throw new Error(`${label} must be a Stellar G-address.`);
+  }
+  return address;
+}
+
+function isLeapYear(year: number): boolean {
+  return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+}
+
 function normalizeExpiry(value: unknown): { iso: string; unixSeconds: number } {
   const expiry = requireExactText("intent.intent_expiry", value);
-  const wholeSecondIso = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.000)?(?:Z|[+-]\d{2}:\d{2})$/;
-  if (!wholeSecondIso.test(expiry)) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.000)?(Z|[+-](\d{2}):(\d{2}))$/.exec(expiry);
+  if (!match) {
     throw new Error("intent.intent_expiry must be an ISO 8601 timestamp with a timezone and whole-second precision.");
+  }
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hour = Number(match[4]);
+  const minute = Number(match[5]);
+  const second = Number(match[6]);
+  const offsetHour = match[8] === undefined ? 0 : Number(match[8]);
+  const offsetMinute = match[9] === undefined ? 0 : Number(match[9]);
+  const daysInMonth = [
+    31,
+    isLeapYear(year) ? 29 : 28,
+    31,
+    30,
+    31,
+    30,
+    31,
+    31,
+    30,
+    31,
+    30,
+    31,
+  ];
+  if (
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > daysInMonth[month - 1]! ||
+    hour > 23 ||
+    minute > 59 ||
+    second > 59 ||
+    offsetHour > 23 ||
+    offsetMinute > 59
+  ) {
+    throw new Error("intent.intent_expiry must be a real calendar timestamp.");
   }
   const milliseconds = Date.parse(expiry);
   if (!Number.isFinite(milliseconds) || milliseconds % 1000 !== 0) {
     throw new Error("intent.intent_expiry must be a valid whole-second ISO 8601 timestamp.");
+  }
+  const iso = new Date(milliseconds).toISOString().replace(".000Z", "Z");
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(iso)) {
+    throw new Error("intent.intent_expiry must normalize within the supported four-digit UTC year range.");
   }
   const unixSeconds = milliseconds / 1000;
   if (!Number.isSafeInteger(unixSeconds) || unixSeconds <= Math.floor(Date.now() / 1000)) {
     throw new Error("intent.intent_expiry must resolve to a future Unix timestamp.");
   }
   return {
-    iso: new Date(milliseconds).toISOString().replace(".000Z", "Z"),
+    iso,
     unixSeconds,
   };
 }
@@ -150,6 +237,14 @@ export function normalizeAp2Intent(intent: Ap2IntentMandate): {
   intent: NormalizedAp2IntentMandate;
   unixExpiry: number;
 } {
+  rejectUnknownKeys("intent", intent, [
+    "user_cart_confirmation_required",
+    "natural_language_description",
+    "merchants",
+    "skus",
+    "requires_refundability",
+    "intent_expiry",
+  ]);
   if (intent.user_cart_confirmation_required !== false) {
     throw new Error(
       "REAPP's AP2 bridge requires user_cart_confirmation_required=false; cart-confirmation state is not enforced by MandateRegistry.",
@@ -208,12 +303,21 @@ function secureNonce(): string {
  * field order is unchanged, so existing non-AP2 mandate ids remain stable.
  */
 export function bindIntentMandate(input: BindIntentMandateInput): Ap2MandateBinding {
+  rejectUnknownKeys("input", input, ["intent", "stellar"]);
+  rejectUnknownKeys("stellar", input.stellar, [
+    "user",
+    "agent",
+    "asset",
+    "maxAmount",
+    "decimals",
+    "nonce",
+  ]);
   const normalized = normalizeAp2Intent(input.intent);
   const canonicalIntent = canonicalizeJson(normalized.intent);
   const intentHash = hash(Buffer.from(canonicalIntent, "utf8")).toString("hex");
 
-  const user = requireStellarAddress("stellar.user", input.stellar.user);
-  const agent = requireStellarAddress("stellar.agent", input.stellar.agent);
+  const user = requireEd25519Address("stellar.user", input.stellar.user);
+  const agent = requireEd25519Address("stellar.agent", input.stellar.agent);
   const asset = requireExactText("stellar.asset", input.stellar.asset);
   if (!StrKey.isValidContract(asset)) {
     throw new Error("stellar.asset must be a valid Stellar contract address.");
@@ -222,15 +326,20 @@ export function bindIntentMandate(input: BindIntentMandateInput): Ap2MandateBind
   const bindingNonce = input.stellar.nonce === undefined
     ? secureNonce()
     : requireExactText("stellar.nonce", input.stellar.nonce);
+  const decimals = input.stellar.decimals ?? 7;
+  if (!Number.isInteger(decimals) || decimals < 0 || decimals > 38) {
+    throw new Error("stellar.decimals must be an integer from 0 through 38.");
+  }
+  const maxAmount = requireExactText("stellar.maxAmount", input.stellar.maxAmount);
   const coreNonce = `${REAPP_AP2_BINDING_VERSION}:${intentHash}:${bindingNonce}`;
   const mandate = reapp.createIntentMandate({
     user,
     agent,
     merchant: normalized.intent.merchants[0],
     asset,
-    maxAmount: input.stellar.maxAmount,
+    maxAmount,
     expiry: normalized.unixExpiry,
-    decimals: input.stellar.decimals,
+    decimals,
     nonce: coreNonce,
   });
 
@@ -244,4 +353,12 @@ export function bindIntentMandate(input: BindIntentMandateInput): Ap2MandateBind
     bindingNonce,
     mandate,
   };
+}
+
+/** Sign a supported AP2 intent using the Stellar user key after fail-closed binding. */
+export function signAp2Mandate(
+  input: BindIntentMandateInput,
+  signer: Keypair,
+): Readonly<SignedAp2Mandate> {
+  return createSignedAp2Credential(bindIntentMandate(input), input, signer);
 }

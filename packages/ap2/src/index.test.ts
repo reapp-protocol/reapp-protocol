@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { Buffer } from "buffer";
-import { Keypair } from "@stellar/stellar-sdk";
+import { Keypair, StrKey } from "@stellar/stellar-sdk";
 import { reapp } from "@reapp-sdk/core";
 import {
   AP2_INTENT_DATA_KEY,
@@ -10,6 +10,7 @@ import {
   bindIntentMandate,
   canonicalizeJson,
   type Ap2IntentMandate,
+  type StellarMandateAuthorization,
 } from "./index.js";
 
 const user = Keypair.fromRawEd25519Seed(Buffer.alloc(32, 1)).publicKey();
@@ -130,7 +131,7 @@ test("rejects ambiguous expiry and invalid Stellar authorization", () => {
         intent: baseIntent,
         stellar: { user: "not-an-address", agent, asset: reapp.testnet.nativeSac, maxAmount: "5.00" },
       }),
-    /stellar.user must be a valid Stellar address/,
+    /stellar.user must be a Stellar G-address/,
   );
   assert.throws(
     () =>
@@ -139,5 +140,84 @@ test("rejects ambiguous expiry and invalid Stellar authorization", () => {
         stellar: { user, agent, asset: merchant, maxAmount: "5.00" },
       }),
     /stellar.asset must be a valid Stellar contract address/,
+  );
+});
+
+test("fails closed on unknown intent and Stellar authorization fields", () => {
+  assert.throws(
+    () => bind({ ...baseIntent, future_constraint: true } as Ap2IntentMandate),
+    /unsupported field "future_constraint"/,
+  );
+  assert.throws(
+    () =>
+      bindIntentMandate({
+        intent: baseIntent,
+        stellar: {
+          user,
+          agent,
+          asset: reapp.testnet.nativeSac,
+          maxAmount: "5.00",
+          nonce: "vector",
+          future_constraint: true,
+        } as StellarMandateAuthorization,
+      }),
+    /unsupported field "future_constraint"/,
+  );
+});
+
+test("rejects impossible calendar expiries instead of normalizing them", () => {
+  assert.throws(
+    () => bind({ ...baseIntent, intent_expiry: "2099-02-30T00:00:00Z" }),
+    /real calendar timestamp/,
+  );
+  assert.throws(
+    () => bind({ ...baseIntent, intent_expiry: "2100-02-29T00:00:00Z" }),
+    /real calendar timestamp/,
+  );
+  assert.doesNotThrow(
+    () => bind({ ...baseIntent, intent_expiry: "2096-02-29T00:00:00Z" }),
+  );
+});
+
+test("signer and validator share the same canonical UTC year range", () => {
+  assert.throws(
+    () => bind({ ...baseIntent, intent_expiry: "9999-12-31T23:59:59-01:00" }),
+    /supported four-digit UTC year range/,
+  );
+  const normalized = bind({ ...baseIntent, intent_expiry: "2099-01-01T01:00:00+01:00" });
+  assert.equal(normalized.normalizedIntent.intent_expiry, "2099-01-01T00:00:00Z");
+});
+
+test("signer and validator share the same decimal range", () => {
+  assert.throws(
+    () =>
+      bindIntentMandate({
+        intent: baseIntent,
+        stellar: {
+          user,
+          agent,
+          asset: reapp.testnet.nativeSac,
+          maxAmount: "0.1",
+          decimals: 39,
+        },
+      }),
+    /stellar.decimals must be an integer from 0 through 38/,
+  );
+});
+
+test("agent authorization requires an Ed25519 G-address", () => {
+  const contractAgent = StrKey.encodeContract(Buffer.alloc(32, 9));
+  assert.throws(
+    () =>
+      bindIntentMandate({
+        intent: baseIntent,
+        stellar: {
+          user,
+          agent: contractAgent,
+          asset: reapp.testnet.nativeSac,
+          maxAmount: "5.00",
+        },
+      }),
+    /stellar.agent must be a Stellar G-address/,
   );
 });

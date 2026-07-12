@@ -31,7 +31,7 @@ separate command-line package for the complete testnet workflow.
 |---|---|---|
 | `@reapp-sdk/core` | [npmjs.com/package/@reapp-sdk/core](https://www.npmjs.com/package/@reapp-sdk/core) | The high-level client. Create an agent and run a mandate-validated payment in under 10 lines. |
 | `@reapp-sdk/stellar` | [npmjs.com/package/@reapp-sdk/stellar](https://www.npmjs.com/package/@reapp-sdk/stellar) | The low-level Soroban layer: typed MandateRegistry bindings, network config, a signing adapter, and SEP-41 helpers. |
-| `@reapp-sdk/ap2` | [npmjs.com/package/@reapp-sdk/ap2](https://www.npmjs.com/package/@reapp-sdk/ap2) | A version-pinned, fail-closed AP2 v0.2.0 IntentMandate bridge into the contract-facing REAPP mandate. |
+| `@reapp-sdk/ap2` | [npmjs.com/package/@reapp-sdk/ap2](https://www.npmjs.com/package/@reapp-sdk/ap2) | A signed, version-pinned AP2 v0.2 REAPP profile validator plus fail-closed binding into the contract-facing mandate. |
 | `@reapp-sdk/express-middleware` | [npmjs.com/package/@reapp-sdk/express-middleware](https://www.npmjs.com/package/@reapp-sdk/express-middleware) | Express 4/5 middleware that independently verifies settlement and consumes each proof once before fulfillment. |
 | `reapp-protocol-cli` | [npmjs.com/package/reapp-protocol-cli](https://www.npmjs.com/package/reapp-protocol-cli) | The testnet CLI: initialize a project, create burner accounts, register a mandate, approve its budget, and make agent-signed payments. |
 
@@ -40,7 +40,7 @@ ESM with TypeScript types where applicable, and each ships only its built output
 [reapp.live/docs](https://reapp.live/docs).
 
 > **Versions.** `@reapp-sdk/stellar` 0.2.1, `@reapp-sdk/core` 0.2.3,
-> `@reapp-sdk/ap2` 0.1.0, `@reapp-sdk/express-middleware` 0.1.0, and
+> `@reapp-sdk/ap2` 0.2.0, `@reapp-sdk/express-middleware` 0.1.0, and
 > `reapp-protocol-cli` 0.1.3 are the current releases.
 > The Stellar binding was generated from the exact simple-contract 0.2.0 release
 > WASM and defaults to the current testnet contract. Clean temporary projects
@@ -65,11 +65,13 @@ npm install @reapp-sdk/ap2 @stellar/stellar-sdk
 ```
 
 `@reapp-sdk/ap2` is pinned to the AP2 v0.2.0 sample IntentMandate data model. It
-supports one Stellar merchant, an explicit asset and budget, and a future
-whole-second expiry. It fails closed on cart-confirmation, SKU, refundability, and
-multi-merchant semantics that MandateRegistry cannot enforce. The AP2 canonical
-payload hash is bound into REAPP's existing `vc_hash` construction without changing
-ids produced directly by `@reapp-sdk/core`; x402 remains a separate wire adapter.
+signs and validates REAPP's explicit AP2 profile, including trusted user,
+merchant scope, amount, expiry, binding hash, and atomic admission replay state.
+It fails closed on unknown fields and on cart-confirmation, SKU, refundability,
+and multi-merchant semantics that MandateRegistry cannot enforce. The AP2 hash
+is bound into REAPP's existing `vc_hash` without changing core ids; x402 remains
+a separate wire adapter. Cumulative spending and payment replay stay
+authoritative in the contract's `execute_payment` path.
 
 Install the fulfillment boundary for an Express API:
 
@@ -291,7 +293,7 @@ dependency pinning), documented in the gatecheck record.
 
 | Clause | Status | Evidence |
 |---|---|---|
-| SDK packages published to npm | Met | [`@reapp-sdk/stellar@0.2.1`](https://www.npmjs.com/package/@reapp-sdk/stellar/v/0.2.1), [`@reapp-sdk/core@0.2.3`](https://www.npmjs.com/package/@reapp-sdk/core/v/0.2.3), [`@reapp-sdk/ap2@0.1.0`](https://www.npmjs.com/package/@reapp-sdk/ap2/v/0.1.0), [`@reapp-sdk/express-middleware@0.1.0`](https://www.npmjs.com/package/@reapp-sdk/express-middleware/v/0.1.0), and [`reapp-protocol-cli@0.1.3`](https://www.npmjs.com/package/reapp-protocol-cli/v/0.1.3) are public npm releases |
+| SDK packages published to npm | Met | [`@reapp-sdk/stellar@0.2.1`](https://www.npmjs.com/package/@reapp-sdk/stellar/v/0.2.1), [`@reapp-sdk/core@0.2.3`](https://www.npmjs.com/package/@reapp-sdk/core/v/0.2.3), [`@reapp-sdk/ap2@0.2.0`](https://www.npmjs.com/package/@reapp-sdk/ap2/v/0.2.0), [`@reapp-sdk/express-middleware@0.1.0`](https://www.npmjs.com/package/@reapp-sdk/express-middleware/v/0.1.0), and [`reapp-protocol-cli@0.1.3`](https://www.npmjs.com/package/reapp-protocol-cli/v/0.1.3) are public npm releases |
 | Packages installable via npm | Met | Clean temporary projects installed the exact releases, imported the SDKs, reproduced the AP2 hash vector and `vc_hash`, compiled strict TypeScript declarations, verified the configured contract and typed failures, and ran CLI version `0.1.3` |
 | Create an agent | Met | `reapp.agent({ mandate, signer })`, bound to a registered mandate |
 | Connect to the testnet contract | Met | Defaults to the current MandateRegistry `CC6JMPDH…CRWE` with no configuration |

@@ -9,13 +9,15 @@ contract state.
 ```mermaid
 sequenceDiagram
     actor User
+    participant AP2 as AP2 profile validator
     participant Consumer as Consumer / agent.fetch()
     participant Token as SEP-41 token
     participant Registry as MandateRegistry
     actor Merchant
 
-    User->>Consumer: budget, merchant, asset, expiry
-    Consumer-->>User: canonical mandate + id
+    User->>AP2: signed intent + Stellar authorization
+    AP2->>AP2: verify signature, signer, binding, scope, amount, expiry, replay
+    AP2-->>Consumer: admitted mandate + id
     User->>Registry: register_mandate (user authorization)
     User->>Token: approve contract allowance
 
@@ -38,6 +40,7 @@ sequenceDiagram
 | Data | Classification | Authority |
 |---|---|---|
 | User/agent secret keys | Secret; process or approved signer only | Corresponding Stellar signer |
+| Signed AP2 credential | Sensitive policy evidence; no secret key | Admitted only after profile validation; cannot itself move funds |
 | Mandate input object | Sensitive policy input; safe to log only without secrets | Becomes authoritative only after user-authorized registration |
 | 402 requirement | Untrusted public quote | No spending authority |
 | Transaction hash | Public pointer | Useful only after independent chain verification |
@@ -90,6 +93,7 @@ pre-mainnet control and is described in
 | Component | Owns | Must not own |
 |---|---|---|
 | MandateRegistry | Authorization, mandate consumption, transfer decision | HTTP parsing, resource delivery, private keys |
+| AP2 profile validator | Credential signature, trusted signer/scope/amount/expiry checks, one-time admission replay | Per-payment spending authority, x402 parsing, cached cumulative budget enforcement |
 | Core SDK | Canonical input construction, signing orchestration, receipt recovery | Final budget authority, cached approval, merchant fulfillment decision |
 | x402 adapter | Request/response parsing and proof encoding | Contract rules or mandate schema changes |
 | Express middleware | Independent chain verification and one-time redemption | Trust in caller-supplied amount, merchant, or mandate fields |

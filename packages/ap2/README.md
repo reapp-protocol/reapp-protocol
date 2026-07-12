@@ -1,12 +1,17 @@
-# @reapp-sdk/ap2 0.1.0
+# @reapp-sdk/ap2 0.2.0
 
-Bind a supported AP2 IntentMandate to REAPP's contract-enforced payment mandate on Stellar.
+Signed AP2 v0.2 REAPP profile validation for contract-enforced Stellar payments.
 
-`@reapp-sdk/ap2` is deliberately narrow. It targets the AP2 v0.2.0 sample
-`IntentMandate` data model and supports the human-not-present subset that REAPP
-can enforce today: one merchant, explicit budget and asset, and a whole-second
-expiry. It does not claim to implement the complete AP2 protocol, credential
-signing or verification, Checkout Mandates, Payment Mandates, or x402.
+`@reapp-sdk/ap2` turns the supported AP2 v0.2 `IntentMandate` subset into a
+versioned Stellar Ed25519 credential, validates it at mandate admission, and
+returns the exact REAPP mandate that must be registered on-chain. The validator
+checks the signature, trusted user, merchant scope, amount, expiry, binding
+hash, and one-time admission replay state.
+
+This is deliberately a narrow **REAPP profile for AP2 v0.2**, not a universal
+verifier for every upstream AP2 VC or JWS format. It has no HTTP or x402
+dependency, so AP2 v0.3 or x402 wire changes can be handled by adapters without
+redesigning `MandateRegistry`.
 
 ## Install
 
@@ -14,13 +19,17 @@ signing or verification, Checkout Mandates, Payment Mandates, or x402.
 npm install @reapp-sdk/ap2 @reapp-sdk/core @stellar/stellar-sdk
 ```
 
-## Quick start
+## Signed validator quick start
 
 ```ts
-import { bindIntentMandate } from "@reapp-sdk/ap2";
+import {
+  InMemoryAp2ReplayStore,
+  createAp2ComplianceValidator,
+  signAp2Mandate,
+} from "@reapp-sdk/ap2";
 import { reapp } from "@reapp-sdk/core";
 
-const { mandate, intentHash } = bindIntentMandate({
+const credential = signAp2Mandate({
   intent: {
     user_cart_confirmation_required: false,
     natural_language_description: "Buy one research dataset",
@@ -28,40 +37,99 @@ const { mandate, intentHash } = bindIntentMandate({
     intent_expiry: new Date((Math.floor(Date.now() / 1000) + 3600) * 1000).toISOString(),
   },
   stellar: {
-    user: USER_ADDRESS,
-    agent: AGENT_ADDRESS,
+    user: USER_KEY.publicKey(),
+    agent: AGENT_KEY.publicKey(),
     asset: reapp.testnet.nativeSac,
     maxAmount: "5.00",
   },
+}, USER_KEY);
+
+const validator = createAp2ComplianceValidator({
+  replayStore: new InMemoryAp2ReplayStore(), // development only
+  replayNamespace: `stellar-testnet:${reapp.testnet.mandateRegistryId}`,
 });
 
-await reapp.registerMandate(mandate, { signer: USER_KEY });
-await reapp.approveBudget(mandate, { signer: USER_KEY });
-await reapp.agent({ mandate, signer: AGENT_KEY }).pay("1.00");
+const accepted = await validator.validateAndConsume({
+  credential,
+  expectedUser: USER_KEY.publicKey(), // trusted session/account identity
+  merchant: MERCHANT_ADDRESS,         // trusted endpoint configuration
+  amount: "1.00",                    // semantic amount, not a wire-format claim
+});
+
+await reapp.registerMandate(accepted.binding.mandate, { signer: USER_KEY });
+await reapp.approveBudget(accepted.binding.mandate, { signer: USER_KEY });
+await reapp.agent({ mandate: accepted.binding.mandate, signer: AGENT_KEY }).pay("1.00");
 ```
 
-`intentHash` is evidence of the normalized AP2 payload. `mandate.id` is the
-32-byte `vc_hash` stored by MandateRegistry.
+`expectedUser`, `merchant`, and `amount` must come from trusted application
+state. The validator never authorizes a payment from untrusted HTTP fields.
+
+## Replay semantics
+
+`validateAndConsume` consumes a mandate hash once at signed-mandate admission or
+registration. It is **not** called before every purchase: a REAPP mandate is
+intentionally multi-use.
+
+After admission, every payment still goes through
+`MandateRegistry.execute_payment`. The contract atomically enforces the stored
+merchant, cumulative budget, expiry, agent authorization, and monotonic
+sequence. The SDK and this validator are untrusted infrastructure; neither can
+bypass the on-chain money path.
+
+`InMemoryAp2ReplayStore` is only for tests, demos, and one-process development.
+Production must provide a durable, shared, linearizable `consumeOnce(record)`
+implementation. A store error or unsupported result fails closed.
+
+```ts
+import type { Ap2ReplayStore } from "@reapp-sdk/ap2";
+
+const replayStore: Ap2ReplayStore = {
+  async consumeOnce(record) {
+    // Atomically insert record.key with a uniqueness constraint.
+    // Return "consumed" only for the winning insert, otherwise "duplicate".
+    return durableAtomicInsert(record);
+  },
+};
+```
+
+## What is signed
+
+`signAp2Mandate` first runs the same fail-closed AP2-to-REAPP binding used by
+`bindIntentMandate`. The credential contains:
+
+- exact credential, AP2, data-key, binding, and signature algorithm versions;
+- the normalized one-merchant AP2 intent;
+- the Stellar user, agent, asset, maximum amount, decimals, and binding nonce;
+- the recomputed REAPP mandate hash; and
+- a canonical 64-byte Stellar Ed25519 signature.
+
+The signature is over a SHA-256 digest with the fixed
+`REAPP\0AP2\0SIGNED-MANDATE\0V1\0` domain, all version identifiers, the SHA-256
+of the full canonical credential payload, and the 32-byte mandate hash. The
+payload hash also binds client interpretation fields such as token decimals,
+even when they are not part of the core mandate id. The user public key is taken
+from the signed payload and must equal the separately trusted `expectedUser`;
+an attacker cannot authorize their own self-signed replacement.
+
+The validator rejects unknown keys at every credential level. That is
+intentional: if a later AP2 version adds a constraint this implementation does
+not understand, it fails closed instead of silently dropping the field.
 
 ## Supported AP2 subset
 
-The bridge is pinned to [AP2 v0.2.0](https://github.com/google-agentic-commerce/AP2/releases/tag/v0.2.0)
-and the official sample [`IntentMandate` data shape](https://github.com/google-agentic-commerce/AP2/blob/v0.2.0/code/sdk/python/ap2/models/mandate.py).
+The profile is pinned to [AP2 v0.2.0](https://github.com/google-agentic-commerce/AP2/releases/tag/v0.2.0)
+and its sample [`IntentMandate` data shape](https://github.com/google-agentic-commerce/AP2/blob/v0.2.0/code/sdk/python/ap2/models/mandate.py).
 
 | AP2 field | REAPP behavior |
 |---|---|
-| `user_cart_confirmation_required` | Must be explicitly `false`. REAPP does not pretend to track an unimplemented cart-confirmation step. |
-| `natural_language_description` | Canonically bound into `intentHash`; it is evidence, not contract policy. |
-| `merchants` | Must contain exactly one valid Stellar address; that address becomes the contract-enforced merchant scope. |
-| `intent_expiry` | Must be a future ISO 8601 timestamp with a timezone and whole-second precision; converted to the contract's Unix expiry. |
-| `skus` | Must be absent or empty because MandateRegistry does not enforce SKU constraints. |
-| `requires_refundability` | Must be absent or `false` because MandateRegistry does not enforce refundability. |
+| `user_cart_confirmation_required` | Must be explicitly `false`; cart-confirmation state is not enforced by the contract. |
+| `natural_language_description` | Canonically bound into `intentHash`; evidence, not contract policy. |
+| `merchants` | Exactly one valid Stellar address; becomes the contract-enforced merchant scope. |
+| `intent_expiry` | Future ISO 8601 timestamp with timezone and whole-second precision; the signed credential stores canonical UTC. |
+| `skus` | Absent or empty because `MandateRegistry` does not enforce SKU constraints. |
+| `requires_refundability` | Absent or `false` because `MandateRegistry` does not enforce refundability. |
 
-The Stellar authorization supplies the fields AP2's commerce intent does not:
-the user, agent, SEP-41 asset contract, and maximum amount. MandateRegistry
-enforces those values on every payment.
-
-## Cryptographic binding
+## Binding algorithm
 
 The bridge normalizes the supported AP2 fields, recursively sorts JSON object
 keys, and computes:
@@ -73,47 +141,61 @@ vc_hash     = existing @reapp-sdk/core mandate hash, including core_nonce
 ```
 
 The default binding nonce comes from Web Crypto. Supply `stellar.nonce` only
-for reproducible vectors. The existing core field order is unchanged, so this
-package cannot silently change ids created by `@reapp-sdk/core`.
+for reproducible test vectors. Existing non-AP2 mandate ids and core field
+ordering are unchanged.
 
-## Trust boundary
+## Errors
 
-This package validates and translates input; it is not the spending gate. The
-SDK remains untrusted infrastructure. Money still moves only through
-`MandateRegistry.execute_payment`, where caller authorization, merchant scope,
-asset, budget, expiry, status, and sequence are checked and consumed atomically.
+`validateAndConsume` throws `Ap2ValidationError` with a stable `code`:
 
-The bridge does not verify an AP2 Verifiable Credential. Verify any external
-credential before calling the bridge, and keep that verification separate from
-contract enforcement. The user-authorized on-chain registration remains the
-REAPP authorization boundary.
+| Code | Meaning |
+|---|---|
+| `INVALID_CREDENTIAL` | Malformed, unknown, noncanonical, or invalid identity data. |
+| `UNSUPPORTED_VERSION` | Credential, AP2, data-key, binding, or signature version is unsupported. |
+| `INVALID_SIGNATURE` | Signature encoding or Ed25519 verification failed. |
+| `SIGNER_MISMATCH` | Signed user differs from trusted `expectedUser`. |
+| `BINDING_MISMATCH` | Payload does not recompute to the envelope mandate hash. |
+| `MERCHANT_MISMATCH` | Requested merchant is outside signed scope. |
+| `INVALID_AMOUNT` | Amount is zero, negative, malformed, over-precision, or outside i128. |
+| `AMOUNT_EXCEEDS_MANDATE` | Requested amount is greater than the signed maximum. |
+| `EXPIRED` | Expiry is equal to or earlier than the trusted clock. |
+| `REPLAYED` | The same mandate hash was already admitted in this namespace. |
+| `REPLAY_STORE_UNAVAILABLE` | Atomic replay storage failed or returned an invalid result. |
 
 ## API
 
 | Export | Purpose |
 |---|---|
-| `bindIntentMandate(input)` | Validate and bind the supported AP2 intent to a REAPP core mandate. |
-| `normalizeAp2Intent(intent)` | Produce the exact fail-closed normalized AP2 subset and Unix expiry. |
-| `canonicalizeJson(value)` | Deterministic recursively key-sorted JSON for supported values. |
-| `AP2_SPEC_VERSION` | Pinned upstream version: `0.2.0`. |
-| `AP2_INTENT_DATA_KEY` | Upstream data key: `ap2.mandates.IntentMandate`. |
-| `REAPP_AP2_BINDING_VERSION` | Binding algorithm identifier: `reapp-ap2/1`. |
+| `signAp2Mandate(input, signer)` | Bind and sign the supported AP2 intent with the Stellar user key. |
+| `createAp2ComplianceValidator(options)` | Create the signature/scope/amount/expiry/replay validator with an injected store and clock. |
+| `Ap2ValidationError` | Typed fail-closed error with stable codes. |
+| `InMemoryAp2ReplayStore` | Single-process development and test replay store. |
+| `bindIntentMandate(input)` | Validate and bind without producing a signed envelope. |
+| `normalizeAp2Intent(intent)` | Normalize the exact enforceable AP2 subset. |
+| `canonicalizeJson(value)` | Deterministic recursively key-sorted JSON for binding evidence. |
 
-The package declarations also export `Ap2IntentMandate`,
-`NormalizedAp2IntentMandate`, `StellarMandateAuthorization`,
-`BindIntentMandateInput`, `Ap2MandateBinding`, and `CanonicalJsonValue` for
-strict TypeScript integrations.
+TypeScript declarations also expose the credential, validator input/result,
+replay-store, intent, binding, and authorization interfaces.
+
+## Verification
+
+```bash
+npm run build -w @reapp-sdk/ap2
+npm run test -w @reapp-sdk/ap2
+```
+
+The package has 59 tests: 12 stable binding/vector tests plus 47 validator tests
+covering valid credentials, tampering, every version boundary, malformed
+signatures, trusted signer and merchant scope, exact amount limits, overspend,
+expiry, replay, 100-way concurrent admission, store outages, replay poisoning,
+and namespace isolation.
 
 ## Current contract target
 
-The `reapp.testnet` default in the example resolves through
-`@reapp-sdk/stellar` to the upgradeable simple MandateRegistry:
+The default is the upgradeable simple `MandateRegistry` on Stellar testnet:
 
 - Contract: [`CC6JMPDHRPBR2HBLJKRCIKV54HXDV2RFXDKW6MALQKWM6JEAJQHICRWE`](https://stellar.expert/explorer/testnet/contract/CC6JMPDHRPBR2HBLJKRCIKV54HXDV2RFXDKW6MALQKWM6JEAJQHICRWE)
 - WASM SHA-256: `13f7023d4a361b6e49d3d39f61f55c5eeece51a602013a3cddae420d2ce8552b`
 - Reproducible release: [`simple-v0.2.0`](https://github.com/reapp-protocol/reapp-protocol-contracts/releases/tag/simple-v0.2.0_contracts_simple_mandate_registry_mandate-registry_pkg0.2.0_cli25.1.0)
-
-The bridge prepares the mandate; every payment still goes through the contract's
-`execute_payment` enforcement path.
 
 Apache-2.0.
