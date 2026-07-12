@@ -62,12 +62,13 @@ flowchart LR
 
 | Surface | Current source or deployment |
 |---|---|
-| Default simple MandateRegistry | [`CC6JMPDH…CRWE`](https://stellar.expert/explorer/testnet/contract/CC6JMPDHRPBR2HBLJKRCIKV54HXDV2RFXDKW6MALQKWM6JEAJQHICRWE) — pause, authority rotation, and 24-hour same-address upgrades |
+| Default simple MandateRegistry | [`CC6JMPDH…CRWE`](https://stellar.expert/explorer/testnet/contract/CC6JMPDHRPBR2HBLJKRCIKV54HXDV2RFXDKW6MALQKWM6JEAJQHICRWE) — [`simple-v0.2.0`](https://github.com/reapp-protocol/reapp-protocol-contracts/releases/tag/simple-v0.2.0_contracts_simple_mandate_registry_mandate-registry_pkg0.2.0_cli25.1.0), WASM `13f7023d…8552b`, pause, authority rotation, and 24-hour same-address upgrades |
 | Composite MandateRegistry | [`CCYRF7FK…HEYW`](https://stellar.expert/explorer/testnet/contract/CCYRF7FKYGSNWX5I7WLYXZ6LNUNVCSPE4BOTQFVWVTABOHAP52DYHEYW) — deterministic clearing pools with the same operational controls |
 | Contract releases and hashes | [`reapp-protocol-contracts`](https://github.com/reapp-protocol/reapp-protocol-contracts) |
 | High-level SDK | [`@reapp-sdk/core`](https://www.npmjs.com/package/@reapp-sdk/core) — mandates, payments, and `agent.fetch()` |
 | Stellar binding | [`@reapp-sdk/stellar`](https://www.npmjs.com/package/@reapp-sdk/stellar) — typed contract client, network config, signers, and SEP-41 helpers |
 | AP2 bridge | [`@reapp-sdk/ap2`](https://www.npmjs.com/package/@reapp-sdk/ap2) — version-pinned, fail-closed AP2 IntentMandate mapping into the contract mandate |
+| Express middleware | [`@reapp-sdk/express-middleware`](https://www.npmjs.com/package/@reapp-sdk/express-middleware) — independent settlement verification and atomic redemption before fulfillment |
 | CLI | [`reapp-protocol-cli`](https://www.npmjs.com/package/reapp-protocol-cli) — setup, mandate creation, payment, and demo flow |
 
 The contract is authoritative. SDK-side checks only fail fast; they never replace on-chain validation.
@@ -81,6 +82,7 @@ The contract is authoritative. SDK-side checks only fail fast; they never replac
 | [`packages/sdk`](packages/sdk) | `@reapp-sdk/core`: thin client plus the isolated x402 adapter |
 | [`packages/stellar`](packages/stellar) | `@reapp-sdk/stellar`: generated binding, network config, signer, and token helpers |
 | [`packages/ap2`](packages/ap2) | `@reapp-sdk/ap2`: AP2 v0.2.0 IntentMandate bridge with deterministic binding evidence |
+| [`packages/express-middleware`](packages/express-middleware) | `@reapp-sdk/express-middleware`: fail-closed Express 4/5 settlement verification |
 | [`packages/cli`](packages/cli) | `reapp-protocol-cli`: terminal workflow and project setup |
 | [`apps/consumer-agent`](apps/consumer-agent) | Reference ResearchAgent that buys data through `agent.fetch()` |
 | [`apps/fulfillment-agent`](apps/fulfillment-agent) | Reference 402-gated API that verifies settlement before serving |

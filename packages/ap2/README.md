@@ -11,7 +11,7 @@ signing or verification, Checkout Mandates, Payment Mandates, or x402.
 ## Install
 
 ```bash
-npm install @reapp-sdk/ap2 @stellar/stellar-sdk
+npm install @reapp-sdk/ap2 @reapp-sdk/core @stellar/stellar-sdk
 ```
 
 ## Quick start
@@ -98,5 +98,22 @@ REAPP authorization boundary.
 | `AP2_SPEC_VERSION` | Pinned upstream version: `0.2.0`. |
 | `AP2_INTENT_DATA_KEY` | Upstream data key: `ap2.mandates.IntentMandate`. |
 | `REAPP_AP2_BINDING_VERSION` | Binding algorithm identifier: `reapp-ap2/1`. |
+
+The package declarations also export `Ap2IntentMandate`,
+`NormalizedAp2IntentMandate`, `StellarMandateAuthorization`,
+`BindIntentMandateInput`, `Ap2MandateBinding`, and `CanonicalJsonValue` for
+strict TypeScript integrations.
+
+## Current contract target
+
+The `reapp.testnet` default in the example resolves through
+`@reapp-sdk/stellar` to the upgradeable simple MandateRegistry:
+
+- Contract: [`CC6JMPDHRPBR2HBLJKRCIKV54HXDV2RFXDKW6MALQKWM6JEAJQHICRWE`](https://stellar.expert/explorer/testnet/contract/CC6JMPDHRPBR2HBLJKRCIKV54HXDV2RFXDKW6MALQKWM6JEAJQHICRWE)
+- WASM SHA-256: `13f7023d4a361b6e49d3d39f61f55c5eeece51a602013a3cddae420d2ce8552b`
+- Reproducible release: [`simple-v0.2.0`](https://github.com/reapp-protocol/reapp-protocol-contracts/releases/tag/simple-v0.2.0_contracts_simple_mandate_registry_mandate-registry_pkg0.2.0_cli25.1.0)
+
+The bridge prepares the mandate; every payment still goes through the contract's
+`execute_payment` enforcement path.
 
 Apache-2.0.

@@ -63,8 +63,10 @@ const data = await res.json(); // served only after the merchant verified the on
 ```
 
 The x402 wire format lives in its own module, so it tracks the evolving x402 spec
-without touching the mandate or the contract. A reference 402-gated merchant that
-verifies the payment on-chain ships in the repo.
+without touching the mandate or the contract. Use
+[`@reapp-sdk/express-middleware`](https://www.npmjs.com/package/@reapp-sdk/express-middleware)
+to build an Express 4/5 merchant that independently verifies the on-chain
+settlement before serving.
 
 ## API
 
@@ -155,6 +157,10 @@ MandateRegistry pinned in `@reapp-sdk/stellar`:
 [`CC6JMPDHRPBR2HBLJKRCIKV54HXDV2RFXDKW6MALQKWM6JEAJQHICRWE`](https://stellar.expert/explorer/testnet/contract/CC6JMPDHRPBR2HBLJKRCIKV54HXDV2RFXDKW6MALQKWM6JEAJQHICRWE).
 Pass a custom `NetworkConfig` as the last argument to any call to select a
 different compatible deployment, RPC, or passphrase.
+
+The current contract WASM SHA-256 is
+`13f7023d4a361b6e49d3d39f61f55c5eeece51a602013a3cddae420d2ce8552b`,
+matching the reproducible [`simple-v0.2.0` release](https://github.com/reapp-protocol/reapp-protocol-contracts/releases/tag/simple-v0.2.0_contracts_simple_mandate_registry_mandate-registry_pkg0.2.0_cli25.1.0).
 
 ```ts
 reapp.testnet            // the default NetworkConfig
