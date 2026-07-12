@@ -48,7 +48,7 @@ git init
 npm init -y
 npm pkg set type=module
 npm pkg set 'scripts.agents:testnet=node consumer.mjs'
-npm install @reapp-sdk/core@0.2.2 @stellar/stellar-sdk@14.5.0
+npm install @reapp-sdk/core@0.2.3 @stellar/stellar-sdk@14.5.0
 code .
 ```
 
@@ -264,7 +264,7 @@ Friendbot is a public testnet service. Wait 30–60 seconds, reset the workspace
 Use a project-local cache without changing system ownership:
 
 ```bash
-npm_config_cache="$PWD/.npm-cache" npm install @reapp-sdk/core@0.2.2 @stellar/stellar-sdk@14.5.0
+npm_config_cache="$PWD/.npm-cache" npm install @reapp-sdk/core@0.2.3 @stellar/stellar-sdk@14.5.0
 ```
 
 Keep `.npm-cache/` in `.gitignore`.
