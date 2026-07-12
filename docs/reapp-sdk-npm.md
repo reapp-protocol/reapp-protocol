@@ -41,7 +41,7 @@ ESM with TypeScript types where applicable, and each ships only its built output
 
 > **Versions.** `@reapp-sdk/stellar` 0.2.1, `@reapp-sdk/core` 0.2.3,
 > `@reapp-sdk/ap2` 0.1.0, `@reapp-sdk/express-middleware` 0.1.0, and
-> `reapp-protocol-cli` 0.1.2 are the current releases.
+> `reapp-protocol-cli` 0.1.3 are the current releases.
 > The Stellar binding was generated from the exact simple-contract 0.2.0 release
 > WASM and defaults to the current testnet contract. Clean temporary projects
 > installed the exact releases, imported the SDKs, compiled the published AP2
@@ -291,8 +291,8 @@ dependency pinning), documented in the gatecheck record.
 
 | Clause | Status | Evidence |
 |---|---|---|
-| SDK packages published to npm | Met | [`@reapp-sdk/stellar@0.2.0`](https://www.npmjs.com/package/@reapp-sdk/stellar/v/0.2.0), [`@reapp-sdk/core@0.2.2`](https://www.npmjs.com/package/@reapp-sdk/core/v/0.2.2), [`@reapp-sdk/ap2@0.1.0`](https://www.npmjs.com/package/@reapp-sdk/ap2/v/0.1.0), and [`reapp-protocol-cli@0.1.1`](https://www.npmjs.com/package/reapp-protocol-cli/v/0.1.1) are public npm releases |
-| Packages installable via npm | Met | Clean temporary projects installed the exact releases, imported the SDKs, reproduced the AP2 hash vector and `vc_hash`, compiled strict TypeScript declarations, verified the configured contract and typed failures, and ran CLI version `0.1.1` |
+| SDK packages published to npm | Met | [`@reapp-sdk/stellar@0.2.1`](https://www.npmjs.com/package/@reapp-sdk/stellar/v/0.2.1), [`@reapp-sdk/core@0.2.3`](https://www.npmjs.com/package/@reapp-sdk/core/v/0.2.3), [`@reapp-sdk/ap2@0.1.0`](https://www.npmjs.com/package/@reapp-sdk/ap2/v/0.1.0), [`@reapp-sdk/express-middleware@0.1.0`](https://www.npmjs.com/package/@reapp-sdk/express-middleware/v/0.1.0), and [`reapp-protocol-cli@0.1.3`](https://www.npmjs.com/package/reapp-protocol-cli/v/0.1.3) are public npm releases |
+| Packages installable via npm | Met | Clean temporary projects installed the exact releases, imported the SDKs, reproduced the AP2 hash vector and `vc_hash`, compiled strict TypeScript declarations, verified the configured contract and typed failures, and ran CLI version `0.1.3` |
 | Create an agent | Met | `reapp.agent({ mandate, signer })`, bound to a registered mandate |
 | Connect to the testnet contract | Met | Defaults to the current MandateRegistry `CC6JMPDH…CRWE` with no configuration |
 | Execute a mandate-validated payment | Met | `agent.pay("1.00")` settles through `execute_payment`; prove it fresh with `npm run e2e:sdk` |

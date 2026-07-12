@@ -9,13 +9,14 @@ import { runSetup } from "./commands/setup.js";
 import { runMandateCreate } from "./commands/mandate.js";
 import { runPay } from "./commands/pay.js";
 import { runDemo } from "./commands/demo.js";
+import { CLI_VERSION } from "./version.js";
 
 const program = new Command();
 
 program
   .name("reapp")
   .description("Agent payments on Stellar, enforced on-chain by the REAPP MandateRegistry.")
-  .version("0.1.1");
+  .version(CLI_VERSION);
 
 program
   .command("init")
