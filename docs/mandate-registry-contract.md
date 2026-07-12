@@ -358,12 +358,12 @@ Every clause of the contract release, with where it is proven.
 
 | Clause | Status | Evidence |
 |---|---|---|
-| MandateRegistry deployed and live on testnet | Met | Simple contract `CB4KOTLG…7ZOA`, WASM `4eb1b943…`, deployed 2026-06-19, source-verified on StellarExpert. Live behavior confirmed end to end (register, approve, pay, revoke). The on-chain activity is shown in the table below |
+| MandateRegistry deployed and live on testnet | Met | Upgradeable simple contract [`CC6JMPDH…CRWE`](https://stellar.expert/explorer/testnet/contract/CC6JMPDHRPBR2HBLJKRCIKV54HXDV2RFXDKW6MALQKWM6JEAJQHICRWE), release `0.2.0`, WASM `13f7023d…8552b`. Hosted release bytes and the on-chain executable are identical. |
 | `register_mandate` callable | Met | Live on-chain; tests `happy_path_runs_every_method`, `register_requires_user_auth` |
 | `validate_mandate` callable | Met | Read-only dry run by design (mutates nothing); exercised as the e2e preflight before each `execute_payment`, as documented above |
 | `execute_payment` callable | Met | Live on-chain, 1 XLM moved (confirmed on Horizon); tests `happy_path_runs_every_method`, `property_spent_equals_transferred` |
 | `revoke_mandate` callable | Met | Live on-chain; tests `revoked_mandate_rejected`, `revoke_requires_user_auth` |
-| Integration tests passing | Met | `cargo test` 19 of 19, green in CI on every push |
+| Integration tests passing | Met | The current simple release runs 25 tests and the composite release runs 62 through the contract repository gate check on every push. |
 | Negatives: unauthorized callers | Met | `execute_requires_agent_auth`, `register_requires_user_auth`, `revoke_requires_user_auth`; mirrored on-chain by the rejected `GDNV…5ARS` payment |
 | Negatives: overspend | Met | `overspend_single_rejected`, `overspend_cumulative_rejected` |
 
@@ -377,10 +377,10 @@ future work, so nothing is oversold.
 
 | Feedback | Targets | Status now | Notes |
 |---|---|---|---|
-| 1. Decouple mandate logic from the x402 wire format | Cross-cutting | Addressed at the contract layer | MandateRegistry takes plain Soroban types and knows nothing about x402, so it adapts to x402 v0.2 or v0.3 without a redesign. The x402 flow itself is later work and is not built yet |
-| 2. Threat model, data flow diagrams, and negative suite as release gates | Mainnet hardening | Negative suite done; threat model and diagrams not yet written | The negative test suite runs in CI from the first commit. The formal threat model and data flow diagrams are mainnet hardening documents and do not exist yet |
-| 3. 2-of-3 multisig and timelock, with documented key management | Mainnet hardening | Not started | The contract has no upgrade path or admin today, so there is nothing to govern yet. Multisig, timelock, and key documentation are mainnet work |
-| 4. Negative tests in CI from the first release | Current testnet release | Addressed for every applicable case | Unauthorized callers, expired, overspend, and replay all run in CI from the first commit. Unauthorized upgrades have no test because there is no upgrade mechanism yet |
+| 1. Decouple mandate logic from the x402 wire format | Cross-cutting | Addressed | MandateRegistry takes plain Soroban types and imports no HTTP shape. The replaceable adapter lives in the SDK and middleware. |
+| 2. Threat model, data flow diagrams, and negative suite as release gates | Cross-cutting | Addressed for testnet; immutable-mainnet gate remains open | See [`security/threat-model.md`](../security/threat-model.md) and [`security/data-flow.md`](../security/data-flow.md). Negative tests run continuously in both repositories. |
+| 3. 2-of-3 multisig and timelock, with documented key management | Pre-mainnet control | Timelock live; custody migration documented | Current testnet administration is one signer. The mandatory 2-of-3 migration, rotation, loss recovery, and immutable-release procedure is in [`security/upgrade-authority.md`](../security/upgrade-authority.md). |
+| 4. Negative tests in CI from the first release | Current testnet release | Addressed | Unauthorized callers, expired mandates, overspend, replay, pause behavior, and unauthorized upgrade lifecycle calls run in CI. |
 | 5. Protocol-enforced limits; the SDK cannot bypass the on-chain check | Current testnet release | Addressed | `execute_payment` re-validates against stored state on every call and is the only money path. The SDK holds no allowance and is treated as untrusted, so a buggy or skipped SDK check cannot exceed the mandate |
-| 6. Exemplary reference consumer and fulfillment agents | Reference-app release | Not started | Both reference agents are stubs today. The safe pattern is shown in the SDK and its documentation |
-| 7. Live failure-mode drills and a UX writeup | Mainnet hardening | Partial | The core paths plus overspend and revoke have live testnet evidence. The named drills, including merchant downtime mid-transaction and expiry mid-flow, are future work |
+| 6. Exemplary reference consumer and fulfillment agents | Current testnet release | Addressed | The consumer uses `agent.fetch()` and the Express fulfillment agent independently verifies and consumes settlement before serving. `npm run agents:testnet` runs both. |
+| 7. Live failure-mode drills and a UX writeup | Current testnet release | Addressed | `npm run drills:testnet` covers autonomous in-scope spend plus revocation, merchant downtime after settlement, and expiry between quote and settlement. See [`docs/live-failure-drills.md`](live-failure-drills.md). |

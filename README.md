@@ -87,25 +87,45 @@ The contract is authoritative. SDK-side checks only fail fast; they never replac
 | [`apps/consumer-agent`](apps/consumer-agent) | Reference ResearchAgent that buys data through `agent.fetch()` |
 | [`apps/fulfillment-agent`](apps/fulfillment-agent) | Reference 402-gated API that verifies settlement before serving |
 | [`scripts`](scripts) | Testnet demos, live flows, deployment, and gate check tooling |
-| [`security`](security) | Contract, SDK, and x402 gate check records |
+| [`security`](security) | Threat model, data flows, upgrade custody, and contract/SDK/x402 gate check records |
 
 ---
 
 ## 🚀 Run the Flow
 
 ```bash
-npm install
-npm run build
-npm test
+npm ci
+npm run verify
 ```
 
-After completing the [testnet setup](docs/playbook-testnet.md):
+Run the reviewer CLI from any clean directory:
 
 ```bash
-npm run demo
+npx reapp-protocol-cli demo research-agent
+```
+
+Run both reference agents from this repository with one command:
+
+```bash
 npm run agents:testnet
 ```
 
-`npm run demo` exercises the mandate payment path plus overspend, replay, and post-revocation rejection. `npm run agents:testnet` creates and funds fresh testnet actors, starts the Express fulfillment agent, and runs the consumer through real `agent.fetch()` purchases, contract settlement, independent verification, and a budget-exhaustion rejection. No local keys or environment file are required.
+That command creates and funds fresh testnet actors, starts the Express
+fulfillment agent, and drives the consumer through real `agent.fetch()`
+purchases. Three resources settle and are independently verified; the fourth is
+rejected by the contract-enforced budget. No local key or environment file is
+required.
+
+Run the three named SDK failure drills separately:
+
+```bash
+npm run drills:testnet
+```
+
+Use the public browser companion at [reapp.live/express](https://reapp.live/express),
+or follow the verified [clean VS Code project guide](docs/express-vscode-quickstart.md).
+Operational evidence and boundaries are in the [live drill record](docs/live-failure-drills.md),
+[threat model](security/threat-model.md), [data flow](security/data-flow.md), and
+[upgrade authority runbook](security/upgrade-authority.md).
 
 *The SDK is untrusted. The contract enforces the limit.*

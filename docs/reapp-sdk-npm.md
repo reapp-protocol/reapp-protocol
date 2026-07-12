@@ -5,8 +5,8 @@
 > execute a mandate-validated payment in under 10 lines of code.
 
 This document shows the published packages, the under-10-line flow running live on
-testnet, the API in full, an independent on-chain gatecheck tool built on the published
-SDK, and the adversarial security gatecheck of the SDK itself. Every on-chain claim
+testnet, the API in full, an independent on-chain gate check tool built on the published
+SDK, and the adversarial security gate check of the SDK itself. Every on-chain claim
 links to its transaction and was re-checked against Horizon, Stellar's canonical
 API.
 
@@ -24,7 +24,7 @@ payment, or paying after the user revokes. This is the same principle as the con
 now carried all the way to the developer surface: the contract is the source of
 truth, and the SDK is a thin, replaceable client on top of it.
 
-It ships as three SDK packages so an integrator takes only what they need, plus a
+It ships as four SDK packages so an integrator takes only what they need, plus a
 separate command-line package for the complete testnet workflow.
 
 | Package | npm | What it is |
@@ -32,15 +32,16 @@ separate command-line package for the complete testnet workflow.
 | `@reapp-sdk/core` | [npmjs.com/package/@reapp-sdk/core](https://www.npmjs.com/package/@reapp-sdk/core) | The high-level client. Create an agent and run a mandate-validated payment in under 10 lines. |
 | `@reapp-sdk/stellar` | [npmjs.com/package/@reapp-sdk/stellar](https://www.npmjs.com/package/@reapp-sdk/stellar) | The low-level Soroban layer: typed MandateRegistry bindings, network config, a signing adapter, and SEP-41 helpers. |
 | `@reapp-sdk/ap2` | [npmjs.com/package/@reapp-sdk/ap2](https://www.npmjs.com/package/@reapp-sdk/ap2) | A version-pinned, fail-closed AP2 v0.2.0 IntentMandate bridge into the contract-facing REAPP mandate. |
+| `@reapp-sdk/express-middleware` | [npmjs.com/package/@reapp-sdk/express-middleware](https://www.npmjs.com/package/@reapp-sdk/express-middleware) | Express 4/5 middleware that independently verifies settlement and consumes each proof once before fulfillment. |
 | `reapp-protocol-cli` | [npmjs.com/package/reapp-protocol-cli](https://www.npmjs.com/package/reapp-protocol-cli) | The testnet CLI: initialize a project, create burner accounts, register a mandate, approve its budget, and make agent-signed payments. |
 
-All four releases are live on npm under the owned REAPP package names, Apache-2.0,
+All five releases are live on npm under the owned REAPP package names, Apache-2.0,
 ESM with TypeScript types where applicable, and each ships only its built output. Hosted docs:
 [reapp.live/docs](https://reapp.live/docs).
 
-> **Versions.** `@reapp-sdk/stellar` 0.2.0, `@reapp-sdk/core` 0.2.2,
-> `@reapp-sdk/ap2` 0.1.0, and `reapp-protocol-cli` 0.1.1 are the currently
-> published releases.
+> **Versions.** `@reapp-sdk/stellar` 0.2.1, `@reapp-sdk/core` 0.2.3,
+> `@reapp-sdk/ap2` 0.1.0, `@reapp-sdk/express-middleware` 0.1.0, and
+> `reapp-protocol-cli` 0.1.2 are the current releases.
 > The Stellar binding was generated from the exact simple-contract 0.2.0 release
 > WASM and defaults to the current testnet contract. Clean temporary projects
 > installed the exact releases, imported the SDKs, compiled the published AP2
@@ -69,6 +70,17 @@ whole-second expiry. It fails closed on cart-confirmation, SKU, refundability, a
 multi-merchant semantics that MandateRegistry cannot enforce. The AP2 canonical
 payload hash is bound into REAPP's existing `vc_hash` construction without changing
 ids produced directly by `@reapp-sdk/core`; x402 remains a separate wire adapter.
+
+Install the fulfillment boundary for an Express API:
+
+```
+npm install @reapp-sdk/express-middleware express
+```
+
+The middleware accepts only a normalized transaction hash from the caller. It
+derives the merchant, asset, amount, mandate, registry, and transfer evidence
+from Stellar before atomically consuming the proof and allowing the route
+handler to run.
 
 ## The under-10-line flow
 
@@ -201,9 +213,9 @@ StellarExpert links for every transaction.
 No fixed mandate id is stored here. The repo should prove the current contract config,
 not preserve stale example ids from an older run.
 
-## The gatecheck tool: `npm run gatecheck`
+## The gate check tool: `npm run gatecheck`
 
-The repo ships an independent, on-chain gatecheck tool, built entirely on the published
+The repo ships an independent, on-chain gate check tool, built entirely on the published
 `@reapp-sdk/stellar` surface. It is the repo script `npm run gatecheck`
 (`scripts/gatecheck-mandate.mjs`), not a binary bundled in the npm package, so any
 developer can reproduce it against their own mandates. The whole point of REAPP is

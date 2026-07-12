@@ -43,6 +43,12 @@ Avoid these unsafe alternatives:
 - Do not treat any `200` as proof of payment; use a fulfillment service that independently verifies settlement.
 - Do not retry an ambiguous payment failure automatically; determine whether a transaction settled first.
 
+When settlement succeeded but the merchant connection failed,
+`DeliveryPendingError` includes the transaction hash and exact
+`SettlementReceipt`. Surface “payment settled; delivery pending” to the user and
+call `agent.retryDelivery(receipt)` after the merchant recovers. That retry
+reuses the original proof and cannot pay again.
+
 The default contract is the upgradeable simple MandateRegistry
 [`CC6JMPDH…CRWE`](https://stellar.expert/explorer/testnet/contract/CC6JMPDHRPBR2HBLJKRCIKV54HXDV2RFXDKW6MALQKWM6JEAJQHICRWE),
 from the reproducible [`simple-v0.2.0` release](https://github.com/reapp-protocol/reapp-protocol-contracts/releases/tag/simple-v0.2.0_contracts_simple_mandate_registry_mandate-registry_pkg0.2.0_cli25.1.0).

@@ -172,15 +172,17 @@ from the asset decimals) are mainnet-hardening notes, not testnet blockers.
 | 5. The SDK cannot bypass the on-chain check | Current testnet release | Addressed and gatechecked. `fetch` always settles through `execute_payment`; the merchant independently verifies the payment on-chain and the emitting contract. |
 | 6. Reference agents exemplary, warn against unsafe patterns | Current testnet release | Addressed. The merchant and ResearchAgent are commented as first-read examples and name the unsafe shortcuts they reject. The gatecheck hardened the merchant's verification. |
 | 4. Negative tests in CI from the first release | Current testnet release | The contract negative suite runs in CI on every push; the x402 e2e proves the budget block live. |
-| 7. Live failure-mode drills | Mainnet hardening | Partial. The over-budget drill, where the fourth purchase is rejected, runs live. Merchant downtime and expiry-mid-flow drills belong to mainnet hardening. |
-| 2, 3. Threat model and DFDs, multisig and key management | Mainnet hardening | Future work, as before. |
+| 7. Live failure-mode drills | Current testnet release | Addressed. `npm run drills:testnet` proves autonomous in-scope spend plus revocation, merchant downtime after settlement with receipt-only recovery, and quote-before-expiry with settlement-after-expiry. See [`live-failure-drills.md`](live-failure-drills.md). |
+| 2. Threat model and data flows as release gates | Cross-cutting | Addressed. See the active [`threat model`](../security/threat-model.md) and [`data flow`](../security/data-flow.md); the final immutable-mainnet gates remain intentionally open. |
+| 3. Multisig, key rotation, and loss recovery | Pre-mainnet control | Documented honestly. Current testnet authority is one signer; the required 2-of-3 migration and recovery procedures are in [`upgrade-authority.md`](../security/upgrade-authority.md). |
 
 ## Reproduce it yourself
 
 ```bash
-git clone https://github.com/reapp-protocol/reapp-protocol && cd reapp-protocol
-npm install && npm run build
-npm run e2e:x402
+git clone https://github.com/reapp-protocol/reapp-protocol
+cd reapp-protocol
+npm ci
+npm run agents:testnet
 ```
 
 The run funds fresh testnet actors, signs a 3 XLM mandate, starts the 402-gated

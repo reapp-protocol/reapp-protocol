@@ -62,6 +62,29 @@ const res = await agent.fetch("https://merchant.example/report");
 const data = await res.json(); // served only after the merchant verified the on-chain payment
 ```
 
+If the payment settles but the paid retry has a network failure or returns a
+non-2xx status, `fetch` throws `DeliveryPendingError` with a
+`SettlementReceipt`. Do not call `fetch` again, because a fresh `402` could
+create another payment. Retry the exact existing proof instead:
+
+```ts
+import { DeliveryPendingError } from "@reapp-sdk/core";
+
+try {
+  await agent.fetch("https://merchant.example/report");
+} catch (error) {
+  if (error instanceof DeliveryPendingError) {
+    console.log("settled transaction", error.receipt.txHash);
+    const response = await agent.retryDelivery(error.receipt);
+    // No payment or signature occurs during retryDelivery.
+  }
+}
+```
+
+Treat an unconsumed receipt as bearer data. A production merchant also needs
+durable redemption state and idempotent fulfillment keyed by the settlement so
+a lost response can be recovered without charging again.
+
 The x402 wire format lives in its own module, so it tracks the evolving x402 spec
 without touching the mandate or the contract. Use
 [`@reapp-sdk/express-middleware`](https://www.npmjs.com/package/@reapp-sdk/express-middleware)
@@ -102,6 +125,22 @@ Reads the current mandate sequence, then calls `execute_payment` for `amount` (a
 ### `reapp.agent({ mandate, signer }, net?).fetch(url, init?)`
 
 The x402 client. GETs `url`; on a `402` it reads the payment requirement, checks the merchant and asset against the mandate, pays on-chain (the same path as `pay`), and retries with an `X-PAYMENT` settlement proof. Returns the final `Response`. Throws if the contract rejects the payment. A non-402 response is returned unchanged, with no payment.
+
+If the paid retry fails to connect or returns a non-2xx status after settlement,
+throws `DeliveryPendingError` carrying a `SettlementReceipt` with the
+transaction hash and exact proof.
+
+### `agent.retryDelivery(receipt, init?)`
+
+Retries HTTP delivery with the receipt's existing `X-PAYMENT` proof. It never
+calls `pay`, never signs, and never submits a transaction. It rejects a receipt
+belonging to a different mandate.
+
+### `DeliveryPendingError` and `SettlementReceipt`
+
+Typed post-settlement recovery evidence. The error means money moved but HTTP
+delivery is uncertain. Surface the transaction hash to the user and retry the
+same receipt; never start another payment automatically.
 
 ### `reapp.revokeMandate(mandate, { signer }, net?)`
 

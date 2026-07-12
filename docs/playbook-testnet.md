@@ -483,6 +483,12 @@ REAPP_MERCHANT=G... REAPP_READ_SOURCE=G... \
 The demo's in-memory redemption store is one-process only. A production service
 must inject a durable shared store with atomic consume-once behavior.
 
+To run a completely clean external consumer against the hosted fulfillment API,
+follow [`express-vscode-quickstart.md`](express-vscode-quickstart.md) while
+keeping [reapp.live/express](https://reapp.live/express) open. The local user and
+agent signers remain local; the browser receives only public workspace and chain
+evidence.
+
 ---
 
 ## End to end and demo (testnet)
@@ -505,12 +511,16 @@ All of them fund their fresh accounts via friendbot, which is testnet only.
 | `npm run e2e:testnet` | Production grade contract flow with real testnet accounts and the real XLM SEP-41 asset. Ensures the native SAC, funds agent and merchant via friendbot, approves the contract as spender, registers, gets, validates and consumes, executes payment, checks balances, revokes, and confirms revoke blocks payment. |
 | `npm run e2e:sdk` | The published `@reapp-sdk/core` surface doing the full flow on testnet: `createIntentMandate`, `registerMandate`, `approveBudget`, `agent.pay`, an over-budget pay that is rejected, revoke, and a post-revoke pay that is rejected. 8 of 8 checks. |
 | `npm run agents:testnet` | The full x402 round trip on testnet. Starts the Express merchant on an available port, the ResearchAgent buys 1 XLM sources against a 3 XLM mandate, three settle and are independently verified, and the fourth is rejected by the budget so no resource is served. |
+| `npm run drills:testnet` | Three live SDK failure drills: autonomous in-scope spend followed by revocation, merchant outage after settlement with receipt-only delivery recovery, and mandate expiry between the 402 quote and settlement. |
 
 A clean from-scratch run of either SDK or x402 e2e:
 
 ```bash
-npm install && npm run build && npm run e2e:sdk
-npm install && npm run build && npm run agents:testnet
+npm ci
+npm run build
+npm run e2e:sdk
+npm run agents:testnet
+npm run drills:testnet
 ```
 
 Notes that bite people:
@@ -522,12 +532,12 @@ Notes that bite people:
 
 ---
 
-## Security gatecheck (testnet)
+## Security gate check (testnet)
 
-Security is a release gate, not a closing artifact. We gatecheck before a
+Security is a release gate, not a closing artifact. We run the gate check before a
 release closes, not after deploy. Two layers:
 
-### 1. The on-chain mandate gatecheck tool
+### 1. The on-chain mandate gate check tool
 
 `npm run gatecheck` reads a mandate straight from the testnet contract and verifies
 its spending limits. It trusts no app or SDK claim. It is read only and never
