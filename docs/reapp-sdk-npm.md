@@ -24,26 +24,28 @@ payment, or paying after the user revokes. This is the same principle as the con
 now carried all the way to the developer surface: the contract is the source of
 truth, and the SDK is a thin, replaceable client on top of it.
 
-It ships as two SDK packages so an integrator takes only what they need, plus a
+It ships as three SDK packages so an integrator takes only what they need, plus a
 separate command-line package for the complete testnet workflow.
 
 | Package | npm | What it is |
 |---|---|---|
 | `@reapp-sdk/core` | [npmjs.com/package/@reapp-sdk/core](https://www.npmjs.com/package/@reapp-sdk/core) | The high-level client. Create an agent and run a mandate-validated payment in under 10 lines. |
 | `@reapp-sdk/stellar` | [npmjs.com/package/@reapp-sdk/stellar](https://www.npmjs.com/package/@reapp-sdk/stellar) | The low-level Soroban layer: typed MandateRegistry bindings, network config, a signing adapter, and SEP-41 helpers. |
+| `@reapp-sdk/ap2` | [npmjs.com/package/@reapp-sdk/ap2](https://www.npmjs.com/package/@reapp-sdk/ap2) | A version-pinned, fail-closed AP2 v0.2.0 IntentMandate bridge into the contract-facing REAPP mandate. |
 | `reapp-protocol-cli` | [npmjs.com/package/reapp-protocol-cli](https://www.npmjs.com/package/reapp-protocol-cli) | The testnet CLI: initialize a project, create burner accounts, register a mandate, approve its budget, and make agent-signed payments. |
 
-All three releases are live on npm under the owned REAPP package names, Apache-2.0,
+All four releases are live on npm under the owned REAPP package names, Apache-2.0,
 ESM with TypeScript types where applicable, and each ships only its built output. Hosted docs:
 [reapp.live/docs](https://reapp.live/docs).
 
-> **Versions.** `@reapp-sdk/stellar` 0.2.0, `@reapp-sdk/core` 0.2.1, and
-> `reapp-protocol-cli` 0.1.1 are the currently published, installable releases.
+> **Versions.** `@reapp-sdk/stellar` 0.2.0, `@reapp-sdk/core` 0.2.2,
+> `@reapp-sdk/ap2` 0.1.0, and `reapp-protocol-cli` 0.1.1 are the currently
+> published releases.
 > The Stellar binding was generated from the exact simple-contract 0.2.0 release
-> WASM and defaults to the current testnet contract. A clean temporary project
-> installed all three exact versions from the public registry, imported both SDK
-> packages, confirmed the typed `Paused` failure, confirmed the configured contract
-> ID, and ran `reapp --version` successfully.
+> WASM and defaults to the current testnet contract. Clean temporary projects
+> installed the exact releases, imported the SDKs, compiled the published AP2
+> declarations in strict ESM mode, reproduced the pinned AP2 hash vector, confirmed
+> the 32-byte `vc_hash` and configured contract ID, and ran `reapp --version`.
 
 ## Install
 
@@ -53,6 +55,20 @@ npm install @reapp-sdk/core @stellar/stellar-sdk
 
 `@stellar/stellar-sdk` is a direct dependency you also import yourself for `Keypair`.
 `@reapp-sdk/core` pulls in `@reapp-sdk/stellar` automatically.
+
+Install the AP2 bridge when an external AP2 intent must be bound to the on-chain
+REAPP mandate:
+
+```
+npm install @reapp-sdk/ap2 @stellar/stellar-sdk
+```
+
+`@reapp-sdk/ap2` is pinned to the AP2 v0.2.0 sample IntentMandate data model. It
+supports one Stellar merchant, an explicit asset and budget, and a future
+whole-second expiry. It fails closed on cart-confirmation, SKU, refundability, and
+multi-merchant semantics that MandateRegistry cannot enforce. The AP2 canonical
+payload hash is bound into REAPP's existing `vc_hash` construction without changing
+ids produced directly by `@reapp-sdk/core`; x402 remains a separate wire adapter.
 
 ## The under-10-line flow
 
@@ -263,8 +279,8 @@ dependency pinning), documented in the gatecheck record.
 
 | Clause | Status | Evidence |
 |---|---|---|
-| Compatibility packages published to npm | Met | [`@reapp-sdk/stellar@0.2.0`](https://www.npmjs.com/package/@reapp-sdk/stellar/v/0.2.0), [`@reapp-sdk/core@0.2.1`](https://www.npmjs.com/package/@reapp-sdk/core/v/0.2.1), and [`reapp-protocol-cli@0.1.1`](https://www.npmjs.com/package/reapp-protocol-cli/v/0.1.1) are live and public |
-| Packages installable via npm | Met | A clean temporary project installed all three exact versions, imported the SDKs, verified the configured contract and typed failures, and ran CLI version `0.1.1` |
+| SDK packages published to npm | Met | [`@reapp-sdk/stellar@0.2.0`](https://www.npmjs.com/package/@reapp-sdk/stellar/v/0.2.0), [`@reapp-sdk/core@0.2.2`](https://www.npmjs.com/package/@reapp-sdk/core/v/0.2.2), [`@reapp-sdk/ap2@0.1.0`](https://www.npmjs.com/package/@reapp-sdk/ap2/v/0.1.0), and [`reapp-protocol-cli@0.1.1`](https://www.npmjs.com/package/reapp-protocol-cli/v/0.1.1) are public npm releases |
+| Packages installable via npm | Met | Clean temporary projects installed the exact releases, imported the SDKs, reproduced the AP2 hash vector and `vc_hash`, compiled strict TypeScript declarations, verified the configured contract and typed failures, and ran CLI version `0.1.1` |
 | Create an agent | Met | `reapp.agent({ mandate, signer })`, bound to a registered mandate |
 | Connect to the testnet contract | Met | Defaults to the current MandateRegistry `CC6JMPDH…CRWE` with no configuration |
 | Execute a mandate-validated payment | Met | `agent.pay("1.00")` settles through `execute_payment`; prove it fresh with `npm run e2e:sdk` |
@@ -279,8 +295,8 @@ now and what is later work.
 
 | Feedback | Targets | Status now | Notes |
 |---|---|---|---|
-| 5. Protocol-enforced limits; the SDK cannot bypass the on-chain check | Current testnet release | Addressed and independently gatechecked | The SDK holds no allowance, exposes one money path, supplies no recipient at pay time, and re-reads state every call. The BulletproofBar SDK gatecheck confirmed 0 defects against exactly this property, and `reapp gatecheck` lets anyone verify it on-chain. |
-| 1. Decouple mandate logic from the x402 wire format | Cross-cutting | Addressed at the SDK layer | The SDK takes plain Soroban types and an AP2-style mandate; it knows nothing about x402, so the wire format can change without touching it. The x402 flow itself is later work. |
+| 5. Protocol-enforced limits; the SDK cannot bypass the on-chain check | Current testnet release | Addressed and independently gate checked | The SDK holds no allowance, exposes one money path, supplies no recipient at pay time, and re-reads state every call. The BulletproofBar SDK gate check confirmed 0 defects against exactly this property, and `reapp gatecheck` lets anyone verify it on-chain. |
+| 1. Decouple mandate logic from the x402 wire format | Cross-cutting | Addressed at the SDK layer | The version-pinned AP2 bridge maps intent into the core mandate without importing the x402 adapter. The x402 request/response shape can evolve without changing MandateRegistry or AP2 binding. |
 | 6. Exemplary reference agents; show the safe pattern, warn against unsafe ones | Composite/reference-app release | Partially addressed | The SDK README and the under-10-line flow show the safe pattern (mandate plus on-chain enforcement), and `reapp gatecheck` demonstrates verifying rather than trusting. The full reference consumer and fulfillment agents live with the reference-app surface. |
 | 4. Negative tests in CI from the first release | Current testnet release | Addressed | The contract negative suite runs in CI on every push; the SDK e2e proves overspend and post-revoke rejection live on testnet. |
 | 2, 3, 7. Threat model and DFDs, multisig and key management, live failure drills | Mainnet hardening | Future work | The SDK gatecheck contributes an early threat-model artifact for the client layer. The formal documents, upgrade governance, and failure-mode drills belong to mainnet hardening. |

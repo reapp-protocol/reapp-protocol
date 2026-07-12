@@ -67,7 +67,7 @@ flowchart LR
 | Contract releases and hashes | [`reapp-protocol-contracts`](https://github.com/reapp-protocol/reapp-protocol-contracts) |
 | High-level SDK | [`@reapp-sdk/core`](https://www.npmjs.com/package/@reapp-sdk/core) — mandates, payments, and `agent.fetch()` |
 | Stellar binding | [`@reapp-sdk/stellar`](https://www.npmjs.com/package/@reapp-sdk/stellar) — typed contract client, network config, signers, and SEP-41 helpers |
-| AP2 bridge | [`packages/ap2`](packages/ap2) — version-pinned, fail-closed AP2 IntentMandate mapping into the contract mandate |
+| AP2 bridge | [`@reapp-sdk/ap2`](https://www.npmjs.com/package/@reapp-sdk/ap2) — version-pinned, fail-closed AP2 IntentMandate mapping into the contract mandate |
 | CLI | [`reapp-protocol-cli`](https://www.npmjs.com/package/reapp-protocol-cli) — setup, mandate creation, payment, and demo flow |
 
 The contract is authoritative. SDK-side checks only fail fast; they never replace on-chain validation.
