@@ -11,6 +11,7 @@
     "packages/stellar/src/**/*",
     "packages/sdk/src/**/*",
     "packages/ap2/src/**/*",
+    "packages/express-middleware/src/**/*",
     "packages/cli/src/**/*"
   ],
   "exclude": ["**/*.test.ts"]

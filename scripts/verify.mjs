@@ -37,6 +37,7 @@ run("cargo test", "cargo", ["test"], CONTRACT);
 rmSync(path.join(ROOT, "packages/sdk/dist"), { recursive: true, force: true });
 rmSync(path.join(ROOT, "packages/stellar/dist"), { recursive: true, force: true });
 rmSync(path.join(ROOT, "packages/ap2/dist"), { recursive: true, force: true });
+rmSync(path.join(ROOT, "packages/express-middleware/dist"), { recursive: true, force: true });
 run("npm run build (clean)", "npm", ["run", "build"], ROOT);
 run("npm test", "npm", ["test"], ROOT);
 
