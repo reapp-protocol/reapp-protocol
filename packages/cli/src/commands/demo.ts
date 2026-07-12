@@ -12,7 +12,7 @@
  * read (the C2 BadSequence race). The contract is the source of truth throughout.
  */
 import { reapp } from "@reapp-sdk/core";
-import { TESTNET, registryClient, keypairSigner } from "@reapp-sdk/stellar";
+import { TESTNET, registryClient, keypairSigner, token } from "@reapp-sdk/stellar";
 import { Keypair, rpc } from "@stellar/stellar-sdk";
 import { log, c, banner } from "../ui.js";
 
@@ -66,6 +66,7 @@ async function waitForSeq(
     }
     await sleep(1000);
   }
+  throw new Error(`mandate sequence did not reach ${target} before the testnet read deadline`);
 }
 
 type Attempt = { kind: "ok"; hash: string } | { kind: "blocked" } | { kind: "retry" } | { kind: "error"; msg: string };
@@ -103,6 +104,7 @@ export async function runDemo(target = "research-agent"): Promise<void> {
     agent: short(agent.publicKey()),
     merchant: short(merchant.publicKey()),
   });
+  const merchantBefore = await token.balance(TESTNET, TESTNET.nativeSac, merchant.publicKey());
 
   const inputs = {
     user: user.publicKey(),
@@ -122,6 +124,7 @@ export async function runDemo(target = "research-agent"): Promise<void> {
 
   let purchased = 0;
   let seq = 0;
+  let budgetBlocked = false;
   outer: for (const s of SOURCES) {
     log.step(`agent buys ${s.icon} ${s.name}`, { price: `${SOURCE_PRICE} XLM` });
     for (let attempt = 0; attempt < 4; attempt += 1) {
@@ -134,6 +137,7 @@ export async function runDemo(target = "research-agent"): Promise<void> {
         break;
       }
       if (r.kind === "blocked") {
+        budgetBlocked = true;
         log.warn(`contract blocked the purchase — ${BUDGET} XLM budget exhausted`);
         break outer;
       }
@@ -146,15 +150,33 @@ export async function runDemo(target = "research-agent"): Promise<void> {
     }
   }
 
+  const finalMandate = (await rclient.get_mandate({ mandate_id: mandate.idBuffer })).result.unwrap();
+  const merchantAfter = await token.balance(TESTNET, TESTNET.nativeSac, merchant.publicKey());
+  const transferred = merchantAfter - merchantBefore;
+  const passed =
+    purchased === 3
+    && budgetBlocked
+    && finalMandate.spent === 30_000_000n
+    && Number(finalMandate.seq) === 3
+    && transferred === 30_000_000n;
+
   console.log(
     "\n" +
       c.bold("Result") +
       "\n" +
       c.gray("  purchased  ") + c.white(`${purchased} sources`) + c.gray("  for ") + c.white(`${purchased}.00 XLM`) + c.gray(" settled on-chain") +
       "\n" +
-      c.gray("  enforced   ") + c.white(`${BUDGET} XLM`) + c.gray(" budget cap — the contract rejected further purchases") +
+      c.gray("  enforced   ") + c.white(`${BUDGET} XLM`) + c.gray(` budget cap — ${budgetBlocked ? "the contract rejected purchase four" : "expected rejection was not observed"}`) +
+      "\n" +
+      c.gray("  verified   ") + c.white(`${Number(finalMandate.seq)} payments`) + c.gray(` · ${(Number(transferred) / 1e7).toFixed(2)} XLM merchant delta`) +
       "\n" +
       c.gray("  the agent answers from what it could afford; a compromised agent or SDK cannot exceed the mandate.") +
       "\n",
   );
+
+  if (!passed) {
+    throw new Error(
+      `demo evidence mismatch: purchased=${purchased}, blocked=${budgetBlocked}, seq=${Number(finalMandate.seq)}, spent=${finalMandate.spent}, transferred=${transferred}`,
+    );
+  }
 }

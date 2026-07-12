@@ -1,6 +1,6 @@
 {
   "name": "reapp-protocol-cli",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Command-line tool for the REAPP MandateRegistry: scaffold a project, fund testnet accounts, create AP2 mandates, and pay on-chain. The contract is the source of truth.",
   "keywords": [
     "stellar",

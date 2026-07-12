@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "start": "tsx src/research-agent.ts"
+    "start": "tsx src/research-agent.ts",
+    "test": "node --import tsx --test src/research-agent.test.ts"
   },
   "dependencies": {
     "@reapp-sdk/core": "*"

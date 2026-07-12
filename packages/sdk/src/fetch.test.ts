@@ -1,7 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Keypair } from "@stellar/stellar-sdk";
-import { reapp, decodePaymentProof, X_PAYMENT_HEADER } from "@reapp-sdk/core";
+import {
+  DeliveryPendingError,
+  reapp,
+  decodePaymentProof,
+  X_PAYMENT_HEADER,
+} from "@reapp-sdk/core";
 
 // Unit coverage for the Agent.fetch x402 orchestration: the 402 handling, the
 // pre-flight merchant/asset checks, the on-chain settle, and the proof-carrying
@@ -48,12 +53,12 @@ const challenge402 = (over: Record<string, unknown> = {}): Response =>
   );
 
 /** Install a scripted global fetch; returns recorded calls and a restore fn. */
-function stubFetch(responder: (call: number) => Response) {
+function stubFetch(responder: (call: number) => Response | Promise<Response>) {
   const original = globalThis.fetch;
   const calls: Array<{ url: string; init?: RequestInit }> = [];
   globalThis.fetch = (async (url: string, init?: RequestInit) => {
     calls.push({ url, init });
-    return responder(calls.length);
+    return await responder(calls.length);
   }) as typeof fetch;
   return { calls, restore: () => { globalThis.fetch = original; } };
 }
@@ -124,6 +129,107 @@ test("fetch refuses to pay a 402 that names a different asset", async () => {
   try {
     await assert.rejects(() => agent.fetch(TARGET), /different asset/);
     assert.equal(paid, false);
+  } finally {
+    stub.restore();
+  }
+});
+
+test("post-settlement network failure preserves a receipt and retryDelivery never pays twice", async () => {
+  const { agent, mandate } = makeAgent();
+  let payCalls = 0;
+  agent.pay = async () => {
+    payCalls += 1;
+    return TXHASH;
+  };
+  const outage = stubFetch((call) => {
+    if (call === 1) return challenge402();
+    throw new TypeError("merchant connection refused");
+  });
+
+  let pending: DeliveryPendingError | undefined;
+  try {
+    await agent.fetch(TARGET);
+    assert.fail("delivery outage should throw");
+  } catch (error) {
+    assert.ok(error instanceof DeliveryPendingError);
+    pending = error;
+  } finally {
+    outage.restore();
+  }
+
+  assert.ok(pending);
+  assert.equal(payCalls, 1);
+  assert.equal(pending.receipt.txHash, TXHASH);
+  assert.equal(pending.receipt.mandateId, mandate.id);
+  assert.equal(pending.receipt.amount, "1.00");
+  assert.equal(pending.receipt.url, TARGET);
+
+  const recovery = stubFetch(() => new Response("delivered", { status: 200 }));
+  try {
+    const response = await agent.retryDelivery(pending.receipt);
+    assert.equal(response.status, 200);
+    assert.equal(await response.text(), "delivered");
+    assert.equal(payCalls, 1, "delivery retry must never create a second payment");
+    const header = new Headers(recovery.calls[0]?.init?.headers).get(X_PAYMENT_HEADER);
+    assert.ok(header);
+    assert.deepEqual(decodePaymentProof(header), pending.receipt.proof);
+  } finally {
+    recovery.restore();
+  }
+});
+
+for (const status of [402, 409, 503]) {
+  test(`post-settlement HTTP ${status} preserves a receipt instead of looking unpaid`, async () => {
+    const { agent, mandate } = makeAgent();
+    let payCalls = 0;
+    agent.pay = async () => {
+      payCalls += 1;
+      return TXHASH;
+    };
+    const rejectedDelivery = stubFetch((call) =>
+      call === 1
+        ? challenge402()
+        : new Response(JSON.stringify({ error: "delivery not confirmed" }), { status }),
+    );
+
+    let pending: DeliveryPendingError | undefined;
+    try {
+      await agent.fetch(TARGET);
+      assert.fail(`paid HTTP ${status} should be delivery-pending`);
+    } catch (error) {
+      assert.ok(error instanceof DeliveryPendingError);
+      pending = error;
+    } finally {
+      rejectedDelivery.restore();
+    }
+
+    assert.ok(pending);
+    assert.equal(payCalls, 1);
+    assert.equal(pending.receipt.txHash, TXHASH);
+    assert.equal(pending.receipt.mandateId, mandate.id);
+    assert.match(String(pending.cause), new RegExp(`HTTP ${status}`));
+  });
+}
+
+test("retryDelivery rejects a receipt for another mandate before any HTTP request", async () => {
+  const { agent } = makeAgent();
+  const stub = stubFetch(() => new Response("should not run"));
+  try {
+    await assert.rejects(() => agent.retryDelivery({
+      url: TARGET,
+      method: "GET",
+      txHash: TXHASH,
+      mandateId: "different",
+      amount: "1.00",
+      proof: {
+        scheme: "reapp-soroban",
+        network: "stellar-testnet",
+        txHash: TXHASH,
+        mandateId: "different",
+        amount: "1.00",
+      },
+    }), /different mandate/);
+    assert.equal(stub.calls.length, 0);
   } finally {
     stub.restore();
   }

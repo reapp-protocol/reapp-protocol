@@ -19,8 +19,9 @@
     "e2e:testnet": "node scripts/e2e-testnet.mjs",
     "e2e:composites": "node scripts/e2e-composites.mjs",
     "e2e:sdk": "node scripts/e2e-sdk.mjs",
-    "e2e:x402": "tsx scripts/e2e-x402.ts",
-    "agents:testnet": "tsx scripts/e2e-x402.ts",
+    "e2e:x402": "npm run agents:testnet",
+    "agents:testnet": "npm run build && tsx scripts/e2e-x402.ts",
+    "drills:testnet": "npm run build && tsx scripts/failure-drills-testnet.ts",
     "gatecheck": "node scripts/gatecheck-mandate.mjs"
   },
   "devDependencies": {
@@ -33,6 +34,6 @@
     "typescript": "^5.7.2"
   },
   "dependencies": {
-    "@reapp-sdk/core": "^0.2.2"
+    "@reapp-sdk/core": "^0.2.3"
   }
 }

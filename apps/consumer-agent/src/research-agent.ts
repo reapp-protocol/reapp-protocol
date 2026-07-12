@@ -15,7 +15,11 @@
  *   - It cannot "skip" settlement: `fetch` only returns the resource after a real,
  *     server-verified on-chain payment.
  */
-import { reapp, type IntentMandate } from "@reapp-sdk/core";
+import {
+  DeliveryPendingError,
+  reapp,
+  type IntentMandate,
+} from "@reapp-sdk/core";
 
 export interface BuyResult {
   id: string;
@@ -78,6 +82,12 @@ export async function buyResearch(opts: {
         opts.onEvent?.({ type: "blocked", id, reason });
       }
     } catch (e) {
+      if (e instanceof DeliveryPendingError) {
+        const reason = "payment settled; delivery pending — retry the same receipt, do not pay again";
+        results.push({ id, ok: false, txHash: e.receipt.txHash, blockedReason: reason });
+        opts.onEvent?.({ type: "blocked", id, txHash: e.receipt.txHash, reason });
+        continue;
+      }
       // `fetch` throws when the contract rejects the payment (budget, expiry,
       // revoke, scope). This is the protocol working, not an error to retry.
       const reason = blockReason(e instanceof Error ? e.message : String(e));

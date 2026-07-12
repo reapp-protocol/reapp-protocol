@@ -30,8 +30,22 @@ const field = (l: string, v: unknown) => log(`     ${c.gray("·")} ${c.dim(l.pad
 const tx = (h: string) => c.link(`https://stellar.expert/explorer/testnet/tx/${h}`);
 const die = (m: string) => { console.error(`\n${c.red("✖")} ${c.red(m)}`); exit(1); };
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-const fund = (pub: string) => fetch(`https://friendbot.stellar.org/?addr=${pub}`).then(() => true).catch(() => false);
 const xlm = (stroops: bigint) => `${(Number(stroops) / 1e7).toFixed(2)} XLM`;
+
+async function fund(pub: string): Promise<void> {
+  let lastError = "friendbot request did not complete";
+  for (let attempt = 1; attempt <= 5; attempt += 1) {
+    try {
+      const response = await fetch(`https://friendbot.stellar.org/?addr=${pub}`);
+      if (response.ok) return;
+      lastError = `friendbot returned HTTP ${response.status}`;
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : String(error);
+    }
+    await sleep(attempt * 1_000);
+  }
+  throw new Error(`could not fund ${pub}: ${lastError}`);
+}
 
 const BUDGET = "3.00";   // 3 sources, then the contract blocks the 4th
 const SOURCES = ["market", "academic", "news", "patents"];

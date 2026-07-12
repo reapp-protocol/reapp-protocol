@@ -15,7 +15,12 @@
 import { Buffer } from "buffer";
 import { Keypair, hash } from "@stellar/stellar-sdk";
 import { TESTNET, keypairSigner, registryClient, token, type NetworkConfig } from "@reapp-sdk/stellar";
-import { X_PAYMENT_HEADER, parse402, encodePaymentProof } from "./x402.js";
+import {
+  X_PAYMENT_HEADER,
+  parse402,
+  encodePaymentProof,
+  type PaymentProof,
+} from "./x402.js";
 
 // Re-export the typed contract errors so apps can branch on them (e.g. Errors[6] is BudgetExceeded).
 export { Errors } from "@reapp-sdk/stellar";
@@ -53,6 +58,37 @@ export interface IntentMandate {
 
 export interface SignerInput {
   signer: Keypair | string;
+}
+
+/**
+ * Chain settlement evidence retained when HTTP delivery becomes uncertain.
+ * Treat `proof` as bearer data until the merchant consumes it.
+ */
+export interface SettlementReceipt {
+  url: string;
+  method: string;
+  txHash: string;
+  mandateId: string;
+  amount: string;
+  proof: Readonly<PaymentProof>;
+}
+
+/**
+ * The contract payment succeeded, but the paid HTTP retry did not confirm a
+ * successful delivery (network failure or non-2xx response). Do not pay again.
+ * Retry delivery with the included receipt.
+ */
+export class DeliveryPendingError extends Error {
+  readonly receipt: Readonly<SettlementReceipt>;
+
+  constructor(receipt: Readonly<SettlementReceipt>, cause: unknown) {
+    super(
+      `payment ${receipt.txHash} settled on-chain, but delivery is pending; retry the same settlement receipt and do not pay again`,
+      { cause },
+    );
+    this.name = "DeliveryPendingError";
+    this.receipt = receipt;
+  }
 }
 
 const DEFAULT_DECIMALS = 7;
@@ -137,6 +173,26 @@ export class Agent {
   }
 
   /**
+   * Retry delivery with an already-settled proof. This method never calls
+   * `pay`, never signs, and never creates another on-chain transaction.
+   */
+  async retryDelivery(receipt: Readonly<SettlementReceipt>, init?: RequestInit): Promise<Response> {
+    if (receipt.mandateId !== this.mandate.id || receipt.proof.mandateId !== this.mandate.id) {
+      throw new Error("x402: settlement receipt belongs to a different mandate");
+    }
+    if (receipt.txHash !== receipt.proof.txHash || receipt.amount !== receipt.proof.amount) {
+      throw new Error("x402: settlement receipt fields do not match its proof");
+    }
+    const headers = new Headers(init?.headers);
+    headers.set(X_PAYMENT_HEADER, encodePaymentProof(receipt.proof));
+    return fetch(receipt.url, {
+      ...init,
+      method: init?.method ?? receipt.method,
+      headers,
+    });
+  }
+
+  /**
    * x402 round-trip. GET `url`; if the server answers 402 Payment Required, read
    * the payment requirement, settle it on-chain via `execute_payment` (the same
    * path as `pay`), and retry the request with an `X-PAYMENT` settlement proof.
@@ -168,18 +224,30 @@ export class Agent {
     // Settle on-chain. Throws if the contract rejects (budget, expiry, revoke, scope).
     const txHash = await this.pay(required.amount);
 
-    const headers = new Headers(init?.headers);
-    headers.set(
-      X_PAYMENT_HEADER,
-      encodePaymentProof({
-        scheme: required.scheme,
-        network: required.network,
-        txHash,
-        mandateId: this.mandate.id,
-        amount: required.amount,
-      }),
-    );
-    return fetch(url, { ...init, method: init?.method ?? "GET", headers });
+    const proof = Object.freeze({
+      scheme: required.scheme,
+      network: required.network,
+      txHash,
+      mandateId: this.mandate.id,
+      amount: required.amount,
+    });
+    const receipt = Object.freeze({
+      url,
+      method: init?.method ?? "GET",
+      txHash,
+      mandateId: this.mandate.id,
+      amount: required.amount,
+      proof,
+    });
+    try {
+      const delivered = await this.retryDelivery(receipt, init);
+      if (!delivered.ok) {
+        throw new Error(`merchant returned HTTP ${delivered.status} after settlement`);
+      }
+      return delivered;
+    } catch (cause) {
+      throw new DeliveryPendingError(receipt, cause);
+    }
   }
 }
 
