@@ -213,25 +213,19 @@ contents and exact dependency pins. Then create an empty temporary project and:
 3. run an ESM runtime import; and
 4. verify no lifecycle scripts, env files, sources, tests, or credentials ship.
 
-Compatibility packages must pin the reviewed canonical version exactly. They
-must not contain alternate security logic.
-
 ## 9. npm publication
 
 First verify registry identity and scope access. Authentication may require one
 browser/WebAuthn action by the operator; never paste an npm token into chat or a
 repository.
 
-Publish canonical dependencies before wrappers:
+Publish dependencies before consumers:
 
 1. `@reapp-sdk/stellar`
 2. `@reapp-sdk/core`
 3. `@reapp-sdk/ap2`
 4. `@reapp-sdk/express-middleware`
 5. `reapp-protocol-cli`
-6. `@reapp/stellar`
-7. `@reapp/ap2`
-8. `@reapp/express-middleware`
 
 Already-existing unchanged versions are verified, not republished. After each
 new publish, query the exact version and integrity and install it from the public

@@ -10,10 +10,10 @@ It is testnet scope. It does not claim mainnet readiness.
 |---|---|
 | Default simple MandateRegistry | [`CC6JMPDH…CRWE`](https://stellar.expert/explorer/testnet/contract/CC6JMPDHRPBR2HBLJKRCIKV54HXDV2RFXDKW6MALQKWM6JEAJQHICRWE), release `simple-v0.2.0`, WASM `13f7023d…8552b` |
 | Composite MandateRegistry | [`CCYRF7FK…HEYW`](https://stellar.expert/explorer/testnet/contract/CCYRF7FKYGSNWX5I7WLYXZ6LNUNVCSPE4BOTQFVWVTABOHAP52DYHEYW), release `composites-v0.3.0`, WASM `b3368d7f…f0a1` |
-| Typed Stellar package | `@reapp-sdk/stellar@0.2.1`; compatibility name `@reapp/stellar@0.2.1` |
+| Typed Stellar package | `@reapp-sdk/stellar@0.2.1` |
 | Agent SDK | `@reapp-sdk/core@0.3.0` |
-| Express middleware | `@reapp-sdk/express-middleware@0.2.0`; compatibility name `@reapp/express-middleware@0.2.0` |
-| AP2 validator | `@reapp-sdk/ap2@0.2.1`; compatibility name `@reapp/ap2@0.2.1` |
+| Express middleware | `@reapp-sdk/express-middleware@0.2.0` |
+| AP2 validator | `@reapp-sdk/ap2@0.2.1` |
 | CLI | `reapp-protocol-cli@0.1.4`, installed command `reapp` |
 
 The requested unscoped npm name `reapp-cli` is owned by an unrelated publisher.
@@ -42,16 +42,16 @@ npx reapp-protocol-cli@0.1.4 demo research-agent
 
 ### Installable, typed SDK packages
 
-The exact T2 compatibility names are typed ESM wrappers that pin and re-export
-the canonical implementations. They cannot drift from the reviewed code:
+The T2 packages are typed ESM implementations published under the established
+`@reapp-sdk` scope:
 
 ```bash
-npm install @reapp/stellar@0.2.1 @reapp/ap2@0.2.1 @reapp/express-middleware@0.2.0
+npm install @reapp-sdk/stellar@0.2.1 @reapp-sdk/ap2@0.2.1 @reapp-sdk/express-middleware@0.2.0
 ```
 
 Each package contains TypeScript declarations, API documentation, and a usage
 example in its packed README. The T2 gate check builds real tarballs for every
-canonical and compatibility package, installs all eight into an empty project,
+public package, installs all five into an empty project,
 strict-typechecks their public imports, executes ESM imports and the CLI binary,
 and rejects lifecycle install scripts or source/secret leakage.
 

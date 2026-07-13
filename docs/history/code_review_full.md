@@ -37,7 +37,7 @@ An annotated, file-by-file source listing of the `reapp-protocol` monorepo. For 
   - [`packages/sdk/package.json`](#packagessdkpackagejson)
   - [`packages/sdk/tsconfig.json`](#packagessdktsconfigjson)
   - [`packages/sdk/README.md`](#packagessdkreadmemd)
-- [Stellar Binding Layer: @reapp/stellar](#stellar-binding-layer-reappstellar)
+- [Stellar Binding Layer: @reapp-sdk/stellar](#stellar-binding-layer-reapp-sdkstellar)
   - [`packages/stellar/src/index.ts`](#packagesstellarsrcindexts)
   - [`packages/stellar/src/client.ts`](#packagesstellarsrcclientts)
   - [`packages/stellar/src/registry.ts`](#packagesstellarsrcregistryts)
@@ -2602,7 +2602,7 @@ Apache-2.0.
 
 ---
 
-## Stellar Binding Layer: @reapp/stellar
+## Stellar Binding Layer: @reapp-sdk/stellar
 
 The low-level Stellar / Soroban RPC layer used by the SDK and the scripts: build, simulate, sign, and submit transactions, plus typed clients for the registry and SEP-41 token contracts.
 

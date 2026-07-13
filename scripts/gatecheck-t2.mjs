@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
@@ -14,9 +14,6 @@ const packages = [
   ["packages/ap2", "@reapp-sdk/ap2", "0.2.1"],
   ["packages/express-middleware", "@reapp-sdk/express-middleware", "0.2.0"],
   ["packages/cli", "reapp-protocol-cli", "0.1.4"],
-  ["packages/reapp-stellar-alias", "@reapp/stellar", "0.2.1"],
-  ["packages/reapp-ap2-alias", "@reapp/ap2", "0.2.1"],
-  ["packages/reapp-express-middleware-alias", "@reapp/express-middleware", "0.2.0"],
 ];
 
 function fail(message) {
@@ -124,14 +121,11 @@ console.log("T2 gate check 3/4: clean install, strict TypeScript, runtime import
   }, null, 2));
   writeFileSync(path.join(installRoot, "clean-install.ts"), `
 import { reapp, DeliveryPendingError } from "@reapp-sdk/core";
-import { TESTNET as canonicalTestnet } from "@reapp-sdk/stellar";
-import { createAp2ComplianceValidator as canonicalAp2 } from "@reapp-sdk/ap2";
-import { createBoundReappPaidJsonRoute as canonicalRoute } from "@reapp-sdk/express-middleware";
-import { TESTNET } from "@reapp/stellar";
-import { createAp2ComplianceValidator, InMemoryAp2ReplayStore } from "@reapp/ap2";
-import { createBoundReappPaidJsonRoute, InMemoryBoundRedemptionStore } from "@reapp/express-middleware";
+import { TESTNET } from "@reapp-sdk/stellar";
+import { createAp2ComplianceValidator, InMemoryAp2ReplayStore } from "@reapp-sdk/ap2";
+import { createBoundReappPaidJsonRoute, InMemoryBoundRedemptionStore } from "@reapp-sdk/express-middleware";
 
-void [reapp, DeliveryPendingError, canonicalTestnet, canonicalAp2, canonicalRoute, TESTNET];
+void [reapp, DeliveryPendingError, TESTNET];
 const validator = createAp2ComplianceValidator({
   replayStore: new InMemoryAp2ReplayStore(),
   replayNamespace: "clean-install",
@@ -149,7 +143,6 @@ void [validator, route];
 await Promise.all([
   import("@reapp-sdk/core"), import("@reapp-sdk/stellar"),
   import("@reapp-sdk/ap2"), import("@reapp-sdk/express-middleware"),
-  import("@reapp/stellar"), import("@reapp/ap2"), import("@reapp/express-middleware"),
 ]);
 console.log("runtime imports passed");
 `);
@@ -161,7 +154,9 @@ console.log("runtime imports passed");
 
 console.log("T2 gate check 4/4: public terminology and private-file boundary");
 const tracked = run("git", ["ls-files", "--cached", "--others", "--exclude-standard"])
-  .split("\n").filter(Boolean);
+  .split("\n")
+  .filter(Boolean)
+  .filter((file) => existsSync(path.join(ROOT, file)));
 for (const forbidden of ["REAPP_PROGRESS_LOG.md", "CONTRACT_UPGRADE_PLAYBOOK.md"]) {
   if (tracked.some((file) => path.basename(file) === forbidden)) {
     fail(`private file ${forbidden} is tracked in the public repository`);

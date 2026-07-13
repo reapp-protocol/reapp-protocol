@@ -9,9 +9,6 @@
 | `packages/ap2` | `@reapp-sdk/ap2@0.2.1` | Signed AP2 v0.2 profile validator and replay admission. |
 | `packages/express-middleware` | `@reapp-sdk/express-middleware@0.2.0` | Exact-origin GET proof, Stellar verifier, and atomic claim/immutable-result route. |
 | `packages/cli` | `reapp-protocol-cli@0.1.4` | `init`, `setup`, mandate, crash-safe pay/reconcile/acknowledge, and demo flow. |
-| `packages/reapp-stellar-alias` | `@reapp/stellar@0.2.1` | Exact-pin re-export of canonical Stellar package. |
-| `packages/reapp-ap2-alias` | `@reapp/ap2@0.2.1` | Exact-pin re-export of canonical AP2 package. |
-| `packages/reapp-express-middleware-alias` | `@reapp/express-middleware@0.2.0` | Exact-pin re-export of canonical middleware. |
 
 ## Reference applications
 

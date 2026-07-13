@@ -13,9 +13,6 @@ never re-run arbitrary fulfillment work.
 npm install @reapp-sdk/express-middleware@0.2.0 express@5.2.1
 ```
 
-The exact T2 compatibility name `@reapp/express-middleware` exposes the same
-typed ESM API.
-
 ## Safe paid route
 
 ```ts

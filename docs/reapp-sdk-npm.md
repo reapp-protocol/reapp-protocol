@@ -13,12 +13,6 @@ cannot replace the contract's `execute_payment` checks.
 | `@reapp-sdk/ap2` | 0.2.1 | Signed AP2 profile validation and replay admission. |
 | `@reapp-sdk/express-middleware` | 0.2.0 | Bound-v2 Express payment boundary and chain verifier. |
 | `reapp-protocol-cli` | 0.1.4 | `init`, `setup`, mandate, crash-safe pay/reconcile/acknowledge, and demo commands. |
-| `@reapp/stellar` | 0.2.1 | Exact-pin compatibility re-export. |
-| `@reapp/ap2` | 0.2.1 | Exact-pin compatibility re-export. |
-| `@reapp/express-middleware` | 0.2.0 | Exact-pin compatibility re-export. |
-
-The compatibility packages contain no forked security logic. Each pins and
-re-exports its canonical package at the same version.
 
 The unrelated npm package `reapp-cli` is owned by another publisher. Use the
 project's unambiguous public CLI name:
@@ -35,10 +29,10 @@ Application client:
 npm install @reapp-sdk/core@0.3.0 @stellar/stellar-sdk
 ```
 
-Exact T2 compatibility packages:
+T2 SDK packages:
 
 ```bash
-npm install @reapp/stellar@0.2.1 @reapp/ap2@0.2.1 @reapp/express-middleware@0.2.0
+npm install @reapp-sdk/stellar@0.2.1 @reapp-sdk/ap2@0.2.1 @reapp-sdk/express-middleware@0.2.0
 ```
 
 ## Bound-v2 client API
@@ -122,10 +116,10 @@ The gate check:
 - cleans generated output;
 - builds and typechecks the workspace;
 - runs all package and app tests;
-- dry-inspects and builds real tarballs for every canonical and compatibility package;
+- dry-inspects and builds real tarballs for every public package;
 - checks exact name/version, README, JavaScript, and declaration files;
 - rejects install lifecycle scripts, source/test leakage, env files, and secret-like paths;
-- installs all eight tarballs into an empty project, strict-typechecks public
+- installs all five tarballs into an empty project, strict-typechecks public
   imports, executes ESM imports and the CLI binary;
 - verifies private internal documents are not tracked; and
 - checks public terminology.
@@ -138,9 +132,6 @@ npm view @reapp-sdk/stellar@0.2.1 version dist.integrity
 npm view @reapp-sdk/ap2@0.2.1 version dist.integrity
 npm view @reapp-sdk/express-middleware@0.2.0 version dist.integrity
 npm view reapp-protocol-cli@0.1.4 version dist.integrity
-npm view @reapp/stellar@0.2.1 version dist.integrity
-npm view @reapp/ap2@0.2.1 version dist.integrity
-npm view @reapp/express-middleware@0.2.0 version dist.integrity
 ```
 
 Then install into an empty temporary project, compile strict TypeScript imports,

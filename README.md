@@ -70,7 +70,6 @@ flowchart LR
 | Stellar binding | [`@reapp-sdk/stellar`](https://www.npmjs.com/package/@reapp-sdk/stellar) — typed contract client, network config, signers, and SEP-41 helpers |
 | AP2 profile | [`@reapp-sdk/ap2`](https://www.npmjs.com/package/@reapp-sdk/ap2) — signed, version-pinned AP2 v0.2 validation plus fail-closed binding into the contract mandate |
 | Express middleware | [`@reapp-sdk/express-middleware`](https://www.npmjs.com/package/@reapp-sdk/express-middleware) — authenticated bound-v2 challenges, independent settlement verification, and a paid JSON route with atomic claim plus immutable-result replay |
-| Exact T2 package names | `@reapp/stellar`, `@reapp/ap2`, and `@reapp/express-middleware` — exact-pin typed compatibility re-exports |
 | CLI | [`reapp-protocol-cli`](https://www.npmjs.com/package/reapp-protocol-cli) — setup, mandate creation, crash-safe payment reconciliation, exact success acknowledgment, and demo flow |
 
 The contract is authoritative. SDK-side checks only fail fast; they never replace on-chain validation.
