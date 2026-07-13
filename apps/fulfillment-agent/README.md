@@ -1,72 +1,91 @@
 # Reference fulfillment agent
 
-An Express 5 API protected by
-[`@reapp-sdk/express-middleware`](https://www.npmjs.com/package/@reapp-sdk/express-middleware).
-It serves a resource only after independent Stellar verification and atomic
-settlement consumption.
+An Express 5 API protected by the safe paid JSON route from
+`@reapp-sdk/express-middleware`. One verified settlement executes fulfillment
+once; recovery replays the exact stored response bytes.
 
-## Run the complete live example
-
-From the repository root:
+## Run the live pair
 
 ```bash
-npm install
+npm ci
 npm run agents:testnet
 ```
 
-The command creates and funds fresh testnet actors, launches this server on an
-available local port, and drives it with the reference consumer's
-`agent.fetch()`. No stored keys or environment file are required.
+The command creates fresh testnet actors, registers a 3 XLM mandate, starts this
+server, serves three paid resources, proves the fourth contract budget rejection,
+and rejects an old settlement re-signed for a fresh request.
 
-## The route boundary
-
-The load-bearing pattern is intentionally small:
+## Route boundary
 
 ```ts
-const requirePayment = createReappPaymentMiddleware({
+const paidSource = createBoundReappPaidJsonRoute({
   merchant,
   sourceAccount: merchant,
+  audience: publicOrigin, // exact origin; never Host-derived
+  challengeSecret,
   amount: "1.00",
   resource: (request) => request.originalUrl,
   redemptionStore,
-});
+}, async ({ request, payment }) => ({
+  body: {
+    ok: true,
+    source: request.params.id,
+    data: CATALOG[request.params.id].data,
+    settledTx: payment.txHash,
+  },
+}));
 
-app.get("/source/:id", requirePayment, (_request, response) => {
-  const payment = getVerifiedPayment(response);
-  response.json({ settledTx: payment?.txHash, data: "protected value" });
-});
+app.get("/source/:id", validateKnownSource, paidSource);
 ```
 
-The middleware verifies the RPC network, transaction success and freshness, one
-unambiguous event from the configured MandateRegistry, the event-derived
-mandate's merchant and asset, and the matching same-transaction SEP-41 transfer.
-Only then does an atomic redemption store allow the handler to run.
+The route requires bound-v2 capability, an authenticated exact-origin GET
+challenge, an agent signature, the configured Stellar network, one matching
+MandateRegistry event, current mandate identities, one matching SEP-41 transfer,
+and an atomic fulfillment claim.
 
-`InMemoryRedemptionStore` is appropriate only for this one-process demo. A real
-deployment must inject a durable shared store whose `consumeOnce` operation is
-atomic across every worker and host.
+The callback receives no Express response. Its JSON bytes are durably stored
+before sending. Repeating the same proof returns byte-identical data without
+another chain lookup or callback. A different proof for the same transaction is
+`409`; an executing claim or store/RPC outage is `503` and never re-runs work.
 
-Avoid these unsafe alternatives:
+## Store choices
 
-- Never trust the amount, mandate id, or merchant claimed in `X-PAYMENT`.
-- Never accept a transaction merely because it succeeded.
-- Never use application-cached mandate state as the spending boundary.
-- Never serve content before verification and redemption commit.
-- Never release a consumed settlement because downstream delivery became uncertain.
+- `InMemoryBoundRedemptionStore`: one process and no restart durability; demos/tests.
+- `FileBoundRedemptionStore`: fsynced atomic file replacement, owner-only file,
+  and one shared in-process queue per normalized path; restart-safe for one process.
+- Multi-process/host production: shared durable linearizable database implementing
+  `lookup`, `claim`, and `complete`.
 
-## Standalone server
+Never expire an executing claim back into runnable work. On standalone restart,
+the single-process reference resolves prior executing ids to one immutable
+terminal result through `resolveBoundReappInterruptedDelivery`. External side
+effects still need a transactional operator/job/outbox; automatic re-execution
+would violate at-most-once fulfillment.
 
-For development against an existing funded testnet merchant:
+## Standalone testnet server
 
 ```bash
-REAPP_MERCHANT=G... REAPP_READ_SOURCE=G... \
-  npm run start -w @reapp-sdk/fulfillment-agent
+REAPP_MERCHANT=G... \
+REAPP_READ_SOURCE=G... \
+REAPP_PUBLIC_ORIGIN='https://api.example' \
+REAPP_CHALLENGE_SECRET='at-least-32-stable-private-bytes' \
+REAPP_REDEMPTION_STORE='./private/redemptions.json' \
+npm run start -w @reapp-sdk/fulfillment-agent
 ```
 
-`REAPP_READ_SOURCE` is used only for read-only contract simulation; the verifier
-never signs or submits a transaction.
+For localhost, `REAPP_PUBLIC_ORIGIN` may be omitted and the server uses its
+actual loopback origin. Public deployment must configure the exact HTTPS origin.
+Keep the challenge secret stable and private.
 
-The default contract is
-[`CC6JMPDHRPBR2HBLJKRCIKV54HXDV2RFXDKW6MALQKWM6JEAJQHICRWE`](https://stellar.expert/explorer/testnet/contract/CC6JMPDHRPBR2HBLJKRCIKV54HXDV2RFXDKW6MALQKWM6JEAJQHICRWE),
-with WASM SHA-256
-`13f7023d4a361b6e49d3d39f61f55c5eeece51a602013a3cddae420d2ce8552b`.
+## Unsafe patterns
+
+- Never trust amount, mandate, merchant, or identity from HTTP alone.
+- Never accept a successful transaction without the registry event and transfer.
+- Never derive the signed audience from an untrusted Host header.
+- Never use the low-level authorization middleware with an arbitrary handler.
+- Never release result bytes before the atomic completion write.
+- Never use file/in-memory stores across a cluster.
+
+Default contract:
+[`CC6JMPDH…CRWE`](https://stellar.expert/explorer/testnet/contract/CC6JMPDHRPBR2HBLJKRCIKV54HXDV2RFXDKW6MALQKWM6JEAJQHICRWE),
+WASM `13f7023d4a361b6e49d3d39f61f55c5eeece51a602013a3cddae420d2ce8552b`.

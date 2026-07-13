@@ -1,5 +1,9 @@
 # Composite release — Work Log
 
+> Historical point-in-time work log. Contract ids, package versions, counts,
+> and status words below are not current. Use `docs/T2-SUBMISSION.md` and the
+> current contract repository READMEs for release facts.
+
 Running log of everything done on the `composites` branch. Newest session at the
 top. The simple source-verified contract stays live at
 `CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA`; the current composite
@@ -197,7 +201,7 @@ happens, with a timestamp.
 
 The Composite release trust core, end to end in one session: architecture → contract →
 tests → testnet deploy → e2e → live visual demo, with a multi-agent adversarial
-review gate (BulletproofBar-style) between build and ship.
+review gate (multi-agent adversarial) between build and ship.
 
 **Architecture.** `docs/composites-architecture.md` — implementation blueprint
 derived from `composites-design-v2.md` (all four v2 decisions inherited: deadline

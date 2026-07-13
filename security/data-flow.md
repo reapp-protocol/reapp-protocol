@@ -1,108 +1,77 @@
-# REAPP data flow and trust boundaries
+# Bound-v2 security data flow
 
-The diagrams show where authorization is created, where it is merely carried,
-and where it is independently verified. HTTP and SDK objects never replace
-contract state.
+## Actors and state
 
-## Mandate creation and payment
+- User: owns funds and signs the mandate.
+- Agent: the only identity allowed to request contract payments.
+- MandateRegistry: validates and consumes authorization before transfer.
+- Consumer SDK: untrusted adapter that negotiates HTTP payment and retains receipts.
+- Fulfillment middleware: authenticates requests and independently verifies settlement.
+- Stellar RPC: source of transaction and event evidence.
+- Receipt store: durable client-side pending-delivery evidence.
+- Redemption store: durable merchant claim plus immutable JSON-result state.
 
-```mermaid
-sequenceDiagram
-    actor User
-    participant AP2 as AP2 profile validator
-    participant Consumer as Consumer / agent.fetch()
-    participant Token as SEP-41 token
-    participant Registry as MandateRegistry
-    actor Merchant
+## First delivery
 
-    User->>AP2: signed intent + Stellar authorization
-    AP2->>AP2: verify signature, signer, binding, scope, amount, expiry, replay
-    AP2-->>Consumer: admitted mandate + id
-    User->>Registry: register_mandate (user authorization)
-    User->>Token: approve contract allowance
+1. Consumer sends exact-origin `GET` with bound-v2 capability and manual redirects.
+2. Merchant without proof returns an HMAC-authenticated exact challenge.
+3. Consumer validates method, path/query, network, registry, merchant, asset,
+   amount, decimals, and time before spending.
+4. Consumer signs the transaction, derives its hash/validity deadline, signs the
+   bound proof, and fsyncs the receipt before broadcast.
+5. Agent calls `execute_payment`.
+6. Contract authenticates agent, validates scope/budget/expiry/sequence, advances
+   state, and performs the SEP-41 transfer atomically.
+7. Consumer retries the exact request with capability and proof; redirects remain manual.
+8. Merchant verifies challenge HMAC and exact request fields.
+9. Merchant obtains user/agent/merchant/asset from the verified mandate and
+    checks the agent signature.
+10. Merchant verifies RPC network, successful fresh transaction, registry event,
+    and same-transaction token transfer.
+11. Redemption store atomically claims `missing -> executing`.
+12. The paid JSON callback runs once; bounded exact bytes are committed as
+    `completed` before the socket receives them.
+13. Consumer receives the full body, validates/durably accepts its result, and
+    calls `acknowledgeDelivery`; only then is the pending receipt cleared.
 
-    Consumer->>Merchant: GET protected resource
-    Merchant-->>Consumer: HTTP 402 requirement
-    Note over Consumer,Merchant: Quote only; not authorization
-    Consumer->>Registry: execute_payment (agent authorization + current sequence)
-    Registry->>Registry: recheck stored status, expiry, scope, budget, sequence
-    Registry->>Token: transfer_from(user, merchant, amount)
-    Registry-->>Consumer: successful transaction hash
-    Consumer->>Merchant: retry with X-PAYMENT receipt
-    Merchant->>Registry: independently read transaction event and mandate
-    Merchant->>Token: independently verify matching transfer
-    Merchant->>Merchant: atomically consume redemption key
-    Merchant-->>Consumer: HTTP 200 protected resource
-```
+## Exact recovery
 
-### Data classification
+1. Consumer retains a `DeliveryPendingError.receipt`.
+2. `retryDelivery` validates the complete envelope and proof, refuses a changed
+   URL or method, and sends the exact proof with manual redirects.
+3. Merchant lookup returns `completed` only for the same transaction/proof and
+   replays exact stored bytes; chain verification and callback do not repeat.
+   `executing` returns `503`; a different proof returns `409`.
+4. Consumer validates/persists the result and explicitly acknowledges it.
+5. No payment, signature, or transaction occurs.
 
-| Data | Classification | Authority |
-|---|---|---|
-| User/agent secret keys | Secret; process or approved signer only | Corresponding Stellar signer |
-| Signed AP2 credential | Sensitive policy evidence; no secret key | Admitted only after profile validation; cannot itself move funds |
-| Mandate input object | Sensitive policy input; safe to log only without secrets | Becomes authoritative only after user-authorized registration |
-| 402 requirement | Untrusted public quote | No spending authority |
-| Transaction hash | Public pointer | Useful only after independent chain verification |
-| Settlement receipt / `X-PAYMENT` | Bearer data until consumed | Unlocks only after chain verification and atomic redemption |
-| Stored mandate | Public chain state | Authoritative for scope, budget, expiry, status, and sequence |
-| App cache and browser counters | Display state | Never authoritative |
+The first-redemption challenge deadline does not invalidate an already consumed
+exact proof needed for recovery. A different proof for the same transaction is
+always `409`.
 
-## Delivery recovery
+## Failure paths
 
-```mermaid
-flowchart LR
-    A["execute_payment succeeds"] --> B{"Paid HTTP retry"}
-    B -->|"2xx + verified fulfillment"| C["Resource delivered"]
-    B -->|"network error or non-2xx"| D["DeliveryPendingError"]
-    D --> E["Persist exact SettlementReceipt"]
-    E --> F["retryDelivery(receipt)"]
-    F --> G{"Atomic redemption"}
-    G -->|"unused valid receipt"| C
-    G -->|"already consumed"| H["409 · no new payment"]
-```
+| Failure | Result |
+|---|---|
+| Missing capability | `426` before payment |
+| Invalid challenge/proof/chain evidence | `402`, no delivery |
+| Non-GET | `405` |
+| Same transaction, different proof | `409` |
+| RPC/store unavailable | `503`, no delivery |
+| Client receipt save fails before broadcast | No transaction is submitted |
+| Submitted hash, network, non-2xx, truncated body, or app acknowledgment uncertain | Pending receipt retained; never pay again |
 
-Once the transaction hash exists, the client must never restart the 402 payment
-flow for that delivery. Recovery reuses the existing proof and creates no
-signature or transaction.
+## Ownership boundaries
 
-## Administration and upgrades
+- Contract owns cumulative spending authorization.
+- User and agent keys authorize their respective contract actions.
+- Merchant challenge secret authenticates quotes, not spending.
+- Receipt proof is sensitive exact-request bearer evidence.
+- Redemption store owns atomic claim/conflict and immutable response bytes.
+- Protected callback owns one execution; external effects require a transactional outbox.
 
-```mermaid
-sequenceDiagram
-    participant Custodians as 2-of-3 custodians
-    participant Registry as MandateRegistry
-    participant Monitor as Public monitor
-
-    Custodians->>Registry: schedule_upgrade(exact WASM hash)
-    Registry-->>Monitor: pending hash + execute-after event
-    Note over Registry,Monitor: Fixed 86,400-second delay
-    Custodians->>Registry: pause()
-    Monitor->>Registry: verify money paths reject
-    Custodians->>Registry: execute_upgrade()
-    Monitor->>Registry: verify same ID, executable, interface, admin, state
-    Custodians->>Registry: unpause() only after gate check
-```
-
-The current testnet administrator is one signer. The 2-of-3 flow is a required
-pre-mainnet control and is described in
-[`upgrade-authority.md`](upgrade-authority.md).
-
-## Component ownership
-
-| Component | Owns | Must not own |
-|---|---|---|
-| MandateRegistry | Authorization, mandate consumption, transfer decision | HTTP parsing, resource delivery, private keys |
-| AP2 profile validator | Credential signature, trusted signer/scope/amount/expiry checks, one-time admission replay | Per-payment spending authority, x402 parsing, cached cumulative budget enforcement |
-| Core SDK | Canonical input construction, signing orchestration, receipt recovery | Final budget authority, cached approval, merchant fulfillment decision |
-| x402 adapter | Request/response parsing and proof encoding | Contract rules or mandate schema changes |
-| Express middleware | Independent chain verification and one-time redemption | Trust in caller-supplied amount, merchant, or mandate fields |
-| Reference consumer | Sequential `agent.fetch()` usage and clear failure UX | Direct token transfer or blind payment retry |
-| Browser companion | Ephemeral testnet demonstration and public evidence | User or agent signing keys; authoritative budget state |
-
-## Version-change boundary
-
-An x402 or AP2 format change may replace its adapter and tests. It must not
-require a redesign of MandateRegistry unless the desired authorization semantics
-cannot be expressed by the current stored mandate. Unsupported external fields
-fail closed rather than becoming application-only promises.
+Production multi-worker merchants require a shared durable linearizable store.
+The file implementation is a single-process reference; the in-memory
+implementation is a demo only.
+After confirming an execution owner is dead, trusted operator/outbox code may
+resolve its execution id to one immutable terminal result. It never reruns work.

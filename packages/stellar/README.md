@@ -14,7 +14,7 @@ signing adapter, and minimal SEP-41 token helpers.
 ## Install
 
 ```
-npm install @reapp-sdk/stellar @stellar/stellar-sdk
+npm install @reapp-sdk/stellar@0.2.1 @stellar/stellar-sdk@14.5.0
 ```
 
 ## What it exports

@@ -1,58 +1,84 @@
-# Live SDK failure drills
+# Live failure drills — Stellar testnet
 
-These drills exercise the payment SDK against the upgradeable simple
-MandateRegistry on Stellar testnet:
-
-[`CC6JMPDHRPBR2HBLJKRCIKV54HXDV2RFXDKW6MALQKWM6JEAJQHICRWE`](https://stellar.expert/explorer/testnet/contract/CC6JMPDHRPBR2HBLJKRCIKV54HXDV2RFXDKW6MALQKWM6JEAJQHICRWE)
-
-Run all three with one command from the repository root:
+Run the current bound-v2 failure suite from the repository root:
 
 ```bash
+npm ci
 npm run drills:testnet
 ```
 
-The command creates fresh process-only testnet keys. It does not read a wallet,
-local secret, or environment file.
+The command uses fresh ephemeral testnet actors and the default upgradeable
+simple MandateRegistry. It passes only when all three failure experiences match
+the expected on-chain and HTTP outcomes.
 
-## Verified run: 2026-07-12
+## Fresh hardened run — 2026-07-12
 
-| Drill | Expected user experience | Chain result |
-|---|---|---|
-| Agent acts without another prompt, but stays within the signed envelope | The authorized 1 XLM payment succeeds. After the user revokes, the next 0.5 XLM request is shown as a final contract rejection, not a retryable network error. | [1 XLM settlement](https://stellar.expert/explorer/testnet/tx/12fb051d9aa1dfc2295ae8922056322ab9004823a3afc42ac405c5c7d017683b); stored spend and sequence became 1 XLM and 1. Revocation blocked the next request and the merchant balance did not change again. |
-| Merchant disappears after settlement and before delivery | The SDK reports “payment settled; delivery pending” and returns the exact settlement receipt. The caller retries delivery with that receipt and never creates another payment. | [Original settlement](https://stellar.expert/explorer/testnet/tx/1de2e16005444affaf042893d849c993b89894db115ef8d8285ca846d3f2ef84); recovery returned the resource, replay returned HTTP 409, and the merchant balance remained at one payment. |
-| Mandate expires after the 402 quote but before settlement | The quote is visible while valid. Once a ledger closes at or after expiry, settlement is rejected as `MandateExpired`; no resource is delivered. | No successful payment transaction exists by design. Stored spend remained 0, sequence remained 0, and the merchant balance did not change. |
+Contract: [`CC6JMPDH…CRWE`](https://stellar.expert/explorer/testnet/contract/CC6JMPDHRPBR2HBLJKRCIKV54HXDV2RFXDKW6MALQKWM6JEAJQHICRWE)
 
-## Delivery ambiguity rule
+Final reference-agent run on the same source settled exactly three purchases,
+rejected the fourth for budget, blocked an old-transaction/new-proof attack with
+`409`, and measured an exact 3 XLM merchant delta:
 
-After `execute_payment` settles, a dropped connection or any non-2xx paid retry
-is represented by `DeliveryPendingError`. The error carries a
-`SettlementReceipt` containing the original transaction hash and proof.
+- Register: [`0ac41cdb…b8a`](https://stellar.expert/explorer/testnet/tx/0ac41cdbe101ede949485e5c423e555014677c27249bbc7222dd4b8701b13b8a)
+- Approve: [`33a50a07…cd5`](https://stellar.expert/explorer/testnet/tx/33a50a0716236fa900b776074c36e66ba0979bf8513a82f044c8b4d297009cd5)
+- Payment 1: [`1f35a405…ce4`](https://stellar.expert/explorer/testnet/tx/1f35a40558ac4041d3194bc45000627b94295d6098f7511ce8b22e1a505b9ce4)
+- Payment 2: [`b10c2648…d91`](https://stellar.expert/explorer/testnet/tx/b10c2648dc00bb62918a3685572601d6588488d0acf31710650e5741acf4dd91)
+- Payment 3: [`c4d9ffec…de3`](https://stellar.expert/explorer/testnet/tx/c4d9ffec47365840618f0c2b5b97b22277f3168bf489a7b94202ac0f1909bde3)
 
-```ts
-try {
-  const response = await agent.fetch(resourceUrl);
-  return await response.json();
-} catch (error) {
-  if (error instanceof DeliveryPendingError) {
-    // Persist this receipt as bearer data. Do not call agent.fetch() again.
-    const response = await agent.retryDelivery(error.receipt);
-    return await response.json();
-  }
-  throw error;
-}
-```
+### 1. Rogue agent stays inside the signed envelope
 
-The receipt is bearer data until the fulfillment service consumes it. Production
-services must use a durable shared redemption store whose `consumeOnce`
-operation is atomic across every worker and host.
+The agent makes one valid within-budget payment. The user then revokes the
+mandate, and the next agent request is rejected by the contract.
 
-## What the drills prove
+- Settled transaction: [`89c5f92e…7c73`](https://stellar.expert/explorer/testnet/tx/89c5f92e3bcad2f637790a5b5421d51bb9fcbe5baf2c4770375c007a41c57c73)
+- User experience: the valid purchase is delivered; the revoked purchase is
+  shown as a terminal contract rejection, not retried.
 
-- Autonomous behavior does not bypass the signed budget or revocation state.
-- HTTP delivery failure cannot be confused with an unpaid request.
-- A paid delivery retry reuses the original proof and cannot move funds twice.
-- Expiry is decided by the contract ledger time at settlement, not by a cached
-  SDK value or the time the 402 quote was issued.
-- The SDK remains untrusted infrastructure: every money movement still routes
-  through `execute_payment`, and the fulfillment service independently verifies
-  the resulting chain evidence before serving.
+### 2. Merchant disappears after settlement
+
+The payment transaction is signed and its receipt is durable before broadcast;
+the first paid delivery is then deliberately interrupted. The SDK surfaces
+`DeliveryPendingError`, retries that exact receipt after recovery, and proves
+there is no second payment.
+
+- Settled transaction: [`c8c2ec05…b2cb`](https://stellar.expert/explorer/testnet/tx/c8c2ec0574d19fd012c76d8e549ef8f62c1bdfd490fa9eec83e2a8faa3c9b2cb)
+- User experience: “broadcast may have been attempted; settlement or delivery pending,” followed by recovered
+  delivery tied to the same transaction.
+
+### 3. Mandate expires between quote and settlement
+
+The merchant issues a valid challenge, the mandate expires, and the contract
+rejects settlement. No funds move and no protected resource is delivered.
+
+- User experience: terminal expiry rejection with no receipt because no payment
+  settled.
+
+## Recovery guarantees
+
+- The reference `FileSettlementReceiptStore.savePending` fsyncs the signed hash,
+  validity window, and exact proof before transaction broadcast; production
+  implementations must provide the same durability contract.
+- A save failure aborts without submitting a transaction.
+- Full-body receipt is not enough to clear state: the application durably accepts
+  the result, then `acknowledgeDelivery` calls `clearPending`.
+- `retryDelivery` performs no payment, signature, or transaction.
+- A `BoundRedemptionStore` atomically claims once and stores exact JSON bytes.
+- The exact completed proof replays bytes without callback execution; another
+  proof for the transaction conflicts.
+- Store or RPC failure returns `503` and serves no protected data.
+
+## Production requirements
+
+The demo uses testnet and reference stores. A production merchant needs a stable
+private challenge secret, a shared durable linearizable redemption store across
+all workers, an encrypted protected receipt store, and a transactional job/outbox
+for external side effects. Only after proving the original execution owner is
+dead, a trusted operator/outbox may call
+`resolveBoundReappInterruptedDelivery` to store one terminal result; it never
+reruns. In-memory stores are demo-only; the included file stores are
+single-process references.
+
+## Historical evidence
+
+Earlier transaction hashes remain useful point-in-time records but do not prove
+the current bound-v2 release. The evidence above is the post-hardening run.

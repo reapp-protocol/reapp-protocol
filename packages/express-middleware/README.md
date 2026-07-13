@@ -1,206 +1,168 @@
-# @reapp-sdk/express-middleware 0.1.0
+# @reapp-sdk/express-middleware 0.2.0
 
-Fail-closed Express middleware for REAPP payment-gated APIs on Stellar.
+Fail-closed Express 4/5 paid JSON routes for REAPP on Stellar.
 
-The middleware issues an x402-style `402` challenge, accepts an `X-PAYMENT`
-settlement proof, and independently verifies the successful Stellar transaction
-before a protected handler runs. The transaction must contain one unambiguous
-payment event from the configured MandateRegistry and one matching SEP-41
-transfer from the mandate user to the configured merchant. Header claims never
-replace contract evidence.
-
-Supports Express 4 and Express 5. Ships as ESM with TypeScript declarations.
+The package authenticates an exact-origin GET challenge, verifies the on-chain
+settlement independently, atomically claims fulfillment, stores the exact JSON
+result before sending it, and replays those bytes on recovery. A settlement can
+never re-run arbitrary fulfillment work.
 
 ## Install
 
 ```bash
-npm install @reapp-sdk/express-middleware express
+npm install @reapp-sdk/express-middleware@0.2.0 express@5.2.1
 ```
 
-## Quick start
+The exact T2 compatibility name `@reapp/express-middleware` exposes the same
+typed ESM API.
+
+## Safe paid route
 
 ```ts
 import express from "express";
 import {
-  InMemoryRedemptionStore,
-  createReappPaymentMiddleware,
-  getVerifiedPayment,
+  InMemoryBoundRedemptionStore,
+  createBoundReappPaidJsonRoute,
 } from "@reapp-sdk/express-middleware";
 
 const app = express();
 
-const requirePayment = createReappPaymentMiddleware({
+const paidResearch = createBoundReappPaidJsonRoute({
   merchant: process.env.REAPP_MERCHANT_ADDRESS!,
   sourceAccount: process.env.REAPP_READ_SOURCE_ADDRESS!,
+  audience: "https://api.example", // exact public origin; never Host-derived
+  challengeSecret: process.env.REAPP_CHALLENGE_SECRET!, // at least 32 bytes
   amount: "1.00",
-  resource: "/source/market",
-  // Local development and one-process demos only. See Production replay safety.
-  redemptionStore: new InMemoryRedemptionStore(),
-});
+  resource: (request) => request.originalUrl,
+  // One-process demo only. Production needs a shared linearizable store.
+  redemptionStore: new InMemoryBoundRedemptionStore(),
+}, async ({ request, payment }) => ({
+  body: {
+    ok: true,
+    resource: request.params.id,
+    data: await loadResearchOnce(request.params.id),
+    settledTx: payment.txHash,
+  },
+}));
 
-app.get("/source/market", requirePayment, (_request, response) => {
-  const payment = getVerifiedPayment(response);
-  response.json({
-    source: "verified research data",
-    settlement: payment?.txHash,
-    mandate: payment?.mandateId,
-  });
-});
-
+app.get("/source/:id", paidResearch);
 app.listen(4021);
 ```
 
-`sourceAccount` is a funded Stellar `G...` address used only to simulate the
-read-only `get_mandate` call. The verifier never signs or submits a transaction.
+The fulfillment callback receives no Express `Response` and cannot stream. Its
+JSON result is bounded, hashed, and committed to the same redemption store
+before any bytes are written to the client.
 
-## What is verified
+## Bound-v2 authorization
 
-For each paid retry, the default verifier requires all of the following:
+Before fulfillment is claimed, the package requires:
 
-1. The configured RPC reports the exact configured network passphrase.
-2. The transaction hash is valid, successful, and inside the configured ledger
-   freshness window.
-3. Exactly one contract event is emitted by the configured MandateRegistry with
-   topics `payment` and the configured merchant, plus a 32-byte mandate id and
-   an amount meeting the request price.
-4. The event-derived mandate currently stored by the contract names the same
-   merchant and SEP-41 asset and supplies the user and agent identities.
-5. The same transaction contains exactly one matching transfer emitted by that
-   asset, from the mandate user to the merchant, for the exact event amount.
-6. A shared redemption store atomically consumes the network + registry +
-   transaction key before the protected handler runs.
+1. `REAPP-PAYMENT-CAPABILITIES: reapp-bound-v2`; older clients receive `426`
+   before payment.
+2. An HMAC-authenticated challenge binding the exact public origin, GET method,
+   path and query, network identity, registry, merchant, asset, amount, decimals,
+   random id, and first-redemption deadline.
+3. A canonical proof whose Stellar Ed25519 signature binds that challenge,
+   transaction hash, and mandate id to the chain-derived mandate agent.
+4. The configured RPC's exact network passphrase and a successful fresh
+   transaction.
+5. One unambiguous payment event from the configured MandateRegistry.
+6. Current mandate user, agent, merchant, and asset identities.
+7. One matching same-transaction SEP-41 transfer from user to merchant.
 
-Only the transaction hash crosses from the HTTP adapter into the verifier.
-Caller-supplied `amount` and `mandateId` fields remain wire-format hints; the
-verified values placed in `response.locals` come from Stellar and the contract.
+A copied public transaction hash cannot unlock data. Relaying a genuine quote
+through another origin fails before the client pays because the signed audience
+must equal the requested URL origin.
 
-## Production replay safety
+## Atomic fulfillment state
 
-`InMemoryRedemptionStore` is intentionally limited to one Node.js process. A
-production deployment must provide a durable `RedemptionStore` whose
-`consumeOnce` operation is linearizable across every worker and host:
+`BoundRedemptionStore` owns settlement binding and immutable response bytes in
+one linearizable state machine:
 
-```ts
-import type {
-  RedemptionRecord,
-  RedemptionStore,
-} from "@reapp-sdk/express-middleware";
-
-class SharedRedemptionStore implements RedemptionStore {
-  async consumeOnce(
-    record: Readonly<RedemptionRecord>,
-  ): Promise<"consumed" | "duplicate"> {
-    // Perform one atomic set-if-absent in your durable database.
-    // Never delete a consumed key merely because downstream delivery failed.
-    return atomicInsert(record.key, record) ? "consumed" : "duplicate";
-  }
-}
+```text
+missing -> executing -> completed(exact JSON bytes)
 ```
 
-Only the caller that receives `consumed` reaches the protected handler. A store
-error returns `503` and never serves the resource.
+- First valid proof: chain verification, atomic claim, one callback execution.
+- Same proof while executing: `503`; the callback is never started again.
+- Same proof after completion: exact stored bytes are replayed; no verifier or
+  callback runs.
+- Same transaction with another proof: `409`.
+- Store/RPC outage: `503`; no protected result is sent.
+- Callback exception: one sanitized terminal JSON result is stored and replayed.
+- Completion-store failure: no result bytes are sent and the claim remains
+  executing; recovery cannot re-run it automatically. After confirming the
+  execution owner is dead, trusted operator/outbox code calls
+  `resolveBoundReappInterruptedDelivery` to store one terminal result.
+
+The first-redemption deadline does not prevent later replay of an already
+completed exact result. That replay is delivery recovery, not fresh payment
+authorization.
+
+## Store deployment boundary
+
+`InMemoryBoundRedemptionStore` is only for one-process demos and tests.
+`FileBoundRedemptionStore` in the reference fulfillment app is restart-safe for
+one Node.js process; instances targeting the same normalized path share one
+in-process queue and use fsynced atomic replacement. It is not multi-process or
+multi-host storage.
+
+A production deployment must implement `BoundRedemptionStore.lookup`, `claim`,
+and `complete` in one shared durable linearizable database. Never add a lease
+that silently turns an executing claim back into runnable work. Side effects
+must be transactionally coordinated with the claim through a durable job/outbox.
 
 ## Response behavior
 
-| Condition | Status | Behavior |
-|---|---:|---|
-| No proof or malformed/invalid settlement | `402` | Returns a fresh payment requirement. |
-| Settlement already consumed | `409` | Does not invite a second payment. |
-| RPC, mandate lookup, or redemption store unavailable | `503` | Fails closed with `Retry-After`; retry the same proof. |
-| Verified and atomically consumed | next handler | Stores chain-derived evidence in `response.locals.reappPayment`. |
+| Condition | Status |
+|---|---:|
+| Missing/wrong bound-v2 capability | `426` before payment |
+| Method other than GET | `405` |
+| Missing, malformed, expired-first-use, mismatched, or unverified proof | `402` |
+| Same settlement with a different proof | `409` |
+| Existing execution or infrastructure/store outage | `503`, retry exact proof |
+| New completed fulfillment | stored 2xx JSON |
+| Exact completed recovery | byte-identical stored 2xx JSON |
 
-Challenges and successful responses receive `Cache-Control: private, no-store`
-and `Vary: X-PAYMENT` so a shared cache cannot bypass the payment boundary.
+All responses are private/no-store. Proof and stored result material are
+sensitive and must not be logged or exposed.
 
-## Request-specific prices
+## Primary API
 
-`amount` and `resource` may be resolver functions. The middleware snapshots the
-resolved requirement before any asynchronous verification:
+### `createBoundReappPaidJsonRoute(options, fulfill)`
 
-```ts
-const requirePayment = createReappPaymentMiddleware({
-  merchant: MERCHANT,
-  sourceAccount: READ_SOURCE,
-  amount: (request) => priceFor(request.params.id),
-  resource: (request) => `/source/${request.params.id}`,
-  redemptionStore,
-});
-```
+Required options:
 
-Amounts are decimal strings and are converted to integer stroops. Floating-point
-amounts, scientific notation, over-precision, zero, and values outside i128 fail
-closed.
-
-## API
-
-### `createReappPaymentMiddleware(options)`
-
-Creates an Express 4/5 `RequestHandler`.
-
-| Option | Type | Meaning |
-|---|---|---|
-| `merchant` | `string` | Required Stellar address that must receive the transfer. |
-| `amount` | `string \| (request) => string` | Required decimal price. |
-| `redemptionStore` | `RedemptionStore` | Required atomic consume-once store. |
-| `sourceAccount` | `string?` | Funded `G...` address for read-only simulations; required by the default verifier. |
-| `resource` | `string \| (request) => string` | Challenge resource id; defaults to `request.originalUrl`. |
-| `asset` | `string?` | Required SEP-41 emitter; defaults to the configured network's native SAC. |
-| `networkConfig` | `NetworkConfig?` | RPC, passphrase, registry, and native SAC; defaults to REAPP testnet. |
-| `scheme` | `string?` | Wire scheme; defaults to `reapp-soroban`. |
-| `network` | `string?` | Wire network label; defaults to `stellar-testnet`. |
-| `decimals` | `number?` | Asset decimals; defaults to `7`. |
-| `maxProofAgeLedgers` | `number?` | Settlement freshness window; defaults to `120`. |
-| `pollAttempts` | `number?` | `NOT_FOUND` retries; defaults to `15`. |
-| `pollIntervalMs` | `number?` | Retry delay; defaults to `1000`. |
-| `maxHeaderBytes` | `number?` | Strict `X-PAYMENT` size limit; defaults to `8192`. |
-| `allowHttpRpc` | `boolean?` | Development-only plaintext RPC escape hatch; defaults to `false`. |
-| `verifier` | `PaymentVerifier?` | Explicit trusted verifier injection for tests or alternate RPC infrastructure. |
-
-### Runtime exports
-
-| Export | Purpose |
+| Option | Meaning |
 |---|---|
-| `createReappPaymentMiddleware` | Build the payment boundary. |
-| `getVerifiedPayment(response)` | Read the chain-derived `VerifiedPayment` after the gate. |
-| `InMemoryRedemptionStore` | One-process development/test store. |
-| `createStellarPaymentVerifier` | Build the independent Stellar verifier. |
-| `buildChallenge` | Build the isolated x402-style response object. |
-| `createRedemptionKey` | Create the normalized cross-network replay key. |
-| `extractContractEvents`, `interpretEvents` | Strict V3/V4 Stellar event decoding helpers. |
-| `selectPayment`, `selectTransfer` | Pure fail-closed event selection helpers. |
+| `merchant` | Stellar address that must receive the verified transfer. |
+| `amount` | Decimal price or request-specific resolver. |
+| `audience` | Exact configured public HTTP(S) origin or safe resolver. |
+| `challengeSecret` | Stable private 32–4096 byte challenge key. |
+| `redemptionStore` | Atomic claim/result store shared by all serving workers. |
 
-The package also exports TypeScript types for requirements, verified payments,
-verifiers, redemption records and stores, middleware options, and decoded event
-evidence.
+Optional controls include `resource`, `asset`, `networkConfig`, `network`,
+`decimals`, `sourceAccount`, verifier/polling/freshness/header limits,
+`challengeTtlSeconds`, development-only HTTP RPC, and `maxResponseBytes`.
+
+Runtime exports include `createBoundReappPaidJsonRoute`,
+`resolveBoundReappInterruptedDelivery`, `InMemoryBoundRedemptionStore`,
+`createStellarPaymentVerifier`, strict event
+selection helpers, and all TypeScript store/evidence/result types.
+
+Legacy proof-v1 middleware remains available only through the legacy API. The
+low-level bound authorization middleware is intentionally not exported from the
+package root; public paid endpoints use the result-storing route wrapper.
 
 ## Wire-format isolation
 
-x402 is evolving. REAPP keeps the HTTP challenge/proof shape in the isolated
-adapter inside `@reapp-sdk/core`; MandateRegistry does not depend on that shape.
-An x402 version change can replace the adapter while the same contract methods,
-storage, and verifier invariants remain intact.
-
-## Current protocol limits
-
-- The settlement proof is bearer data. Atomic consumption prevents two
-  successful redemptions, but a copied proof can race the legitimate requester.
-- The challenge resource is not committed into the current contract event.
-  Exact requester/resource binding requires an authenticated nonce/signature or
-  a future contract/event commitment; this package does not claim that property.
-- `get_mandate` reads current contract state, not a historical state snapshot.
-  Same-transaction registry and token events prove settlement, while current
-  state binds the mandate identities and asset.
+x402 and AP2 evolve outside the MandateRegistry. HTTP/profile adapters may
+change without changing contract storage or weakening `execute_payment`.
 
 ## Current contract evidence
 
-The testnet default is the upgradeable simple MandateRegistry:
-
-- Contract: [`CC6JMPDHRPBR2HBLJKRCIKV54HXDV2RFXDKW6MALQKWM6JEAJQHICRWE`](https://stellar.expert/explorer/testnet/contract/CC6JMPDHRPBR2HBLJKRCIKV54HXDV2RFXDKW6MALQKWM6JEAJQHICRWE)
+- Testnet contract: [`CC6JMPDH…CRWE`](https://stellar.expert/explorer/testnet/contract/CC6JMPDHRPBR2HBLJKRCIKV54HXDV2RFXDKW6MALQKWM6JEAJQHICRWE)
 - WASM SHA-256: `13f7023d4a361b6e49d3d39f61f55c5eeece51a602013a3cddae420d2ce8552b`
-- Reproducible release: [`simple-v0.2.0`](https://github.com/reapp-protocol/reapp-protocol-contracts/releases/tag/simple-v0.2.0_contracts_simple_mandate_registry_mandate-registry_pkg0.2.0_cli25.1.0)
-
-The contract checks and consumes authorization inside `execute_payment` before
-the token transfer. Testnet operations include pause, authority rotation, and a
-24-hour timelocked same-address upgrade path.
+- Release: [`simple-v0.2.0`](https://github.com/reapp-protocol/reapp-protocol-contracts/releases/tag/simple-v0.2.0_contracts_simple_mandate_registry_mandate-registry_pkg0.2.0_cli25.1.0)
 
 Apache-2.0.

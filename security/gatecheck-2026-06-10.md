@@ -1,15 +1,19 @@
-# Security Gatecheck: MandateRegistry (testnet)
+# Historical security gate check: MandateRegistry (2026-06-10)
+
+> Point-in-time record for the Soroban SDK 22 simple contract and its then-current
+> 19-test suite. It is superseded by the current upgradeable simple/composite
+> releases and their dedicated contract-repository gate check.
 
 - **Date:** 2026-06-10
 - **Target:** `contracts/mandate-registry` (soroban-sdk 22)
 - **Method:** 12-agent adversarial sweep across 6 attack surfaces. **Each finding was independently re-verified against the code**, followed by a synthesis verdict.
-- **Verdict:** **airtight-ship**, 5 candidate findings, **0 confirmed defects**.
+- **Recorded result:** 5 candidate findings, **0 confirmed defects within this historical scope**.
 
 ## Surfaces reviewed
 Arithmetic & overflow · Authorization (`require_auth`) · Replay & sequencing ·
 Token interaction & reentrancy · State machine & storage · Logic / economic correctness.
 
-## Why it holds (gatecheck-confirmed)
+## Why it held in this recorded scope
 - `require_auth` binds to the **stored** agent, not a caller-supplied address.
 - State is persisted (`set_mandate`) **before** the external `transfer_from`. That checks-effects-interactions ordering leaves **no reentrancy window**.
 - The SEP-41 allowance is an **independent hard ceiling** beneath the contract's own budget check (proven by `insufficient_allowance_blocks_payment`).

@@ -1,6 +1,6 @@
-# @reapp-sdk/core
+# @reapp-sdk/core 0.3.0
 
-Create an agent, connect to the live MandateRegistry contract on Stellar, and run a mandate-validated payment in under 10 lines.
+Create an agent, connect to the live MandateRegistry contract on Stellar, and run a crash-safe mandate-validated payment through a small typed surface.
 
 `@reapp-sdk/core` is the high-level client for REAPP, a protocol for agent-driven payments where the spending limit lives inside a Soroban smart contract instead of the application. A user signs a mandate that fixes a budget, a single payee, and an expiry. An agent spends against that mandate, and every payment is validated and consumed on-chain by the contract before any money moves.
 
@@ -9,7 +9,7 @@ The SDK is untrusted by design. It never custodies funds and it never enforces t
 ## Install
 
 ```
-npm install @reapp-sdk/core @stellar/stellar-sdk
+npm install @reapp-sdk/core@0.3.0 @stellar/stellar-sdk@14.5.0
 ```
 
 `@stellar/stellar-sdk` is a direct dependency you also import yourself for `Keypair`. The package ships its own ESM build with TypeScript types.
@@ -34,7 +34,10 @@ const mandate = reapp.createIntentMandate({
 
 await reapp.registerMandate(mandate, { signer: user });  // store the mandate on-chain
 await reapp.approveBudget(mandate, { signer: user });     // SEP-41 allowance to the contract
-const hash = await reapp.agent({ mandate, signer: agent }).pay("1.00"); // agent-signed payment
+const hash = await reapp.agent({ mandate, signer: agent }).pay("1.00", {
+  // Must durably save the signed hash before the SDK broadcasts it.
+  onPrepared: (pending) => paymentJournal.save(pending),
+});
 ```
 
 After `pay` returns, one real payment has settled on testnet. `hash` is the transaction hash, which you can open on a Stellar explorer.
@@ -48,24 +51,45 @@ The flow has three signers and one contract. The user authorizes, the agent spen
 3. `approveBudget` approves a SEP-41 allowance up to the budget. The allowance goes to the **contract**, never to the agent or the SDK. This is the custody boundary: the agent can ask the contract to move money, but only the contract holds the right to pull from the user.
 4. `pay` calls `execute_payment`, signed by the agent. The contract re-checks the agent, the sequence, the merchant scope, the expiry, and the remaining budget, then advances `spent` and `seq` and transfers the funds from user to merchant in one atomic step. If any check fails, the whole call reverts and `pay` throws.
 
-## Paying for a resource (x402)
+## Paying for a resource (bound-v2 x402)
 
-`agent.fetch(url)` is the x402 client. It makes the request, and if the server answers
-`402 Payment Required` it pays on-chain through the same `execute_payment` path as
-`pay`, retries with a settlement proof, and returns the served response. The contract
-still enforces the limit, so `fetch` cannot bypass it: a revoked, expired, over-budget,
-or out-of-scope request is rejected on-chain and `fetch` throws.
+`agent.fetch(url)` is the x402 client. For new paid endpoints, create the agent
+with `proofPolicy: "bound-v2-only"`. It advertises the bound-v2 capability and
+refuses a legacy challenge before paying. The authenticated challenge fixes the
+merchant's exact public origin, GET method, path and query, network, registry, merchant, asset,
+amount, decimals, and validity window. After `execute_payment` settles, the
+agent signs that exact challenge together with the transaction hash and mandate
+id, then retries with the bound proof.
+
+The contract still enforces the spending limit. A revoked, expired,
+over-budget, replayed, or out-of-scope payment is rejected on-chain; neither the
+SDK nor a cached mandate can bypass `execute_payment`.
 
 ```ts
-const agent = reapp.agent({ mandate, signer: agentKey });
+import { getSettlementReceipt } from "@reapp-sdk/core";
+
+const agent = reapp.agent({
+  mandate,
+  signer: agentKey,
+  proofPolicy: "bound-v2-only",
+  receiptStore, // required for paid fetch; durable SettlementReceiptStore
+});
 const res = await agent.fetch("https://merchant.example/report");
 const data = await res.json(); // served only after the merchant verified the on-chain payment
+
+const receipt = getSettlementReceipt(res); // exact proof for audit/recovery
+await persistAcceptedResult(data, receipt); // application-owned durable commit
+await agent.acknowledgeDelivery(receipt!);   // only now clear the payment lock
 ```
 
-If the payment settles but the paid retry has a network failure or returns a
-non-2xx status, `fetch` throws `DeliveryPendingError` with a
-`SettlementReceipt`. Do not call `fetch` again, because a fresh `402` could
-create another payment. Retry the exact existing proof instead:
+Before broadcast, the agent signs the transaction, derives its canonical hash
+and validity deadline, and makes the exact receipt durable. If that storage write
+fails, `fetch` aborts before broadcast and propagates the storage error. Once the
+receipt is durable, any uncertain broadcast/final ledger result, paid-retry
+network failure, non-2xx status, or incomplete body throws
+`DeliveryPendingError` with that `SettlementReceipt`. Do not call `fetch` again,
+because a fresh `402` could create another payment. Reconcile and retry the exact
+existing proof:
 
 ```ts
 import { DeliveryPendingError } from "@reapp-sdk/core";
@@ -74,16 +98,28 @@ try {
   await agent.fetch("https://merchant.example/report");
 } catch (error) {
   if (error instanceof DeliveryPendingError) {
-    console.log("settled transaction", error.receipt.txHash);
+    console.log("prepared payment transaction", error.receipt.txHash);
     const response = await agent.retryDelivery(error.receipt);
+    const result = await response.json();
+    await persistAcceptedResult(result, error.receipt);
+    await agent.acknowledgeDelivery(error.receipt);
     // No payment or signature occurs during retryDelivery.
+  } else {
+    throw error;
   }
 }
 ```
 
-Treat an unconsumed receipt as bearer data. A production merchant also needs
-durable redemption state and idempotent fulfillment keyed by the settlement so
-a lost response can be recovered without charging again.
+`retryDelivery` verifies the receipt id, mandate, proof version, exact signed
+origin, method, path, and query. It never pays or signs and always disables
+redirects so proof material cannot be forwarded to another origin. A retry is
+not ready for acknowledgment until the complete successful response body has
+been received. The receipt remains durable and blocks another payment until the
+application validates/persists its business result and explicitly calls
+`acknowledgeDelivery`. Treat every receipt as sensitive bearer data for its exact request.
+A production merchant also needs one durable, linearizable settlement claim and
+immutable-result store keyed by the settlement so a lost response can replay the
+same bytes without charging or running fulfillment again.
 
 The x402 wire format lives in its own module, so it tracks the evolving x402 spec
 without touching the mandate or the contract. Use
@@ -118,29 +154,101 @@ Stores the mandate on-chain. Signed by the user. Returns the transaction hash.
 
 Approves the contract for a SEP-41 allowance up to the mandate budget. Signed by the user. Returns the transaction hash.
 
-### `reapp.agent({ mandate, signer }, net?).pay(amount)`
+### `reapp.agent({ mandate, signer }, net?).pay(amount, lifecycle)`
 
 Reads the current mandate sequence, then calls `execute_payment` for `amount` (a decimal string), signed by the agent. Returns the transaction hash. Throws if the contract rejects the payment.
 
-### `reapp.agent({ mandate, signer }, net?).fetch(url, init?)`
+Every direct `pay` call must pass a `PaymentSubmissionLifecycle`. Its async
+`onPrepared` hook receives the signed hash, sequence, and exact validity deadline
+before any broadcast; persist that record atomically or throw to abort without
+sending. REAPP's CLI uses this hook and refuses another payment until
+`settlement reconcile` proves the result and an exact successful hash is
+explicitly acknowledged.
 
-The x402 client. GETs `url`; on a `402` it reads the payment requirement, checks the merchant and asset against the mandate, pays on-chain (the same path as `pay`), and retries with an `X-PAYMENT` settlement proof. Returns the final `Response`. Throws if the contract rejects the payment. A non-402 response is returned unchanged, with no payment.
+For a user-visible operation that may be retried after a lost HTTP response,
+also pass its immutable `expectedSeq`. The SDK compares it with current contract
+state before signing. If a prior attempt already consumed that sequence, retry
+fails before another transaction is created; the contract repeats the same check
+at execution. Concurrent same-mandate operations in one process are rejected by
+a synchronous claim before the first chain read.
 
-If the paid retry fails to connect or returns a non-2xx status after settlement,
-throws `DeliveryPendingError` carrying a `SettlementReceipt` with the
-transaction hash and exact proof.
+### `reapp.agent({ mandate, signer, proofPolicy?, receiptStore? }, net?)`
+
+Creates an agent. Set `proofPolicy` to `"bound-v2-only"` for every new paid
+endpoint. The default `"legacy-compatible"` exists only for migrations.
+`receiptStore` implements `SettlementReceiptStore` and is required before any
+402-triggered payment. `savePending` must become durable before transaction
+broadcast, `listPending` lets a new process restore the no-second-payment lock,
+and `clearPending` records explicit application acknowledgment after full-body
+success.
+
+### `agent.fetch(url, init?)`
+
+The x402 client. It requests `url` with bound-v2 capability negotiation; on a
+valid `402` it checks the request and mandate binding, signs the transaction,
+persists its hash plus bound proof before broadcast, pays on-chain through the
+same `pay` path, and retries with `X-PAYMENT`. Automatic redirects are disabled
+before and after settlement.
+A non-402 response is returned unchanged, with no payment.
+
+If the paid retry fails to connect, returns a non-2xx status, or fails before the
+full successful response body is received after settlement, throws
+`DeliveryPendingError` carrying a `SettlementReceipt` with the transaction hash
+and exact proof. A submitted-but-unconfirmed transaction also produces the same
+recoverable receipt and blocks every new payment on that agent until it is
+reconciled.
 
 ### `agent.retryDelivery(receipt, init?)`
 
 Retries HTTP delivery with the receipt's existing `X-PAYMENT` proof. It never
 calls `pay`, never signs, and never submits a transaction. It rejects a receipt
-belonging to a different mandate.
+belonging to a different mandate or exact signed request. With a configured
+receipt store, successful full-body delivery remains pending until the
+application acknowledges it.
 
-### `DeliveryPendingError` and `SettlementReceipt`
+### `agent.acknowledgeDelivery(receipt)`
 
-Typed post-settlement recovery evidence. The error means money moved but HTTP
-delivery is uncertain. Surface the transaction hash to the user and retry the
-same receipt; never start another payment automatically.
+Validates the exact receipt and removes it from durable pending state. Call this
+only after the complete HTTP body has been validated and the business result is
+durably accepted. If acknowledgment storage fails, it throws
+`DeliveryPendingError` and keeps new payments blocked. This explicit boundary
+prevents a crash between transport success and application commit from silently
+creating a second purchase.
+
+### `agent.getPendingSettlement()` and `agent.reconcilePendingSettlement()`
+
+`getPendingSettlement` returns the captured hash, sequence, and validity deadline
+for a prepared transaction whose broadcast/final result or paid delivery has not
+been closed. While it is present, `pay` and `fetch` fail closed instead of
+risking a second payment. On restart, the first operation hydrates the same lock
+from `receiptStore.listPending`. After restarting a direct-pay process, pass the
+exact durable journal record to `reconcilePendingSettlement(record)`; it
+validates the mandate and queries that hash without submitting anything. The
+result is `pending`, `failed`, `expired`, or `succeeded`. A succeeded settlement
+with a receipt remains locked until recovery and explicit application
+acknowledgment finish the original delivery.
+
+### `getSettlementReceipt(response)`
+
+Returns the immutable receipt attached to a successful paid response. It
+includes `receiptId`, proof version, exact URL and method, transaction hash,
+mandate id, amount, and the full settlement proof.
+
+### `DeliveryPendingError`, `SettlementUncertainError`, `SettlementReceipt`, and `SettlementReceiptStore`
+
+Typed post-submission recovery evidence. The error means a canonical transaction
+hash exists and starting another payment is unsafe until that same hash is
+reconciled and its delivery is closed. Surface the hash to the user and retry
+the same receipt; never start another payment automatically. A receipt store
+must protect the full proof as sensitive data and provide atomic durable
+`savePending`, `listPending`, and `clearPending` operations. Multi-process
+consumers also need shared linearizable storage rather than the reference file
+store.
+
+`SettlementUncertainError` is the direct-`pay` equivalent: broadcast was
+attempted and the transaction may have been submitted, but the SDK did not prove
+a final ledger result. Retain its transaction hash and call
+`reconcilePendingSettlement` on the same agent before attempting any other spend.
 
 ### `reapp.revokeMandate(mandate, { signer }, net?)`
 
@@ -182,7 +290,9 @@ When `pay` (or any call) is rejected on-chain, the SDK throws and the reason map
 
 ```ts
 try {
-  await reapp.agent({ mandate, signer: agent }).pay("100.00");
+  await reapp.agent({ mandate, signer: agent }).pay("100.00", {
+    onPrepared: (pending) => paymentJournal.save(pending),
+  });
 } catch (err) {
   // The contract refused: budget, scope, expiry, replay, or revocation.
   // Inspect the thrown message, or compare against Errors[...] codes.

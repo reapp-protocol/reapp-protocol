@@ -1,20 +1,33 @@
-# security/
+# Security evidence
 
-Security artifacts live here **from day one**. They are release gates,
-not closing artifacts. No immutable mainnet deploy until the threat model, data-flow
-diagrams, and full negative suite are merged and reviewed.
+Security is a release gate, not an end-of-project appendix.
 
-- [`threat-model.md`](threat-model.md): protected assets, invariants, trust
-  boundaries, threat controls, residual risks, and release gates.
-- [`data-flow.md`](data-flow.md): mandate, payment, fulfillment, delivery
-  recovery, and upgrade flows with data classification.
-- [`upgrade-authority.md`](upgrade-authority.md): current testnet authority,
-  mandatory 2-of-3 custody, rotation, lost-key recovery, delayed upgrade, and
-  final immutable-mainnet boundary.
-- `scan-results/`: dependency gatecheck + Soroban/WASM-aware contract scanner
-  output, published with all findings remediated. _(Mainnet hardening.)_
+Current artifacts:
 
-Signed AP2 admission validation ships in `packages/ap2` with 59 tests covering
-signature, binding, trusted signer, merchant scope, amount, expiry, and atomic
-admission replay. Payment enforcement remains in the contract negative suite
-at `contracts/mandate-registry/src/test.rs`, running in CI from commit one.
+- [`threat-model.md`](threat-model.md): assets, trust boundaries, invariants,
+  abuse cases, and named production gates for the bound-v2 T2 surface.
+- [`data-flow.md`](data-flow.md): contract, SDK, receipt, challenge, fulfillment,
+  chain verification, and exact-proof recovery sequence.
+- [`../docs/T2-SUBMISSION.md`](../docs/T2-SUBMISSION.md): deliverable-to-evidence map.
+
+Historical point-in-time reviews:
+
+| Record | Exact historical scope |
+|---|---|
+| [`gatecheck-2026-06-10.md`](gatecheck-2026-06-10.md) | Soroban SDK 22 simple contract and its then-current 19-test suite. |
+| [`sdk-gatecheck-2026-06-15.md`](sdk-gatecheck-2026-06-15.md) | `@reapp-sdk/core@0.1.2` and `@reapp-sdk/stellar@0.1.1`. |
+| [`x402-gatecheck-2026-06-16.md`](x402-gatecheck-2026-06-16.md) | Legacy proof-v1 middleware before bound-v2. |
+
+Historical reports are retained for traceability but are not evidence for the
+current core 0.3.0 or Express middleware 0.2.0.
+
+Current repeatable checks:
+
+```bash
+npm run gatecheck:t2
+npm run agents:testnet
+npm run drills:testnet
+```
+
+The AP2 package has 59 total tests. Contract negative and positive upgrade tests
+run in the dedicated contract repository gate check.

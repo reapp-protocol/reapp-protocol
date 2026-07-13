@@ -1,9 +1,13 @@
-# Security Gatecheck: REAPP SDK (`@reapp-sdk/core` + `@reapp-sdk/stellar`)
+# Historical security gate check: REAPP SDK (2026-06-15)
+
+> Point-in-time record for `@reapp-sdk/core@0.1.2` and
+> `@reapp-sdk/stellar@0.1.1`. It is not release evidence for core 0.3.0,
+> Stellar 0.2.1, or bound-v2 middleware.
 
 - **Date:** 2026-06-15
 - **Target:** `packages/sdk` (`@reapp-sdk/core`, gatechecked at 0.1.2) and `packages/stellar` (`@reapp-sdk/stellar`, gatechecked at 0.1.1), plus the published `dist/` artifacts and `package.json` manifests.
-- **Method:** BulletproofBar adversarial sweep. 31 agents across 8 attack surfaces. Every candidate finding was independently re-verified against the actual source by a separate skeptic agent (refute-by-default), then a completeness critic looked for surfaces and edges the sweep missed. Several findings were reproduced empirically against the installed `@stellar/stellar-sdk`.
-- **Verdict:** **airtight for testnet.** 22 candidate findings, **0 confirmed defects**, 0 testnet blockers. Two real low-severity input-bound gaps were fixed in `@reapp-sdk/core` 0.1.2 during this pass. The rest are info-level confirmations or pre-mainnet hygiene.
+- **Method:** multi-agent adversarial review adversarial sweep. 31 agents across 8 attack surfaces. Every candidate finding was independently re-verified against the actual source by a separate skeptic agent (refute-by-default), then a completeness critic looked for surfaces and edges the sweep missed. Several findings were reproduced empirically against the installed `@stellar/stellar-sdk`.
+- **Recorded result:** 22 candidate findings, **0 confirmed defects in this historical scope**, 0 then-current testnet blockers. Two low-severity input-bound gaps were fixed in `@reapp-sdk/core` 0.1.2 during this pass.
 
 ## The bar
 
@@ -13,7 +17,7 @@ The SDK is **untrusted infrastructure**. The Soroban MandateRegistry contract is
 
 Amount parsing and money math · Custody boundary and allowance · SDK-cannot-bypass-the-contract · Mandate-id canonicalization · Network config and contract-id integrity · Secret and signer handling · Error surfacing and failure modes · Supply-chain and package hygiene.
 
-## What holds (gatecheck-confirmed)
+## What held in this recorded scope
 
 - **The SDK has exactly one money path.** `Agent.pay` is the only spend, and it calls the contract's `execute_payment`. The SDK exposes no `transfer` / `transfer_from`; the real transfer fires only inside the contract, gated by `require_auth(agent)`. There is no alternate path to move funds.
 - **No trusted local limit.** `pay` never checks the amount against a local budget. It re-reads the current sequence from chain on every call (no cached state) and passes everything to the contract, which re-validates seq, status, expiry, merchant scope, and budget atomically. A malicious or buggy SDK that sent an oversized amount or a stale sequence is still rejected on-chain (`BudgetExceeded`, `BadSequence`).

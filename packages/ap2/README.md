@@ -1,4 +1,4 @@
-# @reapp-sdk/ap2 0.2.0
+# @reapp-sdk/ap2 0.2.1
 
 Signed AP2 v0.2 REAPP profile validation for contract-enforced Stellar payments.
 
@@ -16,7 +16,7 @@ redesigning `MandateRegistry`.
 ## Install
 
 ```bash
-npm install @reapp-sdk/ap2 @reapp-sdk/core @stellar/stellar-sdk
+npm install @reapp-sdk/ap2@0.2.1 @reapp-sdk/core@0.3.0 @stellar/stellar-sdk@14.5.0
 ```
 
 ## Signed validator quick start
@@ -58,7 +58,9 @@ const accepted = await validator.validateAndConsume({
 
 await reapp.registerMandate(accepted.binding.mandate, { signer: USER_KEY });
 await reapp.approveBudget(accepted.binding.mandate, { signer: USER_KEY });
-await reapp.agent({ mandate: accepted.binding.mandate, signer: AGENT_KEY }).pay("1.00");
+await reapp.agent({ mandate: accepted.binding.mandate, signer: AGENT_KEY }).pay("1.00", {
+  onPrepared: (pending) => paymentJournal.save(pending),
+});
 ```
 
 `expectedUser`, `merchant`, and `amount` must come from trusted application
