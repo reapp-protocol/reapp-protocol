@@ -11,7 +11,7 @@ stage consumes the verified evidence from the prior stage.
 | Simple/default contract | `CC6JMPDHRPBR2HBLJKRCIKV54HXDV2RFXDKW6MALQKWM6JEAJQHICRWE`, 0.2.0, hash `13f7023d…8552b` |
 | Composite contract | `CCYRF7FKYGSNWX5I7WLYXZ6LNUNVCSPE4BOTQFVWVTABOHAP52DYHEYW`, 0.3.0, hash `b3368d7f…f0a1` |
 | Core / Stellar | 0.3.0 / 0.2.1 |
-| Express / AP2 | 0.2.0 / 0.2.1 |
+| Express / AP2 | 0.2.1 / 0.2.1 |
 | CLI | `reapp-protocol-cli@0.1.4` |
 
 All commands use Stellar testnet. Never place secrets in command history,

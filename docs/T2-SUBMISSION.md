@@ -12,7 +12,7 @@ It is testnet scope. It does not claim mainnet readiness.
 | Composite MandateRegistry | [`CCYRF7FK…HEYW`](https://stellar.expert/explorer/testnet/contract/CCYRF7FKYGSNWX5I7WLYXZ6LNUNVCSPE4BOTQFVWVTABOHAP52DYHEYW), release `composites-v0.3.0`, WASM `b3368d7f…f0a1` |
 | Typed Stellar package | `@reapp-sdk/stellar@0.2.1` |
 | Agent SDK | `@reapp-sdk/core@0.3.0` |
-| Express middleware | `@reapp-sdk/express-middleware@0.2.0` |
+| Express middleware | `@reapp-sdk/express-middleware@0.2.1` |
 | AP2 validator | `@reapp-sdk/ap2@0.2.1` |
 | CLI | `reapp-protocol-cli@0.1.4`, installed command `reapp` |
 
@@ -46,7 +46,7 @@ The T2 packages are typed ESM implementations published under the established
 `@reapp-sdk` scope:
 
 ```bash
-npm install @reapp-sdk/stellar@0.2.1 @reapp-sdk/ap2@0.2.1 @reapp-sdk/express-middleware@0.2.0
+npm install @reapp-sdk/stellar@0.2.1 @reapp-sdk/ap2@0.2.1 @reapp-sdk/express-middleware@0.2.1
 ```
 
 Each package contains TypeScript declarations, API documentation, and a usage

@@ -12,7 +12,7 @@ const packages = [
   ["packages/stellar", "@reapp-sdk/stellar", "0.2.1"],
   ["packages/sdk", "@reapp-sdk/core", "0.3.0"],
   ["packages/ap2", "@reapp-sdk/ap2", "0.2.1"],
-  ["packages/express-middleware", "@reapp-sdk/express-middleware", "0.2.0"],
+  ["packages/express-middleware", "@reapp-sdk/express-middleware", "0.2.1"],
   ["packages/cli", "reapp-protocol-cli", "0.1.4"],
 ];
 

@@ -1,6 +1,8 @@
-# @reapp-sdk/express-middleware 0.2.0
+# @reapp-sdk/express-middleware 0.2.1
 
 Fail-closed Express 4/5 paid JSON routes for REAPP on Stellar.
+
+The exact T2 package `@reapp-sdk/express-middleware` exposes the typed ESM API.
 
 The package authenticates an exact-origin GET challenge, verifies the on-chain
 settlement independently, atomically claims fulfillment, stores the exact JSON
@@ -10,7 +12,7 @@ never re-run arbitrary fulfillment work.
 ## Install
 
 ```bash
-npm install @reapp-sdk/express-middleware@0.2.0 express@5.2.1
+npm install @reapp-sdk/express-middleware@0.2.1 express@5.2.1
 ```
 
 ## Safe paid route
