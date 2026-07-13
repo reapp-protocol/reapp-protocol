@@ -1,6 +1,6 @@
 {
   "name": "reapp-protocol-cli",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Command-line tool for the REAPP MandateRegistry: scaffold a project, fund testnet accounts, create AP2 mandates, and pay on-chain. The contract is the source of truth.",
   "keywords": [
     "stellar",
@@ -22,7 +22,7 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "node --import tsx --test src/version.test.ts",
+    "test": "node --import tsx --test src/version.test.ts src/settlement-store.test.ts src/payment-failure.test.ts",
     "start": "tsx src/index.ts",
     "prepack": "npm --prefix ../.. run cli:bundle"
   },

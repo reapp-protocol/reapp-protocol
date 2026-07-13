@@ -5,24 +5,28 @@
  *   - issue a 402 requirement;
  *   - independently verify the successful MandateRegistry payment and matching
  *     SEP-41 transfer through @reapp-sdk/express-middleware;
- *   - atomically consume the settlement before serving the resource.
+ *   - atomically bind the settlement transaction to its first signed proof;
+ *   - allow only the exact proof to recover the same idempotent resource.
  *
  * Unsafe patterns this example never uses:
  *   - trusting amount or mandate claims in X-PAYMENT;
  *   - treating a successful arbitrary transaction as payment;
- *   - consulting cached application state instead of contract evidence;
+ *   - treating cached application claims as a substitute for initial chain evidence;
  *   - serving first and checking settlement afterward.
  */
 import type { Server } from "node:http";
+import { randomBytes } from "node:crypto";
+import { Buffer } from "buffer";
 import { once } from "node:events";
 import express, { type Express, type NextFunction, type Request, type Response } from "express";
 import {
-  InMemoryRedemptionStore,
-  createReappPaymentMiddleware,
-  getVerifiedPayment,
+  InMemoryBoundRedemptionStore,
+  createBoundReappPaidJsonRoute,
+  resolveBoundReappInterruptedDelivery,
+  type BoundRedemptionStore,
   type PaymentVerifier,
-  type RedemptionStore,
 } from "@reapp-sdk/express-middleware";
+import { FileBoundRedemptionStore } from "./redemption-store.js";
 
 export const SOURCE_PRICE = "1.00";
 
@@ -41,8 +45,12 @@ export interface FulfillmentAppOptions {
   merchant: string;
   /** Funded G-address used only for read-only contract simulation. Defaults to merchant. */
   sourceAccount?: string;
-  /** Required in production; the default is safe only for this one-process demo. */
-  redemptionStore?: RedemptionStore;
+  /** Stable HMAC secret for restart-safe bound challenges. A process-local secret is generated for demos. */
+  challengeSecret?: string | Uint8Array;
+  /** Exact public HTTP(S) origin included in every signed challenge. */
+  audience: string | ((request: Request) => string);
+  /** Durable/shared in production. The default is process-local for the one-command demo. */
+  redemptionStore?: BoundRedemptionStore;
   /** Deterministic test/alternate infrastructure hook. */
   verifier?: PaymentVerifier;
 }
@@ -54,14 +62,32 @@ export interface ServerOptions extends FulfillmentAppOptions {
 
 export function createFulfillmentApp(options: FulfillmentAppOptions): Express {
   const app = express();
-  const redemptionStore = options.redemptionStore ?? new InMemoryRedemptionStore();
-  const requirePayment = createReappPaymentMiddleware({
+  const challengeSecret = options.challengeSecret ?? randomBytes(32);
+  const redemptionStore = options.redemptionStore ?? new InMemoryBoundRedemptionStore();
+  const paidSource = createBoundReappPaidJsonRoute({
     merchant: options.merchant,
     sourceAccount: options.sourceAccount ?? options.merchant,
     amount: SOURCE_PRICE,
-    resource: (request) => request.originalUrl,
+    audience: options.audience,
+    challengeSecret,
     redemptionStore,
+    resource: (request) => request.originalUrl,
     verifier: options.verifier,
+  }, ({ request, payment }) => {
+    const id = request.params.id as string;
+    const source = CATALOG[id];
+    if (!source) throw new Error("validated source disappeared before fulfillment");
+    return {
+      body: {
+        ok: true,
+        source: id,
+        name: source.name,
+        data: source.data,
+        settledTx: payment.txHash,
+        mandateId: payment.mandateId,
+        settledAmount: payment.amount,
+      },
+    };
   });
 
   app.get(
@@ -74,24 +100,7 @@ export function createFulfillmentApp(options: FulfillmentAppOptions): Express {
       }
       next();
     },
-    requirePayment,
-    (request: Request, response: Response): void => {
-      const id = request.params.id as string;
-      const source = CATALOG[id];
-      const payment = getVerifiedPayment(response);
-      if (!source || !payment) {
-        response.status(500).json({ error: "verified fulfillment evidence was unavailable" });
-        return;
-      }
-      response.json({
-        source: id,
-        name: source.name,
-        data: source.data,
-        settledTx: payment.txHash,
-        mandateId: payment.mandateId,
-        settledAmount: payment.amount,
-      });
-    },
+    paidSource,
   );
 
   app.use((_request: Request, response: Response): void => {
@@ -108,12 +117,19 @@ export function createFulfillmentApp(options: FulfillmentAppOptions): Express {
   return app;
 }
 
-export async function startServer(options: ServerOptions): Promise<{ server: Server; port: number; url: string }> {
+export async function startServer(
+  options: Omit<ServerOptions, "audience"> & { audience?: ServerOptions["audience"] },
+): Promise<{ server: Server; port: number; url: string }> {
   const requestedPort = options.port ?? 8402;
   if (!Number.isInteger(requestedPort) || requestedPort < 0 || requestedPort > 65_535) {
     throw new Error("port must be an integer from 0 through 65535");
   }
-  const server = createFulfillmentApp(options).listen(requestedPort);
+  let runtimeAudience: string | undefined;
+  const audience = options.audience ?? (() => {
+    if (!runtimeAudience) throw new Error("fulfillment public origin is not initialized");
+    return runtimeAudience;
+  });
+  const server = createFulfillmentApp({ ...options, audience }).listen(requestedPort);
   await once(server, "listening");
   const address = server.address();
   if (!address || typeof address === "string") {
@@ -121,21 +137,43 @@ export async function startServer(options: ServerOptions): Promise<{ server: Ser
     throw new Error("fulfillment server did not bind a TCP port");
   }
   const port = address.port;
-  return { server, port, url: `http://127.0.0.1:${port}` };
+  const url = `http://127.0.0.1:${port}`;
+  runtimeAudience = url;
+  return { server, port, url };
 }
 
 // Standalone merchant: `REAPP_MERCHANT=G... npm run start -w @reapp-sdk/fulfillment-agent`
 if (import.meta.url === `file://${process.argv[1]}`) {
   const merchant = (process.env.REAPP_MERCHANT ?? "").trim();
   const sourceAccount = (process.env.REAPP_READ_SOURCE ?? merchant).trim();
-  void startServer({
-    merchant,
-    sourceAccount,
-    port: Number(process.env.PORT ?? 8402),
-  }).then(({ url }) => {
-    console.log(`fulfillment-agent listening on ${url}  merchant=${merchant}`);
-  }).catch((error: unknown) => {
-    console.error(error instanceof Error ? error.message : String(error));
+  const challengeSecret = (process.env.REAPP_CHALLENGE_SECRET ?? "").trim();
+  const redemptionPath = (process.env.REAPP_REDEMPTION_STORE ?? "").trim();
+  const publicOrigin = (process.env.REAPP_PUBLIC_ORIGIN ?? "").trim() || undefined;
+  if (Buffer.byteLength(challengeSecret, "utf8") < 32) {
+    console.error("REAPP_CHALLENGE_SECRET must contain at least 32 bytes for restart-safe fulfillment");
     process.exitCode = 1;
-  });
+  } else if (!redemptionPath) {
+    console.error("REAPP_REDEMPTION_STORE must name a private durable redemption file");
+    process.exitCode = 1;
+  } else {
+    const redemptionStore = new FileBoundRedemptionStore(redemptionPath);
+    void (async () => {
+      for (const record of await redemptionStore.listExecuting()) {
+        await resolveBoundReappInterruptedDelivery({ redemptionStore, record });
+      }
+      return startServer({
+        merchant,
+        sourceAccount,
+        challengeSecret,
+        audience: publicOrigin,
+        redemptionStore,
+        port: Number(process.env.PORT ?? 8402),
+      });
+    })().then(({ url }) => {
+      console.log(`fulfillment-agent listening on ${url}  merchant=${merchant}`);
+    }).catch((error: unknown) => {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exitCode = 1;
+    });
+  }
 }

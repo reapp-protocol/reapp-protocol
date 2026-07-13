@@ -9,6 +9,7 @@ import { runSetup } from "./commands/setup.js";
 import { runMandateCreate } from "./commands/mandate.js";
 import { runPay } from "./commands/pay.js";
 import { runDemo } from "./commands/demo.js";
+import { runSettlementAcknowledge, runSettlementReconcile } from "./commands/reconcile.js";
 import { CLI_VERSION } from "./version.js";
 
 const program = new Command();
@@ -44,6 +45,17 @@ program
   .description("make an agent-signed payment against the active mandate (budget enforced on-chain)")
   .argument("[amount]", "XLM amount to pay (default: unlockPrice from reapp.config.json)")
   .action((amount) => runPay(amount));
+
+const settlement = program.command("settlement").description("inspect crash-safe payment state");
+settlement
+  .command("reconcile")
+  .description("query the exact prepared transaction hash before allowing another payment")
+  .action(() => runSettlementReconcile());
+settlement
+  .command("acknowledge")
+  .description("acknowledge one exact durably recorded successful payment")
+  .argument("<tx-hash>", "the exact 64-character lowercase transaction hash")
+  .action((txHash) => runSettlementAcknowledge(txHash));
 
 program
   .command("demo")

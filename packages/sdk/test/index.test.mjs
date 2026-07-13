@@ -5,6 +5,7 @@
 //   npm test   (from packages/sdk, or via the workspace)
 import test from "node:test";
 import assert from "node:assert/strict";
+import { Keypair } from "@stellar/stellar-sdk";
 import { toStroops, reapp } from "@reapp-sdk/core";
 
 const now = Math.floor(Date.now() / 1000);
@@ -55,4 +56,26 @@ test("a unique nonce keeps ids distinct for identical fields", () => {
   const a = reapp.createIntentMandate({ ...baseMandate, expiry: now + 3600 });
   const b = reapp.createIntentMandate({ ...baseMandate, expiry: now + 3600 });
   assert.notEqual(a.id, b.id);
+});
+
+test("direct pay refuses to touch the network without a pre-broadcast durable journal", async () => {
+  const signer = Keypair.random();
+  const mandate = reapp.createIntentMandate({
+    user: signer.publicKey(),
+    agent: signer.publicKey(),
+    merchant: Keypair.random().publicKey(),
+    asset: reapp.testnet.nativeSac,
+    maxAmount: "1.00",
+    expiry: now + 3600,
+  });
+  const agent = reapp.agent({ mandate, signer });
+  await assert.rejects(() => agent.pay("1.00"), /onPrepared durable settlement journal/);
+  await assert.rejects(() => agent.reconcilePendingSettlement({
+    txHash: "a".repeat(64),
+    mandateId: "b".repeat(64),
+    amount: "1.00",
+    expectedSeq: "0",
+    submittedAt: now,
+    validUntil: now + 60,
+  }), /invalid or belongs to another mandate/);
 });

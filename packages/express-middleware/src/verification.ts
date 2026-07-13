@@ -339,7 +339,7 @@ export function createStellarPaymentVerifier(options: StellarVerifierOptions): P
         registryId: requirement.registryId,
         priceStroops: requirement.amountStroops,
       });
-      if (!selected.ok) return { ok: false, kind: "invalid", reason: selected.reason };
+      if (selected.ok === false) return { ok: false, kind: "invalid", reason: selected.reason };
 
       let mandate: LoadedMandate;
       try {
@@ -364,7 +364,7 @@ export function createStellarPaymentVerifier(options: StellarVerifierOptions): P
         merchant: mandate.merchant,
         amount: selected.amount,
       });
-      if (!transfer.ok) return { ok: false, kind: "invalid", reason: transfer.reason };
+      if (transfer.ok === false) return { ok: false, kind: "invalid", reason: transfer.reason };
 
       return {
         ok: true,

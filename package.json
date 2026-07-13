@@ -22,7 +22,8 @@
     "e2e:x402": "npm run agents:testnet",
     "agents:testnet": "npm run build && tsx scripts/e2e-x402.ts",
     "drills:testnet": "npm run build && tsx scripts/failure-drills-testnet.ts",
-    "gatecheck": "node scripts/gatecheck-mandate.mjs"
+    "gatecheck": "node scripts/gatecheck-mandate.mjs",
+    "gatecheck:t2": "node scripts/gatecheck-t2.mjs"
   },
   "devDependencies": {
     "@stellar/stellar-sdk": "^14.6.1",
@@ -34,6 +35,6 @@
     "typescript": "^5.7.2"
   },
   "dependencies": {
-    "@reapp-sdk/core": "^0.2.3"
+    "@reapp-sdk/core": "^0.3.0"
   }
 }

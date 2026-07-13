@@ -34,10 +34,20 @@ run("clippy (deny warnings)", "cargo", ["clippy", "--all-targets", "--", "-D", "
 run("cargo test", "cargo", ["test"], CONTRACT);
 
 // Workspaces (mirrors CI's TypeScript job — from a CLEAN build)
-rmSync(path.join(ROOT, "packages/sdk/dist"), { recursive: true, force: true });
-rmSync(path.join(ROOT, "packages/stellar/dist"), { recursive: true, force: true });
-rmSync(path.join(ROOT, "packages/ap2/dist"), { recursive: true, force: true });
-rmSync(path.join(ROOT, "packages/express-middleware/dist"), { recursive: true, force: true });
+for (const workspace of [
+  "packages/sdk",
+  "packages/stellar",
+  "packages/ap2",
+  "packages/express-middleware",
+  "packages/cli",
+  "packages/reapp-stellar-alias",
+  "packages/reapp-ap2-alias",
+  "packages/reapp-express-middleware-alias",
+  "apps/consumer-agent",
+  "apps/fulfillment-agent",
+]) {
+  rmSync(path.join(ROOT, workspace, "dist"), { recursive: true, force: true });
+}
 run("npm run build (clean)", "npm", ["run", "build"], ROOT);
 run("npm test", "npm", ["test"], ROOT);
 

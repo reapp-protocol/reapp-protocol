@@ -11,10 +11,18 @@
  * (account funded, mandate seq advanced) so a slow testnet doesn't cause a stale
  * read (the C2 BadSequence race). The contract is the source of truth throughout.
  */
-import { reapp } from "@reapp-sdk/core";
+import { SettlementUncertainError, reapp, type Agent } from "@reapp-sdk/core";
 import { TESTNET, registryClient, keypairSigner, token } from "@reapp-sdk/stellar";
 import { Keypair, rpc } from "@stellar/stellar-sdk";
 import { log, c, banner } from "../ui.js";
+import {
+  acknowledgeCompletedSettlement,
+  assertNoPendingSettlement,
+  claimPendingSettlement,
+  clearPendingSettlement,
+  markSettlementCompleted,
+} from "../settlement-store.js";
+import { isFinalPaymentRejection } from "../payment-failure.js";
 
 const SOURCES = [
   { name: "Market Data API", icon: "📈" },
@@ -69,13 +77,42 @@ async function waitForSeq(
   throw new Error(`mandate sequence did not reach ${target} before the testnet read deadline`);
 }
 
-type Attempt = { kind: "ok"; hash: string } | { kind: "blocked" } | { kind: "retry" } | { kind: "error"; msg: string };
+type Attempt = { kind: "ok"; hash: string } | { kind: "blocked" } | { kind: "retry" } | { kind: "error"; msg: string } | { kind: "uncertain"; msg: string };
 
-async function attemptPurchase(mandate: ReturnType<typeof reapp.createIntentMandate>, agentSecret: string): Promise<Attempt> {
+async function attemptPurchase(agent: Agent): Promise<Attempt> {
+  let preparedHash: string | undefined;
   try {
-    const hash = await reapp.agent({ mandate, signer: agentSecret }).pay(SOURCE_PRICE);
+    const hash = await agent.pay(SOURCE_PRICE, {
+      onPrepared: async (pending) => {
+        await claimPendingSettlement("demo", TESTNET.mandateRegistryId, pending);
+        preparedHash = pending.txHash;
+      },
+    });
+    await markSettlementCompleted(hash);
     return { kind: "ok", hash };
   } catch (e) {
+    if (e instanceof SettlementUncertainError) {
+      return {
+        kind: "uncertain",
+        msg: `transaction ${e.settlement.txHash} is unresolved; run reapp settlement reconcile`,
+      };
+    }
+    if (isFinalPaymentRejection(e) && preparedHash) {
+      try {
+        await clearPendingSettlement(preparedHash);
+      } catch (clearError) {
+        return {
+          kind: "uncertain",
+          msg: `journal clear failed: ${clearError instanceof Error ? clearError.message : String(clearError)}`,
+        };
+      }
+    }
+    if (preparedHash && !isFinalPaymentRejection(e)) {
+      return {
+        kind: "uncertain",
+        msg: `transaction ${preparedHash} has an unknown post-prepare result; run reapp settlement reconcile`,
+      };
+    }
     const msg = e instanceof Error ? e.message : String(e);
     const code = (msg.match(/Error\(Contract,\s*#(\d+)\)/) ?? [])[1];
     if (code === "6") return { kind: "blocked" }; // BudgetExceeded — the aha
@@ -88,6 +125,17 @@ export async function runDemo(target = "research-agent"): Promise<void> {
   if (target !== "research-agent") {
     log.warn(`unknown demo "${target}"`);
     log.info("available demos", { run: "reapp demo research-agent" });
+    return;
+  }
+
+  try {
+    await assertNoPendingSettlement();
+  } catch (error) {
+    log.err("demo blocked by unresolved payment journal", {
+      reason: error instanceof Error ? error.message : String(error),
+    });
+    log.info("run `reapp settlement reconcile` before starting another demo");
+    process.exitCode = 1;
     return;
   }
 
@@ -121,6 +169,7 @@ export async function runDemo(target = "research-agent"): Promise<void> {
   log.chain("mandate registered + allowance approved for contract", { budget: `${BUDGET} XLM`, id: short(mandate.id) });
 
   const rclient = registryClient(TESTNET, keypairSigner(agent, TESTNET.networkPassphrase));
+  const paymentAgent = reapp.agent({ mandate, signer: agent });
 
   let purchased = 0;
   let seq = 0;
@@ -128,12 +177,15 @@ export async function runDemo(target = "research-agent"): Promise<void> {
   outer: for (const s of SOURCES) {
     log.step(`agent buys ${s.icon} ${s.name}`, { price: `${SOURCE_PRICE} XLM` });
     for (let attempt = 0; attempt < 4; attempt += 1) {
-      const r = await attemptPurchase(mandate, agent.secret());
+      const r = await attemptPurchase(paymentAgent);
       if (r.kind === "ok") {
-        purchased += 1;
         seq += 1;
-        log.ok("purchased on-chain", { tx: short(r.hash) });
         await waitForSeq(rclient, mandate.idBuffer, seq);
+        purchased += 1;
+        log.ok("purchased on-chain", { tx: short(r.hash) });
+        // The demo has accepted and rendered this exact result. Only now may its
+        // completed journal be acknowledged so the next source can be prepared.
+        await acknowledgeCompletedSettlement(r.hash);
         break;
       }
       if (r.kind === "blocked") {
@@ -144,6 +196,9 @@ export async function runDemo(target = "research-agent"): Promise<void> {
       if (r.kind === "retry") {
         await waitForSeq(rclient, mandate.idBuffer, seq);
         continue;
+      }
+      if (r.kind === "uncertain") {
+        throw new Error(`${r.msg}. Do not restart the demo until reconciliation completes.`);
       }
       log.err("purchase failed", { reason: r.msg });
       break outer;

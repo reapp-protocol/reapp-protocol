@@ -1,6 +1,6 @@
 /**
  * @reapp-sdk/core — create an agent, connect to the testnet MandateRegistry, and
- * execute a mandate-validated payment in under 10 lines.
+ * execute a crash-safe mandate-validated payment through a small typed surface.
  *
  * The SDK is UNTRUSTED infrastructure: it never holds the allowance (only the
  * contract does), and every spend is validated + consumed on-chain by
@@ -10,17 +10,23 @@
  *   await reapp.registerMandate(m, { signer: userKey });
  *   await reapp.approveBudget(m,   { signer: userKey });
  *   const agent = reapp.agent({ mandate: m, signer: agentKey });
- *   await agent.pay("1.00");
+ *   await agent.pay("1.00", { onPrepared: (pending) => paymentJournal.save(pending) });
  */
 import { Buffer } from "buffer";
-import { Keypair, hash } from "@stellar/stellar-sdk";
+import { Keypair, hash, rpc } from "@stellar/stellar-sdk";
 import { TESTNET, keypairSigner, registryClient, token, type NetworkConfig } from "@reapp-sdk/stellar";
 import {
+  BOUND_PAYMENT_CAPABILITY,
+  BOUND_PAYMENT_SCHEME,
+  REAPP_PAYMENT_CAPABILITIES_HEADER,
   X_PAYMENT_HEADER,
+  createBoundPaymentProof,
   parse402,
   encodePaymentProof,
+  isBoundPaymentProof,
   type PaymentProof,
 } from "./x402.js";
+import { resolveExpectedPaymentSequence } from "./payment-sequence.js";
 
 // Re-export the typed contract errors so apps can branch on them (e.g. Errors[6] is BudgetExceeded).
 export { Errors } from "@reapp-sdk/stellar";
@@ -60,35 +66,145 @@ export interface SignerInput {
   signer: Keypair | string;
 }
 
+export type PaymentProofPolicy = "legacy-compatible" | "bound-v2-only";
+
 /**
  * Chain settlement evidence retained when HTTP delivery becomes uncertain.
- * Treat `proof` as bearer data until the merchant consumes it.
+ * Treat `proof` as sensitive bearer data. Bound proofs authorize only the
+ * exact signed request, but anyone holding one may repeat that same request.
  */
 export interface SettlementReceipt {
+  receiptId: string;
+  proofVersion: 1 | 2;
   url: string;
   method: string;
   txHash: string;
   mandateId: string;
   amount: string;
+  submittedAt: number;
+  validUntil: number;
   proof: Readonly<PaymentProof>;
 }
 
 /**
- * The contract payment succeeded, but the paid HTTP retry did not confirm a
- * successful delivery (network failure or non-2xx response). Do not pay again.
- * Retry delivery with the included receipt.
+ * Durable receipt storage required by paid `fetch`. Implementations must
+ * protect receipts as sensitive bearer material, make `savePending` durable
+ * before broadcast, enumerate them across restarts, and clear only after
+ * explicit application acknowledgment.
+ */
+export interface SettlementReceiptStore {
+  savePending(receipt: Readonly<SettlementReceipt>): Promise<void>;
+  clearPending(receiptId: string): Promise<void>;
+  listPending(): Promise<ReadonlyArray<Readonly<SettlementReceipt>>>;
+}
+
+/**
+ * Domain-separated integrity id for the complete recovery envelope. This is
+ * not an authentication secret: the proof remains sensitive bearer material.
+ * Covering the URL and method makes accidental or stale envelope mutation fail
+ * before any HTTP request is attempted.
+ */
+export function createSettlementReceiptId(
+  receipt: Omit<Readonly<SettlementReceipt>, "receiptId">,
+): string {
+  return hash(Buffer.from(JSON.stringify([
+    "reapp-settlement-receipt-v2",
+    receipt.proofVersion,
+    receipt.url,
+    receipt.method,
+    receipt.txHash,
+    receipt.mandateId,
+    receipt.amount,
+    receipt.submittedAt,
+    receipt.validUntil,
+    encodePaymentProof(receipt.proof),
+  ]), "utf8")).toString("hex");
+}
+
+const deliveredReceipts = new WeakMap<Response, Readonly<SettlementReceipt>>();
+
+/** Return the exact settlement receipt associated with a successful paid response. */
+export function getSettlementReceipt(response: Response): Readonly<SettlementReceipt> | undefined {
+  return deliveredReceipts.get(response);
+}
+
+/**
+ * A canonical signed payment hash exists and broadcast may have been attempted,
+ * but final settlement or paid HTTP delivery is not confirmed. Do not pay
+ * again. Reconcile and retry the exact included receipt.
  */
 export class DeliveryPendingError extends Error {
   readonly receipt: Readonly<SettlementReceipt>;
 
   constructor(receipt: Readonly<SettlementReceipt>, cause: unknown) {
     super(
-      `payment ${receipt.txHash} settled on-chain, but delivery is pending; retry the same settlement receipt and do not pay again`,
+      `payment transaction ${receipt.txHash} was prepared and broadcast may have been attempted, but settlement or delivery is pending; reconcile and retry the same receipt and do not pay again`,
       { cause },
     );
     this.name = "DeliveryPendingError";
     this.receipt = receipt;
   }
+}
+
+export interface PendingSettlement {
+  txHash: string;
+  mandateId: string;
+  amount: string;
+  expectedSeq: string;
+  submittedAt: number;
+  /** Exact signed transaction max-time. A missing ledger result is not safely
+   *  final until this time has elapsed and RPC history still covers it. */
+  validUntil: number;
+  receiptId?: string;
+}
+
+export type SettlementReconciliation =
+  | { kind: "none" }
+  | { kind: "pending"; settlement: Readonly<PendingSettlement> }
+  | { kind: "succeeded"; settlement: Readonly<PendingSettlement>; deliveryPending: boolean }
+  | { kind: "failed"; settlement: Readonly<PendingSettlement> }
+  | { kind: "expired"; settlement: Readonly<PendingSettlement> };
+
+/** Broadcast was attempted for a signed transaction whose final result is unknown. */
+export class SettlementUncertainError extends Error {
+  readonly settlement: Readonly<PendingSettlement>;
+
+  constructor(settlement: Readonly<PendingSettlement>, cause: unknown) {
+    super(
+      `payment transaction ${settlement.txHash} was prepared and broadcast was attempted, but its final result is uncertain; reconcile this hash before any new payment`,
+      { cause },
+    );
+    this.name = "SettlementUncertainError";
+    this.settlement = settlement;
+  }
+}
+
+/** A finalized transaction returned a typed MandateRegistry contract rejection. */
+export class PaymentRejectedError extends Error {
+  readonly mandateId: string;
+
+  constructor(mandateId: string, cause: unknown) {
+    super(
+      `payment rejected by contract for mandate ${mandateId}: ${cause instanceof Error ? cause.message : String(cause)}`,
+      { cause },
+    );
+    this.name = "PaymentRejectedError";
+    this.mandateId = mandateId;
+  }
+}
+
+export interface PaymentSubmissionLifecycle {
+  holdUntilDelivery?: boolean;
+  /** Optional immutable operation sequence. When supplied, the SDK refuses to
+   *  prepare if current contract state has already advanced, making a lost-
+   *  response retry fail before another transaction can be created. */
+  expectedSeq?: string | number | bigint;
+  /** Runs after signing and hash derivation but before broadcast. Throwing
+   *  aborts without submitting, so callers can make the hash durable first. */
+  onPrepared: (
+    settlement: Readonly<PendingSettlement>,
+  ) => void | string | Promise<void | string | undefined>;
+  onSubmitted?: (txHash: string) => string | undefined;
 }
 
 const DEFAULT_DECIMALS = 7;
@@ -104,6 +220,12 @@ const I128_MAX = 2n ** 127n - 1n;
  *  number represents exactly, which is astronomically beyond any real timestamp
  *  yet well under u64 — so the value the SDK hashes and sends is never lossy. */
 const MAX_EXPIRY = Number.MAX_SAFE_INTEGER;
+const activeMandatePaymentClaims = new Map<string, symbol>();
+const FINALIZED_CONTRACT_ERROR_CODES = new Set([
+  1, 2, 4, 5, 6, 7, 8, 9, 10,
+  11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22,
+  25, 26, 27, 28, 29, 30, 31,
+]);
 
 /**
  * Convert a human amount to stroops (i128). Strict by design — this is money:
@@ -140,36 +262,263 @@ const asKeypair = (s: Keypair | string): Keypair =>
 /** An agent bound to a registered mandate. Its only power is `pay`, and every
  *  payment is enforced on-chain against the mandate. */
 export class Agent {
+  private pendingSettlement?: Readonly<PendingSettlement>;
+  private readonly paymentClaimOwner = Symbol("reapp-payment-claim");
+  private paymentClaimKey?: string;
+
   constructor(
     private readonly net: NetworkConfig,
     private readonly mandate: IntentMandate,
     private readonly agentKeypair: Keypair,
+    private readonly proofPolicy: PaymentProofPolicy = "legacy-compatible",
+    private readonly receiptStore?: SettlementReceiptStore,
   ) {}
+
+  private claimPaymentOperation(): void {
+    if (this.paymentClaimKey) throw new Error("another payment operation is already active on this agent");
+    const key = `${this.net.networkPassphrase}\n${this.net.mandateRegistryId}\n${this.mandate.id}`;
+    if (activeMandatePaymentClaims.has(key)) {
+      throw new Error("another payment operation for this mandate is already active");
+    }
+    activeMandatePaymentClaims.set(key, this.paymentClaimOwner);
+    this.paymentClaimKey = key;
+  }
+
+  private releasePaymentOperation(): void {
+    const key = this.paymentClaimKey;
+    if (!key) return;
+    if (activeMandatePaymentClaims.get(key) === this.paymentClaimOwner) {
+      activeMandatePaymentClaims.delete(key);
+    }
+    this.paymentClaimKey = undefined;
+  }
+
+  private async hydratePendingReceipt(): Promise<Readonly<SettlementReceipt> | undefined> {
+    if (this.pendingSettlement || !this.receiptStore) return undefined;
+    const receipts = await this.receiptStore.listPending();
+    const receipt = [...receipts]
+      .filter((candidate) => candidate.mandateId === this.mandate.id)
+      .sort((a, b) => a.receiptId.localeCompare(b.receiptId))[0];
+    if (!receipt) return undefined;
+    const expectedId = createSettlementReceiptId({
+      proofVersion: receipt.proofVersion,
+      url: receipt.url,
+      method: receipt.method,
+      txHash: receipt.txHash,
+      mandateId: receipt.mandateId,
+      amount: receipt.amount,
+      submittedAt: receipt.submittedAt,
+      validUntil: receipt.validUntil,
+      proof: receipt.proof,
+    });
+    if (
+      receipt.receiptId !== expectedId
+      || receipt.txHash !== receipt.proof.txHash
+      || receipt.mandateId !== receipt.proof.mandateId
+      || !Number.isSafeInteger(receipt.submittedAt)
+      || !Number.isSafeInteger(receipt.validUntil)
+      || receipt.submittedAt <= 0
+      || receipt.validUntil <= receipt.submittedAt
+    ) {
+      throw new Error("settlement receipt store returned invalid recovery evidence");
+    }
+    if (!this.paymentClaimKey) this.claimPaymentOperation();
+    this.pendingSettlement = Object.freeze({
+      txHash: receipt.txHash,
+      mandateId: receipt.mandateId,
+      amount: receipt.amount,
+      expectedSeq: "unknown",
+      submittedAt: receipt.submittedAt,
+      validUntil: receipt.validUntil,
+      receiptId: receipt.receiptId,
+    });
+    return receipt;
+  }
 
   /** Execute a mandate-validated payment of `amount` (human, e.g. "1.00").
    *  Reads the current sequence, then calls the contract's `execute_payment`
    *  (agent-signed). Throws if the contract rejects it. Returns the tx hash. */
-  async pay(amount: string): Promise<string> {
-    const signer = keypairSigner(this.agentKeypair, this.net.networkPassphrase);
-    const client = registryClient(this.net, signer);
-    const current = (await client.get_mandate({ mandate_id: this.mandate.idBuffer })).result.unwrap();
-    const at = await client.execute_payment(
-      {
-        mandate_id: this.mandate.idBuffer,
-        amount: toStroops(amount, this.mandate.decimals),
-        expected_seq: current.seq,
-      },
-      { timeoutInSeconds: PAYMENT_TIMEOUT_SECONDS },
-    );
-    const sent = await at.signAndSend();
-    try {
-      sent.result.unwrap();
-    } catch (e) {
-      throw new Error(
-        `payment rejected by contract for mandate ${this.mandate.id}: ${e instanceof Error ? e.message : String(e)}`,
-      );
+  async pay(amount: string, lifecycle: PaymentSubmissionLifecycle): Promise<string> {
+    if (!lifecycle || typeof lifecycle.onPrepared !== "function") {
+      throw new Error("pay requires an onPrepared durable settlement journal before any network call");
     }
-    return sent.sendTransactionResponse?.hash ?? "";
+    this.claimPaymentOperation();
+    let retainClaim = false;
+    try {
+      const outstandingReceipt = await this.hydratePendingReceipt();
+      if (outstandingReceipt) {
+        retainClaim = true;
+        throw new DeliveryPendingError(
+          outstandingReceipt,
+          new Error("an unresolved receipt from a prior process must be reconciled or delivered first"),
+        );
+      }
+      if (this.pendingSettlement) {
+        retainClaim = true;
+        throw new SettlementUncertainError(
+          this.pendingSettlement,
+          new Error("a prior prepared payment has not been reconciled or delivered"),
+        );
+      }
+      const signer = keypairSigner(this.agentKeypair, this.net.networkPassphrase);
+      const client = registryClient(this.net, signer);
+      const current = (await client.get_mandate({ mandate_id: this.mandate.idBuffer })).result.unwrap();
+      const expectedSeq = resolveExpectedPaymentSequence(current.seq, lifecycle.expectedSeq);
+      const at = await client.execute_payment(
+        {
+          mandate_id: this.mandate.idBuffer,
+          amount: toStroops(amount, this.mandate.decimals),
+          expected_seq: expectedSeq,
+        },
+        { timeoutInSeconds: PAYMENT_TIMEOUT_SECONDS },
+      );
+      await at.sign();
+      const signed = at.signed;
+      const txHash = signed?.hash().toString("hex").toLowerCase();
+      const validUntil = Number(signed?.timeBounds?.maxTime);
+      if (
+        !txHash
+        || !/^[0-9a-f]{64}$/.test(txHash)
+        || !Number.isSafeInteger(validUntil)
+        || validUntil <= 0
+      ) {
+        this.pendingSettlement = undefined;
+        throw new Error("payment signing did not produce a canonical hash and finite validity window");
+      }
+      this.pendingSettlement = Object.freeze({
+        txHash,
+        mandateId: this.mandate.id,
+        amount,
+        expectedSeq: expectedSeq.toString(),
+        submittedAt: Math.floor(Date.now() / 1_000),
+        validUntil,
+      });
+      try {
+        const receiptId = await lifecycle.onPrepared(this.pendingSettlement);
+        if (receiptId) this.pendingSettlement = Object.freeze({ ...this.pendingSettlement, receiptId });
+      } catch (cause) {
+        this.pendingSettlement = undefined;
+        throw cause;
+      }
+      let sent;
+      try {
+        sent = await at.send({
+          onSubmitted: (response) => {
+            const submittedHash = response?.hash?.toLowerCase();
+            if (submittedHash !== txHash) {
+              throw new Error("payment RPC returned a different transaction hash than the signed envelope");
+            }
+            const receiptId = lifecycle.onSubmitted?.(submittedHash);
+            if (receiptId) this.pendingSettlement = Object.freeze({ ...this.pendingSettlement!, receiptId });
+          },
+        });
+      } catch (cause) {
+        retainClaim = true;
+        throw new SettlementUncertainError(this.pendingSettlement, cause);
+      }
+      try {
+        sent.result.unwrap();
+      } catch (cause) {
+        const message = cause instanceof Error ? cause.message : String(cause);
+        const code = Number((message.match(/Error\(Contract,\s*#(\d+)\)/) ?? [])[1]);
+        if (Number.isInteger(code) && FINALIZED_CONTRACT_ERROR_CODES.has(code)) {
+          this.pendingSettlement = undefined;
+          throw new PaymentRejectedError(this.mandate.id, cause);
+        }
+        retainClaim = true;
+        throw new SettlementUncertainError(this.pendingSettlement, cause);
+      }
+      const submittedHash = sent.sendTransactionResponse?.hash?.toLowerCase();
+      if (submittedHash && submittedHash !== txHash) {
+        retainClaim = true;
+        throw new SettlementUncertainError(
+          this.pendingSettlement,
+          new Error("payment RPC returned a different hash than the signed transaction"),
+        );
+      }
+      if (lifecycle.holdUntilDelivery) {
+        retainClaim = true;
+      } else {
+        this.pendingSettlement = undefined;
+      }
+      return txHash;
+    } finally {
+      if (!retainClaim) this.releasePaymentOperation();
+    }
+  }
+
+  getPendingSettlement(): Readonly<PendingSettlement> | undefined {
+    return this.pendingSettlement;
+  }
+
+  /** Query RPC for a previously prepared/submitted transaction without creating
+   *  a new one. Pass a durable journal record after process restart. */
+  async reconcilePendingSettlement(
+    restored?: Readonly<PendingSettlement>,
+  ): Promise<SettlementReconciliation> {
+    if (restored) {
+      if (
+        restored.mandateId !== this.mandate.id
+        || !/^[0-9a-f]{64}$/.test(restored.txHash)
+        || !/^(?:unknown|\d+)$/.test(restored.expectedSeq)
+        || !Number.isSafeInteger(restored.submittedAt)
+        || !Number.isSafeInteger(restored.validUntil)
+        || restored.submittedAt <= 0
+        || restored.validUntil <= restored.submittedAt
+        || (restored.receiptId !== undefined && !/^[0-9a-f]{64}$/.test(restored.receiptId))
+      ) {
+        throw new Error("pending settlement journal record is invalid or belongs to another mandate");
+      }
+      if (toStroops(restored.amount, this.mandate.decimals) <= 0n) {
+        throw new Error("pending settlement journal amount must be positive");
+      }
+      if (this.pendingSettlement && this.pendingSettlement.txHash !== restored.txHash) {
+        throw new Error("a different pending settlement is already locked on this agent");
+      }
+      this.pendingSettlement = Object.freeze({ ...restored });
+    }
+    if (!this.paymentClaimKey) this.claimPaymentOperation();
+    try {
+      await this.hydratePendingReceipt();
+    } catch (error) {
+      if (!this.pendingSettlement) this.releasePaymentOperation();
+      throw error;
+    }
+    const settlement = this.pendingSettlement;
+    if (!settlement) {
+      this.releasePaymentOperation();
+      return { kind: "none" };
+    }
+    const server = new rpc.Server(this.net.rpcUrl, { allowHttp: this.net.rpcUrl.startsWith("http://") });
+    const response = await server.getTransaction(settlement.txHash);
+    if (response.status === rpc.Api.GetTransactionStatus.NOT_FOUND) {
+      if (
+        settlement.submittedAt > 0
+        && settlement.validUntil > 0
+        && response.latestLedgerCloseTime > settlement.validUntil
+        && response.oldestLedgerCloseTime <= settlement.submittedAt
+      ) {
+        this.pendingSettlement = undefined;
+        if (settlement.receiptId) await this.receiptStore?.clearPending(settlement.receiptId);
+        this.releasePaymentOperation();
+        return { kind: "expired", settlement };
+      }
+      return { kind: "pending", settlement };
+    }
+    if (response.status === rpc.Api.GetTransactionStatus.FAILED) {
+      this.pendingSettlement = undefined;
+      if (settlement.receiptId) await this.receiptStore?.clearPending(settlement.receiptId);
+      this.releasePaymentOperation();
+      return { kind: "failed", settlement };
+    }
+    if (response.status === rpc.Api.GetTransactionStatus.SUCCESS) {
+      if (!settlement.receiptId) {
+        this.pendingSettlement = undefined;
+        this.releasePaymentOperation();
+      }
+      return { kind: "succeeded", settlement, deliveryPending: Boolean(settlement.receiptId) };
+    }
+    return { kind: "pending", settlement };
   }
 
   /**
@@ -177,19 +526,128 @@ export class Agent {
    * `pay`, never signs, and never creates another on-chain transaction.
    */
   async retryDelivery(receipt: Readonly<SettlementReceipt>, init?: RequestInit): Promise<Response> {
+    if (!this.receiptStore) throw new Error("a SettlementReceiptStore is required to retry delivery safely");
     if (receipt.mandateId !== this.mandate.id || receipt.proof.mandateId !== this.mandate.id) {
       throw new Error("x402: settlement receipt belongs to a different mandate");
     }
-    if (receipt.txHash !== receipt.proof.txHash || receipt.amount !== receipt.proof.amount) {
+    if (receipt.txHash !== receipt.proof.txHash) {
       throw new Error("x402: settlement receipt fields do not match its proof");
     }
-    const headers = new Headers(init?.headers);
-    headers.set(X_PAYMENT_HEADER, encodePaymentProof(receipt.proof));
-    return fetch(receipt.url, {
-      ...init,
-      method: init?.method ?? receipt.method,
-      headers,
+    if (
+      !Number.isSafeInteger(receipt.submittedAt)
+      || !Number.isSafeInteger(receipt.validUntil)
+      || receipt.submittedAt <= 0
+      || receipt.validUntil <= receipt.submittedAt
+    ) {
+      throw new Error("x402: settlement receipt has an invalid transaction validity window");
+    }
+    const proof = receipt.proof;
+    const bound = isBoundPaymentProof(proof);
+    if ((receipt.proofVersion === 2) !== bound) {
+      throw new Error("x402: settlement receipt proof version is inconsistent");
+    }
+    const expectedReceiptId = createSettlementReceiptId({
+      proofVersion: receipt.proofVersion,
+      url: receipt.url,
+      method: receipt.method,
+      txHash: receipt.txHash,
+      mandateId: receipt.mandateId,
+      amount: receipt.amount,
+      submittedAt: receipt.submittedAt,
+      validUntil: receipt.validUntil,
+      proof,
     });
+    if (receipt.receiptId !== expectedReceiptId) {
+      throw new Error("x402: settlement receipt integrity check failed");
+    }
+    if (!isBoundPaymentProof(proof) && receipt.amount !== proof.amount) {
+      throw new Error("x402: settlement receipt amount does not match its proof");
+    }
+    const method = (init?.method ?? receipt.method).toUpperCase();
+    if (method !== receipt.method.toUpperCase()) {
+      throw new Error("x402: delivery retry method does not match its settlement receipt");
+    }
+    if (bound) {
+      const target = new URL(receipt.url);
+      const resource = `${target.pathname}${target.search}`;
+      if (
+        proof.challenge.method !== method
+        || proof.challenge.resource !== resource
+        || proof.challenge.audience !== target.origin
+      ) {
+        throw new Error("x402: bound receipt does not match its delivery target");
+      }
+    }
+    if (!this.paymentClaimKey) this.claimPaymentOperation();
+    const headers = new Headers(init?.headers);
+    headers.set(X_PAYMENT_HEADER, encodePaymentProof(proof));
+    if (receipt.proofVersion === 2) {
+      headers.set(REAPP_PAYMENT_CAPABILITIES_HEADER, BOUND_PAYMENT_CAPABILITY);
+    }
+    let delivered: Response;
+    try {
+      delivered = await fetch(receipt.url, {
+        ...init,
+        method,
+        // Settlement proofs are bearer material. Never forward one across a
+        // redirect; the caller may explicitly start a new request to a new URL.
+        redirect: "manual",
+        headers,
+      });
+      if (!delivered.ok) {
+        throw new Error(`merchant returned HTTP ${delivered.status} after settlement`);
+      }
+      // A 2xx status is not complete delivery while the response body can still
+      // fail. Drain a clone before returning; durable recovery evidence remains
+      // locked until the caller explicitly acknowledges its application commit.
+      await delivered.clone().arrayBuffer();
+      deliveredReceipts.set(delivered, receipt);
+      return delivered;
+    } catch (cause) {
+      throw cause instanceof DeliveryPendingError ? cause : new DeliveryPendingError(receipt, cause);
+    }
+  }
+
+  /**
+   * Application-level delivery commit. Call only after the complete response
+   * has been validated and any business result is durably recorded. Until this
+   * succeeds, the retained receipt keeps every new payment fail-closed.
+   */
+  async acknowledgeDelivery(receipt: Readonly<SettlementReceipt>): Promise<void> {
+    if (!this.receiptStore) throw new Error("a SettlementReceiptStore is required to acknowledge delivery");
+    if (receipt.mandateId !== this.mandate.id || receipt.proof.mandateId !== this.mandate.id) {
+      throw new Error("x402: cannot acknowledge a receipt for another mandate");
+    }
+    if (
+      receipt.txHash !== receipt.proof.txHash
+      || !Number.isSafeInteger(receipt.submittedAt)
+      || !Number.isSafeInteger(receipt.validUntil)
+      || receipt.submittedAt <= 0
+      || receipt.validUntil <= receipt.submittedAt
+    ) {
+      throw new Error("x402: cannot acknowledge invalid settlement evidence");
+    }
+    const expectedId = createSettlementReceiptId({
+      proofVersion: receipt.proofVersion,
+      url: receipt.url,
+      method: receipt.method,
+      txHash: receipt.txHash,
+      mandateId: receipt.mandateId,
+      amount: receipt.amount,
+      submittedAt: receipt.submittedAt,
+      validUntil: receipt.validUntil,
+      proof: receipt.proof,
+    });
+    if (receipt.receiptId !== expectedId) {
+      throw new Error("x402: cannot acknowledge a receipt with an invalid integrity id");
+    }
+    try {
+      await this.receiptStore.clearPending(receipt.receiptId);
+    } catch (cause) {
+      throw new DeliveryPendingError(receipt, cause);
+    }
+    if (this.pendingSettlement?.txHash === receipt.txHash) this.pendingSettlement = undefined;
+    this.releasePaymentOperation();
   }
 
   /**
@@ -205,10 +663,38 @@ export class Agent {
    * before serving the resource.
    */
   async fetch(url: string, init?: RequestInit): Promise<Response> {
-    const first = await fetch(url, init);
+    const outstandingReceipt = await this.hydratePendingReceipt();
+    if (outstandingReceipt) {
+      throw new DeliveryPendingError(
+        outstandingReceipt,
+        new Error("recover the durable receipt from the prior process before starting another fetch"),
+      );
+    }
+    if (this.pendingSettlement) {
+      throw new SettlementUncertainError(
+        this.pendingSettlement,
+        new Error("reconcile or recover the prior payment before starting another fetch"),
+      );
+    }
+    const firstHeaders = new Headers(init?.headers);
+    firstHeaders.set(REAPP_PAYMENT_CAPABILITIES_HEADER, BOUND_PAYMENT_CAPABILITY);
+    const first = await fetch(url, {
+      ...init,
+      // Refuse automatic redirects before payment so a challenge cannot move
+      // the payment flow onto a different origin behind the SDK's back.
+      redirect: "manual",
+      headers: firstHeaders,
+    });
+    if (first.status === 426) {
+      throw new Error("x402: merchant requires a payment proof capability this SDK cannot negotiate");
+    }
     if (first.status !== 402) return first;
 
     const required = await parse402(first);
+    const receiptStore = this.receiptStore;
+    if (!receiptStore) {
+      throw new Error("x402: a SettlementReceiptStore is required before submitting a paid request");
+    }
     // Fail fast on an obviously-wrong challenge before spending. This is a
     // convenience check, NOT the security boundary: the contract re-validates
     // merchant scope and budget on-chain, and the merchant re-verifies the payment.
@@ -220,34 +706,129 @@ export class Agent {
     if (required.asset && required.asset !== this.mandate.asset) {
       throw new Error(`x402: the 402 names a different asset than this mandate's`);
     }
-
-    // Settle on-chain. Throws if the contract rejects (budget, expiry, revoke, scope).
-    const txHash = await this.pay(required.amount);
-
-    const proof = Object.freeze({
-      scheme: required.scheme,
-      network: required.network,
-      txHash,
-      mandateId: this.mandate.id,
-      amount: required.amount,
-    });
-    const receipt = Object.freeze({
-      url,
-      method: init?.method ?? "GET",
-      txHash,
-      mandateId: this.mandate.id,
-      amount: required.amount,
-      proof,
-    });
-    try {
-      const delivered = await this.retryDelivery(receipt, init);
-      if (!delivered.ok) {
-        throw new Error(`merchant returned HTTP ${delivered.status} after settlement`);
-      }
-      return delivered;
-    } catch (cause) {
-      throw new DeliveryPendingError(receipt, cause);
+    if (this.proofPolicy === "bound-v2-only" && (!required.challenge || required.proofVersion !== 2)) {
+      throw new Error("x402: bound-v2-only agent refused a legacy payment challenge before paying");
     }
+    if (required.challenge) {
+      const method = (init?.method ?? "GET").toUpperCase();
+      const target = new URL(url);
+      const resource = `${target.pathname}${target.search}`;
+      const now = Math.floor(Date.now() / 1000);
+      const expectedNetworkId = hash(Buffer.from(this.net.networkPassphrase, "utf8")).toString("hex");
+      if (required.scheme !== BOUND_PAYMENT_SCHEME || required.challenge.scheme !== BOUND_PAYMENT_SCHEME) {
+        throw new Error("x402: bound challenge uses an unsupported payment scheme");
+      }
+      if (method !== "GET") {
+        throw new Error("x402: bound-v2 currently permits only GET requests");
+      }
+      if (
+        required.challenge.audience !== target.origin
+        || required.challenge.method !== method
+        || required.challenge.resource !== resource
+        || required.resource !== resource
+        || required.challenge.bodySha256 !== null
+      ) {
+        throw new Error("x402: bound challenge does not match this exact request");
+      }
+      if (
+        required.challenge.registryId !== this.net.mandateRegistryId
+        || required.contract !== this.net.mandateRegistryId
+        || required.challenge.networkId !== expectedNetworkId
+      ) {
+        throw new Error("x402: bound challenge names a different MandateRegistry");
+      }
+      if (
+        required.challenge.merchant !== this.mandate.merchant
+        || required.challenge.asset !== this.mandate.asset
+        || required.challenge.network !== required.network
+        || required.challenge.amountStroops !== toStroops(required.amount, required.challenge.decimals).toString()
+        || required.challenge.decimals !== this.mandate.decimals
+      ) {
+        throw new Error("x402: bound challenge does not match this mandate or network");
+      }
+      if (required.challenge.expiresAt <= now || required.challenge.issuedAt > now + 60) {
+        throw new Error("x402: bound challenge is expired or not yet valid");
+      }
+    }
+
+    let receipt: Readonly<SettlementReceipt> | undefined;
+    const makeReceipt = (
+      txHash: string,
+      timing: Pick<PendingSettlement, "submittedAt" | "validUntil"> = {
+        submittedAt: Math.floor(Date.now() / 1_000),
+        validUntil: Math.floor(Date.now() / 1_000) + PAYMENT_TIMEOUT_SECONDS,
+      },
+    ): Readonly<SettlementReceipt> => {
+      const proof: Readonly<PaymentProof> = Object.freeze(required.challenge
+        ? createBoundPaymentProof({
+          challenge: required.challenge,
+          txHash,
+          mandateId: this.mandate.id,
+          signer: this.agentKeypair,
+        })
+        : {
+          scheme: required.scheme,
+          network: required.network,
+          txHash,
+          mandateId: this.mandate.id,
+          amount: required.amount,
+        });
+      const receiptWithoutId = Object.freeze({
+        proofVersion: isBoundPaymentProof(proof) ? 2 as const : 1 as const,
+        url,
+        method: (init?.method ?? "GET").toUpperCase(),
+        txHash,
+        mandateId: this.mandate.id,
+        amount: required.amount,
+        submittedAt: timing.submittedAt,
+        validUntil: timing.validUntil,
+        proof,
+      });
+      return Object.freeze({
+        receiptId: createSettlementReceiptId(receiptWithoutId),
+        ...receiptWithoutId,
+      });
+    };
+
+    let txHash: string;
+    try {
+      txHash = await this.pay(required.amount, {
+        holdUntilDelivery: true,
+        onPrepared: async (prepared) => {
+          receipt = makeReceipt(prepared.txHash, prepared);
+          await receiptStore.savePending(receipt);
+          return receipt.receiptId;
+        },
+      });
+    } catch (cause) {
+      if (cause instanceof SettlementUncertainError) {
+        this.pendingSettlement ??= cause.settlement;
+        receipt ??= makeReceipt(cause.settlement.txHash, cause.settlement);
+        throw new DeliveryPendingError(receipt, cause);
+      }
+      if (receipt) {
+        await receiptStore.clearPending(receipt.receiptId).catch(() => undefined);
+      }
+      throw cause;
+    }
+    receipt ??= makeReceipt(txHash);
+    if (!this.pendingSettlement) {
+      this.pendingSettlement = Object.freeze({
+        txHash,
+        mandateId: this.mandate.id,
+        amount: required.amount,
+        expectedSeq: "confirmed",
+        submittedAt: receipt.submittedAt,
+        validUntil: receipt.validUntil,
+        receiptId: receipt.receiptId,
+      });
+      try {
+        await receiptStore.savePending(receipt);
+      } catch (cause) {
+        throw new DeliveryPendingError(receipt, cause);
+      }
+    }
+    return this.retryDelivery(receipt, init);
   }
 }
 
@@ -347,9 +928,14 @@ export const reapp = {
 
   /** Bind an agent to a registered mandate. */
   agent(
-    opts: { mandate: IntentMandate; signer: Keypair | string },
+    opts: {
+      mandate: IntentMandate;
+      signer: Keypair | string;
+      proofPolicy?: PaymentProofPolicy;
+      receiptStore?: SettlementReceiptStore;
+    },
     net: NetworkConfig = TESTNET,
   ): Agent {
-    return new Agent(net, opts.mandate, asKeypair(opts.signer));
+    return new Agent(net, opts.mandate, asKeypair(opts.signer), opts.proofPolicy, opts.receiptStore);
   },
 };

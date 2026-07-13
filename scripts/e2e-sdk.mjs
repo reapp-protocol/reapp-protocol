@@ -14,11 +14,14 @@
  * merchant = fresh friendbot-funded keypair (receives)
  */
 import { exit, stdout } from "node:process";
+import { randomUUID } from "node:crypto";
+import { chmod, mkdtemp, open, rename, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 import { Keypair } from "@stellar/stellar-sdk";
-import { reapp } from "@reapp-sdk/core";
+import { SettlementUncertainError, reapp } from "@reapp-sdk/core";
 import { TESTNET, token } from "@reapp-sdk/stellar";
 
 dotenv.config({ path: path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", ".env"), quiet: true });
@@ -42,7 +45,35 @@ async function fund(pub) {
   try { const r = await fetch(`https://friendbot.stellar.org/?addr=${pub}`); return r.ok; } catch { return false; }
 }
 
+async function journaledPay(agent, amount, journalPath) {
+  let safeToClear = false;
+  try {
+    const hash = await agent.pay(amount, {
+      onPrepared: async (pending) => {
+        const temporary = `${journalPath}.${randomUUID()}.tmp`;
+        const handle = await open(temporary, "wx", 0o600);
+        try {
+          await handle.writeFile(`${JSON.stringify({ version: 1, pending }, null, 2)}\n`, "utf8");
+          await handle.sync();
+        } finally {
+          await handle.close();
+        }
+        await rename(temporary, journalPath);
+        await chmod(journalPath, 0o600);
+      },
+    });
+    safeToClear = true;
+    return hash;
+  } catch (error) {
+    safeToClear = !(error instanceof SettlementUncertainError);
+    throw error;
+  } finally {
+    if (safeToClear) await rm(journalPath, { force: true });
+  }
+}
+
 async function main() {
+  const journalRoot = await mkdtemp(path.join(tmpdir(), "reapp-sdk-e2e-"));
   const userSecret = process.env.REAPP_BURNER_SECRET_KEY?.trim();
   if (!userSecret || !userSecret.startsWith("S")) die("REAPP_BURNER_SECRET_KEY not set in .env");
 
@@ -94,7 +125,7 @@ async function main() {
   step("agent.pay('1.00')  (SDK, agent-signed — funds move)");
   const before = await token.balance(TESTNET, asset, merchant.publicKey());
   field("merchant before", c.dim(xlm(before)));
-  const payHash = await a.pay("1.00");
+  const payHash = await journaledPay(a, "1.00", path.join(journalRoot, "payment.json"));
   const after = await token.balance(TESTNET, asset, merchant.publicKey());
   field("tx", c.link(`https://stellar.expert/explorer/testnet/tx/${payHash}`));
   field("merchant after", c.green(xlm(after)));
@@ -104,7 +135,7 @@ async function main() {
   step("ROGUE · agent.pay('10.00')  (over budget — must be rejected)");
   note("A hostile agent asks for more than the mandate allows. The contract refuses.");
   let overspendRejected = false;
-  try { await a.pay("10.00"); } catch { overspendRejected = true; }
+  try { await journaledPay(a, "10.00", path.join(journalRoot, "overspend.json")); } catch { overspendRejected = true; }
   record("overspend rejected by contract", overspendRejected);
 
   step("revokeMandate  (SDK, user-signed)");
@@ -115,7 +146,7 @@ async function main() {
   step("PUNCHLINE · agent.pay('1.00') after revoke (must be rejected)");
   note("The limit lives in the contract, not the SDK — a revoked mandate cannot pay.");
   let revokedRejected = false;
-  try { await a.pay("1.00"); } catch { revokedRejected = true; }
+  try { await journaledPay(a, "1.00", path.join(journalRoot, "revoked.json")); } catch { revokedRejected = true; }
   record("revoked mandate blocks payment", revokedRejected);
 
   const pass = results.filter((r) => r.ok).length;
@@ -129,6 +160,7 @@ async function main() {
   if (all) log(`  ${c.cyan("→")} ${c.bold("gatecheck")} ${c.dim(`npm run gatecheck -- ${mandate.id}`)}`);
   log(RULE(paint));
   log("");
+  await rm(journalRoot, { recursive: true, force: true });
   exit(all ? 0 : 1);
 }
 

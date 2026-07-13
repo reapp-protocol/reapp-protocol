@@ -1,7 +1,17 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Buffer } from "buffer";
-import { decodePaymentProof, encodePaymentProof, parse402, type PaymentProof } from "@reapp-sdk/core";
+import { Keypair } from "@stellar/stellar-sdk";
+import {
+  BOUND_PAYMENT_SCHEME,
+  createBoundPaymentProof,
+  decodePaymentProof,
+  encodePaymentProof,
+  parse402,
+  verifyBoundPaymentProofSignature,
+  type BoundPaymentChallengeV2,
+  type PaymentProof,
+} from "@reapp-sdk/core";
 
 /** A complete, well-formed settlement proof. */
 const PROOF: PaymentProof = {
@@ -137,4 +147,167 @@ test("parse402 rejects a requirement missing an amount", async () => {
 
 test("parse402 rejects a requirement missing payTo (the merchant)", async () => {
   await assert.rejects(() => parse402(res402({ accepts: [{ maxAmountRequired: "1.00" }] })), /payTo/);
+});
+
+const BOUND_CHALLENGE: BoundPaymentChallengeV2 = {
+  proofVersion: 2,
+  challengeId: Buffer.alloc(32, 1).toString("base64url"),
+  audience: "https://merchant.example",
+  scheme: BOUND_PAYMENT_SCHEME,
+  method: "GET",
+  resource: "/source/market?format=json",
+  bodySha256: null,
+  network: "stellar-testnet",
+  networkId: "1".repeat(64),
+  registryId: "CREGISTRY",
+  merchant: "GMERCHANT",
+  asset: "CASSET",
+  amountStroops: "10000000",
+  decimals: 7,
+  issuedAt: 1_700_000_000,
+  expiresAt: 1_700_000_900,
+  authorization: {
+    algorithm: "hmac-sha256",
+    mac: Buffer.alloc(32, 2).toString("base64"),
+  },
+};
+
+test("bound-v2 proof strictly round-trips and verifies only for the on-chain agent", () => {
+  const agent = Keypair.random();
+  const stranger = Keypair.random();
+  const proof = createBoundPaymentProof({
+    challenge: BOUND_CHALLENGE,
+    txHash: "a".repeat(64),
+    mandateId: "b".repeat(64),
+    signer: agent,
+  });
+  const decoded = decodePaymentProof(encodePaymentProof(proof));
+  assert.deepEqual(decoded, proof);
+  assert.equal(verifyBoundPaymentProofSignature(proof, agent.publicKey()), true);
+  assert.equal(verifyBoundPaymentProofSignature(proof, stranger.publicKey()), false);
+});
+
+test("bound-v2 signature binds the request, mandate, and transaction", () => {
+  const agent = Keypair.random();
+  const proof = createBoundPaymentProof({
+    challenge: BOUND_CHALLENGE,
+    txHash: "a".repeat(64),
+    mandateId: "b".repeat(64),
+    signer: agent,
+  });
+  const variants = [
+    { ...proof, txHash: "c".repeat(64) },
+    { ...proof, mandateId: "d".repeat(64) },
+    { ...proof, challenge: { ...proof.challenge, resource: "/source/other" } },
+    { ...proof, challenge: { ...proof.challenge, audience: "https://other.example" } },
+    { ...proof, challenge: { ...proof.challenge, amountStroops: "20000000" } },
+  ];
+  for (const variant of variants) {
+    assert.equal(verifyBoundPaymentProofSignature(variant, agent.publicKey()), false);
+  }
+});
+
+test("bound-v2 decoder rejects unknown fields and noncanonical encodings", () => {
+  const agent = Keypair.random();
+  const proof = createBoundPaymentProof({
+    challenge: BOUND_CHALLENGE,
+    txHash: "a".repeat(64),
+    mandateId: "b".repeat(64),
+    signer: agent,
+  });
+  assert.throws(
+    () => decodePaymentProof(b64({ ...proof, surprise: true })),
+    /missing or unknown fields/,
+  );
+  assert.throws(
+    () => decodePaymentProof(b64({
+      ...proof,
+      txHash: proof.txHash.toUpperCase(),
+    })),
+    /32-byte hex/,
+  );
+  assert.throws(
+    () => decodePaymentProof(b64({
+      ...proof,
+      challenge: { ...proof.challenge, challengeId: `${"A".repeat(42)}B` },
+    })),
+    /challengeId/,
+  );
+  assert.throws(
+    () => decodePaymentProof(b64({
+      ...proof,
+      authorization: { ...proof.authorization, signature: "not-base64" },
+    })),
+    /canonical base64/,
+  );
+  assert.throws(
+    () => decodePaymentProof(b64({ ...proof, scheme: "attacker-scheme" })),
+    /do not match the signed challenge/,
+  );
+  assert.throws(
+    () => decodePaymentProof(b64({ ...proof, network: "attacker-network" })),
+    /do not match the signed challenge/,
+  );
+  assert.throws(
+    () => decodePaymentProof(`${encodePaymentProof(proof)}\n`),
+    /canonical base64/,
+  );
+  assert.throws(
+    () => decodePaymentProof(b64({
+      proofVersion: 3,
+      scheme: "future",
+      network: "future",
+      txHash: proof.txHash,
+      mandateId: proof.mandateId,
+      amount: "1.00",
+      futureAuthorization: {},
+    })),
+    /unsupported payment proof version/,
+  );
+  assert.throws(
+    () => decodePaymentProof(b64({
+      scheme: "reapp-soroban",
+      network: "stellar-testnet",
+      txHash: proof.txHash,
+      mandateId: proof.mandateId,
+      amount: "1.00",
+      ignored: true,
+    })),
+    /missing or unknown fields/,
+  );
+});
+
+test("parse402 rejects unsupported advertised REAPP proof versions", async () => {
+  await assert.rejects(
+    () => parse402(res402({
+      accepts: [{
+        maxAmountRequired: "1.00",
+        payTo: "GMERCHANT",
+        extra: { reappProofVersion: 3, challenge: {} },
+      }],
+    })),
+    /unsupported REAPP payment proof version/,
+  );
+});
+
+test("parse402 exposes a strict bound-v2 challenge without changing legacy output", async () => {
+  const requirement = await parse402(res402({
+    x402Version: 1,
+    accepts: [{
+      scheme: BOUND_PAYMENT_SCHEME,
+      network: "stellar-testnet",
+      maxAmountRequired: "1.00",
+      asset: "CASSET",
+      payTo: "GMERCHANT",
+      resource: BOUND_CHALLENGE.resource,
+      extra: {
+        contract: "CREGISTRY",
+        reappProofVersion: 2,
+        challenge: BOUND_CHALLENGE,
+      },
+    }],
+  }));
+  assert.equal(requirement.proofVersion, 2);
+  assert.deepEqual(requirement.challenge, BOUND_CHALLENGE);
+  assert.equal(requirement.scheme, BOUND_PAYMENT_SCHEME);
 });

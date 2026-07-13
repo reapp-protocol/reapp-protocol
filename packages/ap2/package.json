@@ -1,6 +1,6 @@
 {
   "name": "@reapp-sdk/ap2",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Signed AP2 v0.2 REAPP profile validator and IntentMandate bridge for contract-enforced Stellar payments.",
   "keywords": [
     "ap2",
@@ -26,7 +26,7 @@
     "test": "node --import tsx --test src/index.test.ts src/validator.test.ts"
   },
   "dependencies": {
-    "@reapp-sdk/core": "^0.2.3",
+    "@reapp-sdk/core": "^0.3.0",
     "@stellar/stellar-sdk": "^14.5.0",
     "buffer": "6.0.3"
   },

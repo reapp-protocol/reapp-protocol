@@ -15,11 +15,25 @@
  * setup, fully reproducible.
  */
 import { exit } from "node:process";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { Keypair } from "@stellar/stellar-sdk";
-import { reapp } from "@reapp-sdk/core";
+import {
+  BOUND_PAYMENT_CAPABILITY,
+  REAPP_PAYMENT_CAPABILITIES_HEADER,
+  X_PAYMENT_HEADER,
+  createBoundPaymentProof,
+  encodePaymentProof,
+  parse402,
+  reapp,
+} from "@reapp-sdk/core";
 import { TESTNET, token } from "@reapp-sdk/stellar";
 import { startServer } from "../apps/fulfillment-agent/src/server.ts";
+import { FileBoundRedemptionStore } from "../apps/fulfillment-agent/src/redemption-store.ts";
 import { buyResearch } from "../apps/consumer-agent/src/research-agent.ts";
+import { FileSettlementReceiptStore } from "../apps/consumer-agent/src/receipt-store.ts";
+import { FilePurchaseOutcomeStore } from "../apps/consumer-agent/src/outcome-store.ts";
 
 const TTY = Boolean(process.stdout.isTTY) && !process.env.NO_COLOR;
 const sgr = (n: number | string) => (s: unknown) => (TTY ? `\x1b[${n}m${s}\x1b[0m` : String(s));
@@ -81,8 +95,17 @@ async function main() {
   field("register", tx(reg));
   field("approve", tx(appr));
 
+  const receiptRoot = await mkdtemp(join(tmpdir(), "reapp-e2e-receipts-"));
+  const receiptStore = new FileSettlementReceiptStore(join(receiptRoot, "pending.json"));
+  const outcomeStore = new FilePurchaseOutcomeStore(join(receiptRoot, "outcomes.json"));
+  const redemptionStore = new FileBoundRedemptionStore(join(receiptRoot, "redemptions.json"));
+
   log(`\n${c.cyan("▸")} ${c.bold("Start the 402-gated merchant")}`);
-  const { server, url } = await startServer({ merchant: merchant.publicKey(), port: 0 });
+  const { server, url } = await startServer({
+    merchant: merchant.publicKey(),
+    redemptionStore,
+    port: 0,
+  });
   field("merchant API", c.link(url));
   field("price", "1.00 XLM / source");
   const merchBefore = await token.balance(TESTNET, asset, merchant.publicKey()).catch(() => 0n);
@@ -95,6 +118,8 @@ async function main() {
     sourceIds: SOURCES,
     mandate,
     agentSecret: agent.secret(),
+    receiptStore,
+    outcomeStore,
     onEvent: (e) => {
       if (e.type === "buying") log(`  ${c.cyan("→")} GET /source/${e.id}  ${c.dim("(402 Payment Required, pay 1 XLM)")}`);
       if (e.type === "paid") log(`     ${c.green("✓ paid + unlocked")}  ${tx(e.txHash!)}`);
@@ -102,10 +127,33 @@ async function main() {
     },
   });
 
+  log(`\n${c.cyan("▸")} ${c.bold("Adversarial replay: re-sign the first tx for a fresh resource")}`);
+  const replayQuote = await fetch(`${url}/source/expert`, {
+    headers: { [REAPP_PAYMENT_CAPABILITIES_HEADER]: BOUND_PAYMENT_CAPABILITY },
+  });
+  const replayRequirement = await parse402(replayQuote);
+  if (!replayRequirement.challenge || !results[0]?.receipt) {
+    throw new Error("bound replay drill lacked a challenge or retained receipt");
+  }
+  const conflictingProof = createBoundPaymentProof({
+    challenge: replayRequirement.challenge,
+    txHash: results[0].receipt.txHash,
+    mandateId: results[0].receipt.mandateId,
+    signer: agent,
+  });
+  const replayAttack = await fetch(`${url}/source/expert`, {
+    headers: {
+      [REAPP_PAYMENT_CAPABILITIES_HEADER]: BOUND_PAYMENT_CAPABILITY,
+      [X_PAYMENT_HEADER]: encodePaymentProof(conflictingProof),
+    },
+  });
+  field("old-tx/new-proof", replayAttack.status === 409 ? c.green("409 blocked") : c.red(replayAttack.status));
+
   const merchAfter = await token.balance(TESTNET, asset, merchant.publicKey()).catch(() => 0n);
   const earned = merchAfter - merchBefore;
   const paid = results.filter((r) => r.ok);
   const blocked = results.filter((r) => !r.ok);
+  const pendingReceipts = await receiptStore.listPending();
 
   log(`\n${RULE(c.magenta)}`);
   log(`  ${c.bold("Resources received")} ${c.dim(`(${paid.length}/${SOURCES.length})`)}`);
@@ -120,6 +168,9 @@ async function main() {
     paid.length === 3 &&
     blocked.length === 1 &&
     blocked[0]?.blockedReason === "budget exceeded" &&
+    paid.every((result) => result.deliveryState === "delivered" && result.receipt?.proofVersion === 2) &&
+    pendingReceipts.length === 0 &&
+    replayAttack.status === 409 &&
     earned === 30000000n;
 
   log("");
@@ -128,6 +179,7 @@ async function main() {
   log(RULE(pass ? c.green : c.red));
   log("");
   await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  await rm(receiptRoot, { recursive: true, force: true });
   exit(pass ? 0 : 1);
 }
 

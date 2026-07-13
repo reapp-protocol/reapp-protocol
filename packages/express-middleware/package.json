@@ -1,6 +1,6 @@
 {
   "name": "@reapp-sdk/express-middleware",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Fail-closed Express middleware for REAPP x402 APIs with independent on-chain settlement verification.",
   "keywords": [
     "reapp",
@@ -24,10 +24,10 @@
   "files": ["dist"],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "node --import tsx --test src/middleware.test.ts src/verification.test.ts"
+    "test": "node --import tsx --test src/middleware.test.ts src/bound.test.ts src/bound-route.test.ts src/verification.test.ts"
   },
   "dependencies": {
-    "@reapp-sdk/core": "^0.2.2",
+    "@reapp-sdk/core": "^0.3.0",
     "@reapp-sdk/stellar": "^0.2.1",
     "@stellar/stellar-sdk": "^14.5.0",
     "buffer": "6.0.3"

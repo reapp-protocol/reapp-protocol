@@ -1,22 +1,62 @@
 #!/usr/bin/env tsx
 /** Live testnet failure drills. Fresh keys only; no local secrets or mocks. */
 import assert from "node:assert/strict";
+import { createHash, createHmac, randomBytes, randomUUID } from "node:crypto";
+import { chmod, mkdtemp, open, rename, rm } from "node:fs/promises";
 import { once } from "node:events";
 import { createServer, type Server } from "node:http";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { exit } from "node:process";
 import { Keypair } from "@stellar/stellar-sdk";
 import {
+  BOUND_PAYMENT_CAPABILITY,
+  BOUND_PAYMENT_SCHEME,
   DeliveryPendingError,
+  SettlementUncertainError,
+  REAPP_PAYMENT_CAPABILITIES_HEADER,
+  boundChallengeAuthorizationBytes,
   parse402,
   reapp,
+  type UnsignedBoundPaymentChallengeV2,
   type IntentMandate,
+  type Agent,
 } from "@reapp-sdk/core";
 import { TESTNET, keypairSigner, registryClient, token } from "@reapp-sdk/stellar";
 import { SOURCE_PRICE, startServer } from "../apps/fulfillment-agent/src/server.ts";
+import { FileBoundRedemptionStore } from "../apps/fulfillment-agent/src/redemption-store.ts";
+import { FileSettlementReceiptStore } from "../apps/consumer-agent/src/receipt-store.ts";
 
 const sleep = (milliseconds: number) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
 const txUrl = (hash: string) => `https://stellar.expert/explorer/testnet/tx/${hash}`;
 const log = (...values: unknown[]) => console.log(...values);
+
+async function journaledPay(agent: Agent, amount: string, journalPath: string): Promise<string> {
+  let safeToClear = false;
+  try {
+    const hash = await agent.pay(amount, {
+      onPrepared: async (pending) => {
+        const temporary = `${journalPath}.${randomUUID()}.tmp`;
+        const handle = await open(temporary, "wx", 0o600);
+        try {
+          await handle.writeFile(`${JSON.stringify({ version: 1, pending }, null, 2)}\n`, "utf8");
+          await handle.sync();
+        } finally {
+          await handle.close();
+        }
+        await rename(temporary, journalPath);
+        await chmod(journalPath, 0o600);
+      },
+    });
+    safeToClear = true;
+    return hash;
+  } catch (error) {
+    safeToClear = !(error instanceof SettlementUncertainError);
+    throw error;
+  } finally {
+    if (safeToClear) await rm(journalPath, { force: true });
+  }
+}
 
 async function fund(address: string): Promise<void> {
   let last = "";
@@ -81,22 +121,54 @@ async function register(
   return mandate;
 }
 
-function challenge(resource: string, merchant: string): object {
+function challenge(resource: string, merchant: string, secret: string, audience: string): object {
+  const now = Math.floor(Date.now() / 1_000);
+  const unsigned: UnsignedBoundPaymentChallengeV2 = {
+    proofVersion: 2,
+    challengeId: randomBytes(32).toString("base64url"),
+    audience,
+    scheme: BOUND_PAYMENT_SCHEME,
+    method: "GET",
+    resource,
+    bodySha256: null,
+    network: "stellar-testnet",
+    networkId: createHash("sha256").update(TESTNET.networkPassphrase, "utf8").digest("hex"),
+    registryId: TESTNET.mandateRegistryId,
+    merchant,
+    asset: TESTNET.nativeSac,
+    amountStroops: "10000000",
+    decimals: 7,
+    issuedAt: now,
+    expiresAt: now + 900,
+  };
+  const bound = {
+    ...unsigned,
+    authorization: {
+      algorithm: "hmac-sha256" as const,
+      mac: createHmac("sha256", secret)
+        .update(boundChallengeAuthorizationBytes(unsigned))
+        .digest("base64"),
+    },
+  };
   return {
     x402Version: 1,
     accepts: [{
-      scheme: "reapp-soroban",
+      scheme: BOUND_PAYMENT_SCHEME,
       network: "stellar-testnet",
       maxAmountRequired: SOURCE_PRICE,
       asset: TESTNET.nativeSac,
       payTo: merchant,
       resource,
-      extra: { contract: TESTNET.mandateRegistryId },
+      extra: {
+        contract: TESTNET.mandateRegistryId,
+        reappProofVersion: 2,
+        challenge: bound,
+      },
     }],
   };
 }
 
-async function startChallengeThenStop(merchant: string): Promise<{
+async function startChallengeThenStop(merchant: string, secret: string): Promise<{
   url: string;
   port: number;
   closed: Promise<void>;
@@ -105,6 +177,11 @@ async function startChallengeThenStop(merchant: string): Promise<{
   let resolveClosed!: () => void;
   const closed = new Promise<void>((resolve) => { resolveClosed = resolve; });
   const server = createServer((request, response) => {
+    if (request.headers[REAPP_PAYMENT_CAPABILITIES_HEADER] !== BOUND_PAYMENT_CAPABILITY) {
+      response.writeHead(426, { "content-type": "application/json" });
+      response.end(JSON.stringify({ requiredCapability: BOUND_PAYMENT_CAPABILITY }));
+      return;
+    }
     if (challenged) {
       response.writeHead(503, { "content-type": "application/json" });
       response.end(JSON.stringify({ error: "merchant shutting down" }));
@@ -116,7 +193,10 @@ async function startChallengeThenStop(merchant: string): Promise<{
       "content-type": "application/json",
       "cache-control": "private, no-store",
     });
-    response.end(JSON.stringify(challenge(resource, merchant)), () => {
+    const address = server.address();
+    if (!address || typeof address === "string") throw new Error("downtime server address unavailable");
+    const audience = `http://127.0.0.1:${address.port}`;
+    response.end(JSON.stringify(challenge(resource, merchant, secret, audience)), () => {
       setTimeout(() => {
         server.close(() => resolveClosed());
         server.closeAllConnections();
@@ -140,6 +220,7 @@ async function readMandate(mandate: IntentMandate, reader: Keypair) {
 }
 
 async function main(): Promise<void> {
+  const drillRoot = await mkdtemp(join(tmpdir(), "reapp-failure-drills-"));
   const user = Keypair.random();
   const agentKey = Keypair.random();
   const merchant = Keypair.random();
@@ -158,14 +239,15 @@ async function main(): Promise<void> {
   );
   const rogueAgent = reapp.agent({ mandate: rogueMandate, signer: agentKey });
   const rogueBefore = await token.balance(TESTNET, TESTNET.nativeSac, merchant.publicKey());
-  const rogueTx = await rogueAgent.pay("1.00");
+  const rogueJournal = join(drillRoot, "rogue-payment.json");
+  const rogueTx = await journaledPay(rogueAgent, "1.00", rogueJournal);
   const rogueAfter = await token.balance(TESTNET, TESTNET.nativeSac, merchant.publicKey());
   const rogueState = await readMandate(rogueMandate, agentKey);
   assert.equal(rogueAfter - rogueBefore, 10_000_000n);
   assert.equal(rogueState.spent, 10_000_000n);
   assert.equal(rogueState.seq, 1);
   await reapp.revokeMandate(rogueMandate, { signer: user });
-  await assert.rejects(() => rogueAgent.pay("0.50"), /#5|MandateRevoked/);
+  await assert.rejects(() => journaledPay(rogueAgent, "0.50", rogueJournal), /#5|MandateRevoked/);
   assert.equal(await token.balance(TESTNET, TESTNET.nativeSac, merchant.publicKey()), rogueAfter);
   log("PASS: within-scope spend settled; revoke blocked the next request", txUrl(rogueTx));
 
@@ -177,9 +259,16 @@ async function main(): Promise<void> {
     "1.00",
     Math.floor(Date.now() / 1_000) + 3_600,
   );
-  const downtimeAgent = reapp.agent({ mandate: downtimeMandate, signer: agentKey });
+  const downtimeAgent = reapp.agent({
+    mandate: downtimeMandate,
+    signer: agentKey,
+    proofPolicy: "bound-v2-only",
+    receiptStore: new FileSettlementReceiptStore(join(drillRoot, "pending-receipts.json")),
+  });
   const downtimeBefore = await token.balance(TESTNET, TESTNET.nativeSac, merchant.publicKey());
-  const outage = await startChallengeThenStop(merchant.publicKey());
+  const challengeSecret = randomBytes(32).toString("hex");
+  const redemptionStore = new FileBoundRedemptionStore(join(drillRoot, "redemptions.json"));
+  const outage = await startChallengeThenStop(merchant.publicKey(), challengeSecret);
   let pending: DeliveryPendingError | undefined;
   try {
     await downtimeAgent.fetch(outage.url);
@@ -196,7 +285,12 @@ async function main(): Promise<void> {
   assert.equal(downtimeState.spent, 10_000_000n);
   assert.equal(downtimeState.seq, 1);
 
-  const recovered = await startServer({ merchant: merchant.publicKey(), port: outage.port });
+  const recovered = await startServer({
+    merchant: merchant.publicKey(),
+    challengeSecret,
+    redemptionStore,
+    port: outage.port,
+  });
   try {
     const delivered = await downtimeAgent.retryDelivery(pending.receipt);
     assert.equal(delivered.status, 200);
@@ -204,8 +298,10 @@ async function main(): Promise<void> {
     assert.equal(body.settledTx, pending.receipt.txHash);
     assert.equal(await token.balance(TESTNET, TESTNET.nativeSac, merchant.publicKey()), downtimeAfter);
     const replay = await downtimeAgent.retryDelivery(pending.receipt);
-    assert.equal(replay.status, 409);
+    assert.equal(replay.status, 200);
+    assert.equal((await replay.json() as { settledTx?: string }).settledTx, pending.receipt.txHash);
     assert.equal(await token.balance(TESTNET, TESTNET.nativeSac, merchant.publicKey()), downtimeAfter);
+    await downtimeAgent.acknowledgeDelivery(pending.receipt);
   } finally {
     await closeServer(recovered.server);
   }
@@ -215,17 +311,22 @@ async function main(): Promise<void> {
   const closeTime = await latestTestnetCloseTime();
   const expiry = closeTime + 45;
   const expiryMandate = await register(user, agentKey, merchant, "1.00", expiry);
-  const expiryAgent = reapp.agent({ mandate: expiryMandate, signer: agentKey });
+  const expiryAgent = reapp.agent({ mandate: expiryMandate, signer: agentKey, proofPolicy: "bound-v2-only" });
   const expiryServer = await startServer({ merchant: merchant.publicKey(), port: 0 });
   const expiryBefore = await token.balance(TESTNET, TESTNET.nativeSac, merchant.publicKey());
   try {
-    const quoted = await fetch(`${expiryServer.url}/source/market`);
+    const quoted = await fetch(`${expiryServer.url}/source/market`, {
+      headers: { [REAPP_PAYMENT_CAPABILITIES_HEADER]: BOUND_PAYMENT_CAPABILITY },
+    });
     assert.equal(quoted.status, 402);
     const requirement = await parse402(quoted);
     assert.equal(requirement.amount, SOURCE_PRICE);
     assert.ok(await latestTestnetCloseTime() < expiry, "quote must arrive while mandate is valid");
     await waitForLedgerExpiry(expiry);
-    await assert.rejects(() => expiryAgent.pay(requirement.amount), /#4|MandateExpired/);
+    await assert.rejects(
+      () => journaledPay(expiryAgent, requirement.amount, join(drillRoot, "expiry-payment.json")),
+      /#4|MandateExpired/,
+    );
     const expiryState = await readMandate(expiryMandate, agentKey);
     assert.equal(expiryState.spent, 0n);
     assert.equal(expiryState.seq, 0);
@@ -236,6 +337,7 @@ async function main(): Promise<void> {
   log("PASS: expired before settlement; no funds moved and no resource was delivered");
 
   log("\n3/3 live failure drills passed");
+  await rm(drillRoot, { recursive: true, force: true });
 }
 
 main().catch((error) => {

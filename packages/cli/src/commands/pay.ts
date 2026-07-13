@@ -7,11 +7,18 @@
  * rejection is the whole point, so we surface it clearly rather than as a stack
  * trace. The CLI is an untrusted client; the contract is the source of truth.
  */
-import { reapp } from "@reapp-sdk/core";
+import { SettlementUncertainError, reapp } from "@reapp-sdk/core";
 import { log, c } from "../ui.js";
 import { configExists, loadConfig, networkConfig } from "../config.js";
 import { credentialsExist, loadCredentials } from "../secrets.js";
 import { mandateExists, loadMandate } from "../mandate-store.js";
+import {
+  assertNoPendingSettlement,
+  claimPendingSettlement,
+  clearPendingSettlement,
+  markSettlementCompleted,
+} from "../settlement-store.js";
+import { isFinalPaymentRejection } from "../payment-failure.js";
 
 const short = (s: string) => (s ? `${s.slice(0, 6)}…${s.slice(-4)}` : "");
 
@@ -36,6 +43,15 @@ function rejectionSummary(reason: string): string {
 }
 
 export async function runPay(amountArg?: string): Promise<void> {
+  try {
+    await assertNoPendingSettlement();
+  } catch (error) {
+    log.err("payment blocked by unresolved journal state", {
+      reason: error instanceof Error ? error.message : String(error),
+    });
+    process.exitCode = 1;
+    return;
+  }
   if (!configExists()) {
     log.warn("no reapp.config.json here — run `reapp init` first");
     return;
@@ -59,22 +75,71 @@ export async function runPay(amountArg?: string): Promise<void> {
   const mandate = reapp.createIntentMandate(stored.inputs); // same nonce -> same id
 
   log.step("execute_payment (agent-signed)", { amount: `${amount} XLM`, mandate: short(mandate.id) });
+  let preparedHash: string | undefined;
+  let hash: string;
   try {
-    const hash = await reapp.agent({ mandate, signer: creds.agentSecret }, net).pay(amount);
-    log.chain("payment settled on-chain", { tx: short(hash) });
-    console.log(
-      "\n" +
-        c.bold("Payment") +
-        "\n" +
-        c.gray("  amount  ") + c.white(`${amount} XLM`) +
-        "\n" +
-        c.gray("  tx      ") + c.dim(txUrl(hash)) +
-        "\n",
-    );
+    hash = await reapp.agent({ mandate, signer: creds.agentSecret }, net).pay(amount, {
+      onPrepared: async (pending) => {
+        await claimPendingSettlement("pay", net.mandateRegistryId, pending);
+        preparedHash = pending.txHash;
+      },
+    });
   } catch (err) {
+    if (err instanceof SettlementUncertainError) {
+      log.err("payment result is uncertain; durable journal retained", { tx: short(err.settlement.txHash) });
+      log.info("run `reapp settlement reconcile`; do not run pay again");
+      console.log(c.dim(`  ${txUrl(err.settlement.txHash)}`));
+      process.exitCode = 1;
+      return;
+    }
     const reason = err instanceof Error ? err.message : String(err);
-    log.err("payment rejected by the contract", { reason: rejectionSummary(reason) });
-    log.info("budget, expiry, and replay are enforced on-chain — the CLI cannot override them");
+    if (isFinalPaymentRejection(err)) {
+      if (preparedHash) {
+        try {
+          await clearPendingSettlement(preparedHash);
+        } catch (clearError) {
+          log.err("final rejection was observed but its durable journal could not be cleared", {
+            reason: clearError instanceof Error ? clearError.message : String(clearError),
+          });
+          process.exitCode = 1;
+          return;
+        }
+      }
+      log.err("payment rejected by the contract", { reason: rejectionSummary(reason) });
+      log.info("budget, expiry, and replay are enforced on-chain — the CLI cannot override them");
+    } else if (preparedHash) {
+      log.err("payment result is uncertain; durable journal retained", { tx: short(preparedHash) });
+      log.info("run `reapp settlement reconcile`; do not run pay again");
+    } else {
+      log.err("payment failed before a transaction hash was durably prepared", {
+        reason: reason.split("\n")[0],
+      });
+    }
     process.exitCode = 1;
+    return;
   }
+
+  try {
+    await markSettlementCompleted(hash);
+  } catch (error) {
+    log.err("payment succeeded but completion could not be durably recorded", {
+      tx: short(hash),
+      reason: error instanceof Error ? error.message : String(error),
+    });
+    log.info("run `reapp settlement reconcile`; do not run pay again");
+    process.exitCode = 1;
+    return;
+  }
+
+  log.chain("payment settled on-chain; durable acknowledgment is required", { tx: short(hash) });
+  console.log(
+    "\n" +
+      c.bold("Payment") +
+      "\n" +
+      c.gray("  amount  ") + c.white(`${amount} XLM`) +
+      "\n" +
+      c.gray("  tx      ") + c.dim(txUrl(hash)) +
+      "\n",
+  );
+  log.info(`after you durably accept this result, run \`reapp settlement acknowledge ${hash}\``);
 }

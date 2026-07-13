@@ -2,9 +2,19 @@ import assert from "node:assert/strict";
 import { once } from "node:events";
 import type { Server } from "node:http";
 import { afterEach, test } from "node:test";
-import { encodePaymentProof } from "@reapp-sdk/core";
+import { Keypair } from "@stellar/stellar-sdk";
 import {
-  InMemoryRedemptionStore,
+  BOUND_PAYMENT_CAPABILITY,
+  REAPP_PAYMENT_CAPABILITIES_HEADER,
+  X_PAYMENT_HEADER,
+  createBoundPaymentProof,
+  encodePaymentProof,
+  parse402,
+  type BoundPaymentProofV2,
+} from "@reapp-sdk/core";
+import {
+  InMemoryBoundRedemptionStore,
+  type BoundRedemptionStore,
   type PaymentVerifier,
   type VerifiedPayment,
 } from "@reapp-sdk/express-middleware";
@@ -13,9 +23,10 @@ import { createFulfillmentApp } from "./server.js";
 
 const merchant = "GCREL554SPELMSCEIQQVYS2TPDWONZ6AVQXMUNBEGGZ2X5FNYHDC2RZG";
 const user = "GBE3PH4ZYVYUXZWZL4YJP22H5J46U6VQVF6SYNJ3GGU3RHBN4M77VNBG";
-const agent = "GAHGD3Q6ZKKJFM4FM5M6DSDNTT6KGCEZRZ2NLBBGILZFSKNUFT7VTORQ";
+const agentKey = Keypair.random();
 const txHash = "a".repeat(64);
 const mandateId = "b".repeat(64);
+const challengeSecret = "reference-server-test-secret-is-long-enough";
 const servers: Server[] = [];
 
 afterEach(async () => {
@@ -28,76 +39,93 @@ const verifiedPayment = (): VerifiedPayment => ({
   ledger: 100,
   mandateId,
   user,
-  agent,
+  agent: agentKey.publicKey(),
   amount: "1",
   amountStroops: 10_000_000n,
   merchant,
   asset: TESTNET.nativeSac,
   registryId: TESTNET.mandateRegistryId,
-  scheme: "reapp-soroban",
+  scheme: "reapp-soroban-bound",
   network: "stellar-testnet",
 });
 
 const successfulVerifier = (onVerify?: (hash: string) => void): PaymentVerifier => ({
   async verify(hash) {
     onVerify?.(hash);
-    return { ok: true, payment: verifiedPayment() };
+    return { ok: true, payment: { ...verifiedPayment(), txHash: hash } };
   },
 });
 
-const proof = (overrides: Record<string, string> = {}): string => encodePaymentProof({
-  scheme: "reapp-soroban",
-  network: "stellar-testnet",
-  txHash,
-  mandateId,
-  amount: "1.00",
-  ...overrides,
-});
-
-async function start(verifier: PaymentVerifier, store = new InMemoryRedemptionStore()): Promise<string> {
-  const server = createFulfillmentApp({ merchant, verifier, redemptionStore: store }).listen(0);
+async function start(
+  verifier: PaymentVerifier,
+  secret = challengeSecret,
+  redemptionStore: BoundRedemptionStore = new InMemoryBoundRedemptionStore(),
+  configuredAudience?: string,
+): Promise<string> {
+  let runtimeAudience = "";
+  const server = createFulfillmentApp({
+    merchant,
+    verifier,
+    challengeSecret: secret,
+    redemptionStore,
+    audience: configuredAudience ?? (() => runtimeAudience),
+  }).listen(0, "127.0.0.1");
   servers.push(server);
   await once(server, "listening");
   const address = server.address();
   if (!address || typeof address === "string") throw new Error("test server did not bind TCP");
-  return `http://127.0.0.1:${address.port}`;
+  const url = `http://127.0.0.1:${address.port}`;
+  runtimeAudience = url;
+  return url;
 }
 
-test("unpaid known resource returns the exact REAPP payment requirement", async () => {
-  let verifies = 0;
-  const url = await start(successfulVerifier(() => { verifies += 1; }));
-  const response = await fetch(`${url}/source/market`);
-  assert.equal(response.status, 402);
-  assert.equal(verifies, 0);
-  assert.equal(response.headers.get("cache-control"), "private, no-store");
-  assert.match(response.headers.get("vary") ?? "", /X-PAYMENT/i);
-  const body = await response.json() as { accepts: Array<{ extra: { contract: string }; asset: string }> };
-  assert.equal(body.accepts[0]?.extra.contract, TESTNET.mandateRegistryId);
-  assert.equal(body.accepts[0]?.asset, TESTNET.nativeSac);
-});
+const capabilityHeaders = {
+  [REAPP_PAYMENT_CAPABILITIES_HEADER]: BOUND_PAYMENT_CAPABILITY,
+};
 
-test("unknown resources return 404 before asking for payment", async () => {
+async function proofFor(url: string, source = "market"): Promise<BoundPaymentProofV2> {
+  const quoted = await fetch(`${url}/source/${source}`, { headers: capabilityHeaders });
+  assert.equal(quoted.status, 402);
+  const requirement = await parse402(quoted);
+  assert.ok(requirement.challenge);
+  return createBoundPaymentProof({
+    challenge: requirement.challenge,
+    txHash,
+    mandateId,
+    signer: agentKey,
+  });
+}
+
+function headersFor(proof: BoundPaymentProofV2): Record<string, string> {
+  return { ...capabilityHeaders, [X_PAYMENT_HEADER]: encodePaymentProof(proof) };
+}
+
+test("unknown resources return 404 before any payment negotiation or verification", async () => {
   let verifies = 0;
   const url = await start(successfulVerifier(() => { verifies += 1; }));
-  const response = await fetch(`${url}/source/not-real`, {
-    headers: { "X-PAYMENT": proof() },
-  });
+  const response = await fetch(`${url}/source/not-real`);
   assert.equal(response.status, 404);
   assert.equal(verifies, 0);
 });
 
-test("verified settlement serves content and uses chain-derived evidence", async () => {
+test("known resources require bound-v2 capability before issuing a 402", async () => {
+  let verifies = 0;
+  const url = await start(successfulVerifier(() => { verifies += 1; }));
+  const oldClient = await fetch(`${url}/source/market`);
+  assert.equal(oldClient.status, 426);
+  const capable = await fetch(`${url}/source/market`, { headers: capabilityHeaders });
+  assert.equal(capable.status, 402);
+  const requirement = await parse402(capable);
+  assert.equal(requirement.challenge?.audience, url);
+  assert.equal(requirement.challenge?.resource, "/source/market");
+  assert.equal(verifies, 0);
+});
+
+test("verified agent-bound settlement serves chain-derived content evidence", async () => {
   let verifierHash = "";
   const url = await start(successfulVerifier((hash) => { verifierHash = hash; }));
-  const response = await fetch(`${url}/source/academic`, {
-    headers: {
-      "X-PAYMENT": proof({
-        txHash: txHash.toUpperCase(),
-        mandateId: "caller-supplied-lie",
-        amount: "999999",
-      }),
-    },
-  });
+  const proof = await proofFor(url, "academic");
+  const response = await fetch(`${url}/source/academic`, { headers: headersFor(proof) });
   assert.equal(response.status, 200);
   assert.equal(verifierHash, txHash);
   assert.equal(response.headers.get("cache-control"), "private, no-store");
@@ -113,35 +141,46 @@ test("verified settlement serves content and uses chain-derived evidence", async
   assert.equal(body.settledAmount, "1");
 });
 
-test("one settlement serves exactly once across different resources", async () => {
+test("same proof recovers the same idempotent source but cannot unlock another source", async () => {
   const url = await start(successfulVerifier());
-  const first = await fetch(`${url}/source/market`, { headers: { "X-PAYMENT": proof() } });
-  const replay = await fetch(`${url}/source/news`, { headers: { "X-PAYMENT": proof() } });
+  const proof = await proofFor(url);
+  const first = await fetch(`${url}/source/market`, { headers: headersFor(proof) });
+  const recovery = await fetch(`${url}/source/market`, { headers: headersFor(proof) });
+  const crossResource = await fetch(`${url}/source/news`, { headers: headersFor(proof) });
   assert.equal(first.status, 200);
-  assert.equal(replay.status, 409);
-  assert.deepEqual(await replay.json(), { error: "this payment was already redeemed" });
+  assert.equal(recovery.status, 200);
+  assert.equal(crossResource.status, 402);
 });
 
-test("invalid settlement and unavailable verification never serve content", async () => {
+test("same-secret restart recovers a settled receipt without another payment", async () => {
+  const store = new InMemoryBoundRedemptionStore();
+  const firstUrl = await start(successfulVerifier(), challengeSecret, store);
+  const proof = await proofFor(firstUrl);
+  const first = await fetch(`${firstUrl}/source/market`, { headers: headersFor(proof) });
+  assert.equal(first.status, 200);
+  const firstServer = servers.shift();
+  await new Promise<void>((resolve, reject) => firstServer?.close((error) => error ? reject(error) : resolve()));
+
+  const recoveredUrl = await start(successfulVerifier(), challengeSecret, store, firstUrl);
+  const response = await fetch(`${recoveredUrl}/source/market`, { headers: headersFor(proof) });
+  assert.equal(response.status, 200);
+  assert.equal((await response.json() as { settledTx: string }).settledTx, txHash);
+});
+
+test("invalid or unavailable settlement never reaches fulfillment", async () => {
   const invalidUrl = await start({
     verify: async () => ({ ok: false, kind: "invalid", reason: "wrong asset transfer" }),
   });
-  const invalid = await fetch(`${invalidUrl}/source/market`, { headers: { "X-PAYMENT": proof() } });
+  const invalidProof = await proofFor(invalidUrl);
+  const invalid = await fetch(`${invalidUrl}/source/market`, { headers: headersFor(invalidProof) });
   assert.equal(invalid.status, 402);
 
   const unavailableUrl = await start({
     verify: async () => ({ ok: false, kind: "unavailable", reason: "RPC unavailable" }),
   });
-  const unavailable = await fetch(`${unavailableUrl}/source/market`, { headers: { "X-PAYMENT": proof() } });
+  const unavailableProof = await proofFor(unavailableUrl);
+  const unavailable = await fetch(`${unavailableUrl}/source/market`, { headers: headersFor(unavailableProof) });
   assert.equal(unavailable.status, 503);
   const body = await unavailable.json() as Record<string, unknown>;
   assert.equal("accepts" in body, false);
-});
-
-test("redemption store failure returns 503 and never reaches fulfillment", async () => {
-  const url = await start(successfulVerifier(), {
-    consumeOnce: () => { throw new Error("shared store offline"); },
-  });
-  const response = await fetch(`${url}/source/market`, { headers: { "X-PAYMENT": proof() } });
-  assert.equal(response.status, 503);
 });
