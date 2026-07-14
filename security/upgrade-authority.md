@@ -23,6 +23,28 @@ and is accessed through the local Stellar identity named `reapp-agent` on the
 authorized operator workstation. This is acceptable only for the current
 testnet window. It is not the intended early-mainnet custody model.
 
+The documented administrator is verified against live chain state. A read-only
+`get_admin()` simulation against testnet RPC on 2026-07-14 returned the address
+above for both deployed contracts, reproducible any time with the snippet below:
+
+```
+simple    CC6JMPDHRPBR2HBLJKRCIKV54HXDV2RFXDKW6MALQKWM6JEAJQHICRWE
+          get_admin() = GA2B3YY27OY6AWT2VXMXUDBSAHVOLU2ST6QWJJJLOIGDQHJDXO4RL4XH  ✓
+composite CCYRF7FKYGSNWX5I7WLYXZ6LNUNVCSPE4BOTQFVWVTABOHAP52DYHEYW
+          get_admin() = GA2B3YY27OY6AWT2VXMXUDBSAHVOLU2ST6QWJJJLOIGDQHJDXO4RL4XH  ✓
+```
+
+Reproduce with the typed client against testnet RPC (read-only simulation):
+
+```ts
+import { registryClient, keypairSigner, TESTNET } from "@reapp-sdk/stellar";
+const c = registryClient({ ...TESTNET, mandateRegistryId: CONTRACT_ID }, signer);
+const admin = (await c.get_admin()).result; // === GA2B3YY27OY6AWT2VXMXUDBSAHVOLU2ST6QWJJJLOIGDQHJDXO4RL4XH
+```
+
+A mainnet activation gate below requires this same equality to hold for the
+2-of-3 administrator before either contract is treated as production.
+
 ## Required 2-of-3 custody before early mainnet
 
 The target administrator is a dedicated Stellar account or contract account

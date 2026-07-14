@@ -1,5 +1,44 @@
 # Bound-v2 security data flow
 
+## Diagram — first delivery
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Consumer SDK (untrusted)
+    participant M as Fulfillment middleware
+    participant A as Agent key
+    participant K as MandateRegistry
+    participant R as Stellar RPC
+    participant D as Redemption store
+
+    C->>M: GET (bound-v2 capability, manual redirects)
+    M-->>C: 402 + HMAC-authenticated exact challenge
+    Note over C: validate method, path, network, registry,<br/>merchant, asset, amount, decimals, time
+    C->>C: sign tx, derive hash + deadline, sign proof,<br/>fsync receipt BEFORE broadcast
+    A->>K: execute_payment
+    K->>K: auth(agent) → scope · budget · expiry · sequence
+    K->>R: SEP-41 transfer_from(user → merchant) [atomic]
+    C->>M: retry exact request + capability + proof
+    M->>R: verify network, success, registry event, transfer
+    M->>D: atomic claim missing → executing
+    D->>D: run callback once, commit exact bytes → completed
+    M-->>C: full body
+    C->>C: validate, durably accept, acknowledgeDelivery → clear receipt
+```
+
+Enforcement boundary at a glance:
+
+```mermaid
+flowchart LR
+    SDK["Consumer SDK<br/>(untrusted)"] -.requests only.-> K
+    A["Agent key<br/>(untrusted)"] -.requests only.-> K
+    U["User"] -- SEP-41 allowance --> K["MandateRegistry<br/>(sole spender)"]
+    K -- validate + consume + transfer --> MER["Merchant"]
+    style K fill:#0f2e1f,stroke:#00d9a5,color:#fff
+    style U fill:#16213e,stroke:#7B73FF,color:#fff
+```
+
 ## Actors and state
 
 - User: owns funds and signs the mandate.

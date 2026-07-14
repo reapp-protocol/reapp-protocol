@@ -19,7 +19,7 @@ Historical point-in-time reviews:
 | [`x402-gatecheck-2026-06-16.md`](x402-gatecheck-2026-06-16.md) | Legacy proof-v1 middleware before bound-v2. |
 
 Historical reports are retained for traceability but are not evidence for the
-current core 0.3.0 or Express middleware 0.2.0.
+current core 0.3.0 or Express middleware 0.2.1.
 
 Current repeatable checks:
 

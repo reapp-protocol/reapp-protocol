@@ -85,6 +85,16 @@ The final `reapp pay 10.00` is expected to fail after a default 3 XLM budget. Th
 CLI surfaces that contract rejection as `BudgetExceeded`; it does not simulate
 the failure locally.
 
+If `reapp pay` reports `payment blocked by unresolved journal state`, a previous
+session left a settlement unacknowledged in `~/.reapp`. This is the crash-safe
+lock working, not an error: run `reapp settlement reconcile` and then
+`reapp settlement acknowledge <TX_HASH>` to clear it. To evaluate the CLI from a
+completely clean state, point it at a throwaway home first:
+
+```bash
+REAPP_HOME=$(mktemp -d) reapp setup
+```
+
 ## Commands
 
 | Command | What it does |

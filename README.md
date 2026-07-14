@@ -41,7 +41,7 @@ flowchart LR
     style T fill:#16213e,stroke:#e94560,color:#fff
 ```
 
-> **Core invariant:** money moves only through `MandateRegistry.execute_payment`, which validates and consumes the mandate before transfer. The user approves the SEP-41 allowance for the **contract**, never for the agent, SDK, or CLI.
+> **Core invariant:** money moves only through `MandateRegistry.execute_payment` (solo payments) and `clear_pool` (composite capture of a pooled schedule each member pre-authorized at registration), each of which validates-and-consumes atomically before any transfer. The user approves the SEP-41 allowance for the **contract**, never for the agent, SDK, or CLI.
 
 ---
 

@@ -1,7 +1,7 @@
 # T2 threat model — Stellar testnet
 
 Scope: current upgradeable MandateRegistry deployments, core 0.3.0, Express
-middleware 0.2.0, AP2 package 0.2.1 (AP2 profile v0.2), CLI 0.1.4, and the reference agents.
+middleware 0.2.1, AP2 package 0.2.1 (AP2 profile v0.2), CLI 0.1.4, and the reference agents.
 
 ## Protected assets
 

@@ -12,7 +12,7 @@ It is testnet scope. It does not claim mainnet readiness.
 | Composite MandateRegistry | [`CCYRF7FK…HEYW`](https://stellar.expert/explorer/testnet/contract/CCYRF7FKYGSNWX5I7WLYXZ6LNUNVCSPE4BOTQFVWVTABOHAP52DYHEYW), release `composites-v0.3.0`, WASM `b3368d7f…f0a1` |
 | Typed Stellar package | `@reapp-sdk/stellar@0.2.1` |
 | Agent SDK | `@reapp-sdk/core@0.3.0` |
-| Express middleware | `@reapp-sdk/express-middleware@0.2.0` |
+| Express middleware | `@reapp-sdk/express-middleware@0.2.1` |
 | AP2 validator | `@reapp-sdk/ap2@0.2.1` |
 | CLI | `reapp-protocol-cli@0.1.4`, installed command `reapp` |
 
@@ -22,6 +22,16 @@ The safe, verified command is therefore:
 ```bash
 npx reapp-protocol-cli@0.1.4 demo research-agent
 ```
+
+The deliverable's package names use the `@reapp` npm scope, which is not
+available to this project. The packages ship under the `@reapp-sdk` scope
+instead, mapping one-to-one:
+
+| Deliverable name | Published package |
+|---|---|
+| `@reapp/stellar` | `@reapp-sdk/stellar` |
+| `@reapp/ap2` | `@reapp-sdk/ap2` |
+| `@reapp/express-middleware` | `@reapp-sdk/express-middleware` |
 
 ## Deliverable map
 
@@ -42,11 +52,11 @@ npx reapp-protocol-cli@0.1.4 demo research-agent
 
 ### Installable, typed SDK packages
 
-The T2 packages are typed ESM implementations published under the established
-`@reapp-sdk` scope:
+The T2 packages are typed ESM implementations published under the `@reapp-sdk`
+scope (see the scope mapping above):
 
 ```bash
-npm install @reapp-sdk/stellar@0.2.1 @reapp-sdk/ap2@0.2.1 @reapp-sdk/express-middleware@0.2.0
+npm install @reapp-sdk/stellar@0.2.1 @reapp-sdk/ap2@0.2.1 @reapp-sdk/express-middleware@0.2.1
 ```
 
 Each package contains TypeScript declarations, API documentation, and a usage
@@ -97,9 +107,35 @@ wrong merchants, overspend, expiry, replay, schema mutation, and store failure.
 | Negative tests must run continuously | Contract and workspace verification include unauthorized caller, expiry, overspend, replay, pause, upgrade authorization, malformed proof, redirect, RPC outage, store outage, and replay-conflict tests. |
 | Threat model and diagrams are gating artifacts | [`security/threat-model.md`](../security/threat-model.md) and [`security/data-flow.md`](../security/data-flow.md) describe the current bound-v2 flow and operational stores. |
 | Upgrade governance must be documented | The contracts expose admin rotation, pause/unpause, a fixed 24-hour timelock, cancel, and paused-only same-address execution. Testnet key custody and the intended 2-of-3 production transition are documented in [`security/upgrade-authority.md`](../security/upgrade-authority.md). |
-| SDK must be treated as untrusted | The allowance is granted to the contract, not the SDK or agent. Merchant delivery also requires independently verified chain evidence. |
+| SDK must be treated as untrusted | The allowance is granted to the contract, not the SDK or agent. Merchant delivery also requires independently verified chain evidence. Measured on-chain: see "On-chain enforcement artifacts" below. |
 | Reference apps must teach the safe path | Both app READMEs show bound-only agents, durable receipts/redemptions, exact-proof recovery, and unsafe-pattern warnings. |
 | Live failure behavior must be known | `npm run drills:testnet` covers rogue-agent/revocation, merchant downtime after settlement with zero second payment, and mandate expiry before settlement. |
+
+## On-chain enforcement artifacts
+
+Two pieces of evidence make "the SDK is untrusted and cannot bypass the
+contract" directly checkable, rather than a design claim:
+
+1. **The agent holds zero spending authority.** After `approveBudget`, the
+   SEP-41 `allowance(user, spender)` read from the native asset contract
+   returns the full mandate budget for `spender = MandateRegistry` and exactly
+   `0` for `spender = agent`. A compromised agent key has nothing to
+   `transfer_from`; only the contract can move the user's funds, and it does so
+   only inside its own validate-and-consume paths.
+2. **A rejected payment is rejected on-chain, not just in client preflight.**
+   Soroban RPC normally refuses to even assemble an invocation that would
+   revert, so most rejections never reach a ledger. Forcing two payments with
+   the same `expected_seq` through consecutive account sequences lands both:
+   the first settles
+   ([`aaadcb13…8b95`](https://stellar.expert/explorer/testnet/tx/aaadcb13ec89e5b9c4cabd145adab3c615069277ceef8a4e843f2e5925a38b95),
+   ledger 3586877, successful) and the second is included and **reverted by the
+   contract's replay guard**
+   ([`49523d54…8456`](https://stellar.expert/explorer/testnet/tx/49523d546d10ec2645730ebcbb29ee88d5db0b0d6c7e8dd9feade26708d18456),
+   ledger 3586878, failed). The enforcement is the deployed WASM, verifiable on
+   any explorer.
+
+Both artifacts are reproducible against the published packages with the
+adversarial scripts in [`scripts/adversarial/`](../scripts/adversarial/).
 
 ## Bound-v2 security properties
 

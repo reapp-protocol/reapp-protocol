@@ -1,6 +1,6 @@
 {
   "name": "@reapp-sdk/express-middleware",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Fail-closed Express middleware for REAPP x402 APIs with independent on-chain settlement verification.",
   "keywords": [
     "reapp",
