@@ -11,12 +11,14 @@ agent pays for a 402-gated resource via **x402**; the Soroban **MandateRegistry*
 contract enforces scope, budget, expiry, and replay at consume time. A compromised
 agent or SDK cannot exceed the mandate.
 
-**The core invariant:** money moves only through `MandateRegistry.execute_payment`,
-which validates-and-consumes the mandate atomically *before* it transfers. The user
-approves the SEP-41 allowance for the **contract**, never for the agent or SDK. The SDK
-is untrusted; the contract is the source of truth. When changing anything, preserve
-this: never let a spend path bypass `execute_payment`, and never move the allowance
-or enforcement into TypeScript.
+**The core invariant:** money moves only through `MandateRegistry.execute_payment`
+(solo payments) and `clear_pool` (composite capture of a pooled schedule each member
+pre-authorized at registration), each of which validates-and-consumes the mandate
+atomically *before* it transfers. The user approves the SEP-41 allowance for the
+**contract**, never for the agent or SDK. The SDK is untrusted; the contract is the
+source of truth. When changing anything, preserve this: never let a spend path bypass
+the two validated capture points, and never move the allowance or enforcement into
+TypeScript.
 
 ## Commands
 
@@ -60,16 +62,22 @@ validates+consumes, then does the SEP-41 `transfer_from(user → merchant)`.
 ### `contracts/mandate-registry/` — Rust / soroban-sdk (the enforcement layer)
 The entire protocol; small by design (small interface = reviewable). Modules have a
 strictly one-way dependency graph (no cycles), documented at the top of `src/lib.rs`:
-`lib → {registry, payment} → storage → mandate/error`, with `events` as a leaf.
+`lib → {registry, payment, pool} → storage → {mandate, pooltypes, error}`, with
+`pool → clearing → {mandate, pooltypes}` (pure) and `events` as a leaf.
 - `lib.rs` — contract entry points only (thin dispatch, no logic).
 - `storage.rs` — the **only** module that touches `env.storage`; `DataKey` + TTL.
 - `registry.rs` — `register_mandate` / `revoke_mandate` (allowance funding model).
 - `payment.rs` — `validate_mandate` (read-only preflight) + `execute_payment` (the
-  one money path: `require_auth(agent)` → replay guard on `expected_seq` → re-validate
+  solo money path: `require_auth(agent)` → replay guard on `expected_seq` → re-validate
   → advance `spent`+`seq` → transfer; reverts on any failure).
+- `pool.rs` — pool lifecycle: register / commit / evict / simulate + `clear_pool`
+  (the composite money path: permissionless deadline-auction capture of a pooled
+  schedule each member pre-authorized at registration; re-checks pause, budget,
+  and eligibility per member before its `transfer_from`).
+- `clearing.rs` (pure clearing math), `pooltypes.rs` (pure pool data).
 - `mandate.rs` (pure data), `error.rs` (typed errors), `events.rs`.
-- `test.rs` + `test_snapshots/` — the negative suite (§10), which CI runs from
-  commit one. `reentry_probe.rs` is a reentrancy guard test.
+- `test.rs` + `pool_test.rs` + `test_snapshots/` — the negative suite (§10), which
+  CI runs from commit one. `reentry_probe.rs` is a reentrancy guard test.
 
 ### `packages/stellar/` — `@reapp-sdk/stellar` (typed Soroban layer)
 Network config (`TESTNET`), the generated/typed `registryClient` contract bindings,
