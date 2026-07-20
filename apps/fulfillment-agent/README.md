@@ -87,5 +87,6 @@ Keep the challenge secret stable and private.
 - Never use file/in-memory stores across a cluster.
 
 Default contract:
-[`CC6JMPDH…CRWE`](https://stellar.expert/explorer/testnet/contract/CC6JMPDHRPBR2HBLJKRCIKV54HXDV2RFXDKW6MALQKWM6JEAJQHICRWE),
-WASM `13f7023d4a361b6e49d3d39f61f55c5eeece51a602013a3cddae420d2ce8552b`.
+[`CCHQ5G4Y…CZRM`](https://stellar.expert/explorer/testnet/contract/CCHQ5G4Y4YBMY6D3TYYJSVJVCKUM22Q6TMKCCHVAHY4X7K6QELQACZRM),
+WASM `ba370a80369daa0a0dea2554410dca6f2a9f7a76ba707cb92a83434e2fe76e87`,
+from the verified `simple-v0.2.3` release.

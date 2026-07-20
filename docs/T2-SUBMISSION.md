@@ -8,19 +8,19 @@ It is testnet scope. It does not claim mainnet readiness.
 
 | Surface | Current version or deployment |
 |---|---|
-| Default simple MandateRegistry | [`CC6JMPDH…CRWE`](https://stellar.expert/explorer/testnet/contract/CC6JMPDHRPBR2HBLJKRCIKV54HXDV2RFXDKW6MALQKWM6JEAJQHICRWE), release `simple-v0.2.0`, WASM `13f7023d…8552b` |
+| Default simple MandateRegistry | [`CCHQ5G4Y…CZRM`](https://stellar.expert/explorer/testnet/contract/CCHQ5G4Y4YBMY6D3TYYJSVJVCKUM22Q6TMKCCHVAHY4X7K6QELQACZRM), release `simple-v0.2.3`, WASM `ba370a80…76e87`, source verified |
 | Composite MandateRegistry | [`CCYRF7FK…HEYW`](https://stellar.expert/explorer/testnet/contract/CCYRF7FKYGSNWX5I7WLYXZ6LNUNVCSPE4BOTQFVWVTABOHAP52DYHEYW), release `composites-v0.3.0`, WASM `b3368d7f…f0a1` |
-| Typed Stellar package | `@reapp-sdk/stellar@0.2.1` |
-| Agent SDK | `@reapp-sdk/core@0.3.0` |
-| Express middleware | `@reapp-sdk/express-middleware@0.2.1` |
-| AP2 validator | `@reapp-sdk/ap2@0.2.1` |
-| CLI | `reapp-protocol-cli@0.1.4`, installed command `reapp` |
+| Typed Stellar package | `@reapp-sdk/stellar@0.2.2` |
+| Agent SDK | `@reapp-sdk/core@0.3.1` |
+| Express middleware | `@reapp-sdk/express-middleware@0.2.2` |
+| AP2 validator | `@reapp-sdk/ap2@0.2.2` |
+| CLI | `reapp-protocol-cli@0.1.5`, installed command `reapp` |
 
 The requested unscoped npm name `reapp-cli` is owned by an unrelated publisher.
 The safe, verified command is therefore:
 
 ```bash
-npx reapp-protocol-cli@0.1.4 demo research-agent
+npx reapp-protocol-cli@0.1.5 demo research-agent
 ```
 
 The deliverable's package names use the `@reapp` npm scope, which is not
@@ -47,7 +47,7 @@ contract budget.
 Evidence:
 
 ```bash
-npx reapp-protocol-cli@0.1.4 demo research-agent
+npx reapp-protocol-cli@0.1.5 demo research-agent
 ```
 
 ### Installable, typed SDK packages
@@ -56,7 +56,7 @@ The T2 packages are typed ESM implementations published under the `@reapp-sdk`
 scope (see the scope mapping above):
 
 ```bash
-npm install @reapp-sdk/stellar@0.2.1 @reapp-sdk/ap2@0.2.1 @reapp-sdk/express-middleware@0.2.1
+npm install @reapp-sdk/stellar@0.2.2 @reapp-sdk/ap2@0.2.2 @reapp-sdk/express-middleware@0.2.2
 ```
 
 Each package contains TypeScript declarations, API documentation, and a usage
@@ -106,7 +106,7 @@ wrong merchants, overspend, expiry, replay, schema mutation, and store failure.
 | MandateRegistry must enforce the money path | `Agent.pay` and `Agent.fetch` settle only through `execute_payment`. The contract validates caller, merchant, amount, expiry, cumulative budget, and sequence before transfer. |
 | Negative tests must run continuously | Contract and workspace verification include unauthorized caller, expiry, overspend, replay, pause, upgrade authorization, malformed proof, redirect, RPC outage, store outage, and replay-conflict tests. |
 | Threat model and diagrams are gating artifacts | [`security/threat-model.md`](../security/threat-model.md) and [`security/data-flow.md`](../security/data-flow.md) describe the current bound-v2 flow and operational stores. |
-| Upgrade governance must be documented | The contracts expose admin rotation, pause/unpause, a fixed 24-hour timelock, cancel, and paused-only same-address execution. Testnet key custody and the intended 2-of-3 production transition are documented in [`security/upgrade-authority.md`](../security/upgrade-authority.md). |
+| Upgrade governance must be documented | The contracts expose admin rotation, pause/unpause, timelocked same-address execution, and cancellation. The default simple testnet contract has a fixed one-hour delay; the composite testnet contract retains 24 hours. Testnet key custody and the intended 2-of-3 production transition are documented in [`security/upgrade-authority.md`](../security/upgrade-authority.md). |
 | SDK must be treated as untrusted | The allowance is granted to the contract, not the SDK or agent. Merchant delivery also requires independently verified chain evidence. Measured on-chain: see "On-chain enforcement artifacts" below. |
 | Reference apps must teach the safe path | Both app READMEs show bound-only agents, durable receipts/redemptions, exact-proof recovery, and unsafe-pattern warnings. |
 | Live failure behavior must be known | `npm run drills:testnet` covers rogue-agent/revocation, merchant downtime after settlement with zero second payment, and mandate expiry before settlement. |

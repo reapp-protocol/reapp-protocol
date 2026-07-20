@@ -8,17 +8,17 @@ cannot replace the contract's `execute_payment` checks.
 
 | Package | Version | Purpose |
 |---|---:|---|
-| `@reapp-sdk/core` | 0.3.0 | Mandates, payments, bound-v2 `agent.fetch`, receipts, recovery. |
-| `@reapp-sdk/stellar` | 0.2.1 | Typed contract bindings, network config, signing and token helpers. |
-| `@reapp-sdk/ap2` | 0.2.1 | Signed AP2 profile validation and replay admission. |
-| `@reapp-sdk/express-middleware` | 0.2.1 | Bound-v2 Express payment boundary and chain verifier. |
-| `reapp-protocol-cli` | 0.1.4 | `init`, `setup`, mandate, crash-safe pay/reconcile/acknowledge, and demo commands. |
+| `@reapp-sdk/core` | 0.3.1 | Mandates, payments, bound-v2 `agent.fetch`, receipts, recovery. |
+| `@reapp-sdk/stellar` | 0.2.2 | Typed contract bindings, permanent testnet deployment, network config, signing and token helpers. |
+| `@reapp-sdk/ap2` | 0.2.2 | Signed AP2 profile validation and replay admission. |
+| `@reapp-sdk/express-middleware` | 0.2.2 | Bound-v2 Express payment boundary and chain verifier. |
+| `reapp-protocol-cli` | 0.1.5 | `init`, `setup`, mandate, crash-safe pay/reconcile/acknowledge, and demo commands. |
 
 The unrelated npm package `reapp-cli` is owned by another publisher. Use the
 project's unambiguous public CLI name:
 
 ```bash
-npx reapp-protocol-cli@0.1.4 demo research-agent
+npx reapp-protocol-cli@0.1.5 demo research-agent
 ```
 
 ## Install
@@ -26,13 +26,13 @@ npx reapp-protocol-cli@0.1.4 demo research-agent
 Application client:
 
 ```bash
-npm install @reapp-sdk/core@0.3.0 @stellar/stellar-sdk
+npm install @reapp-sdk/core@0.3.1 @stellar/stellar-sdk
 ```
 
 T2 SDK packages:
 
 ```bash
-npm install @reapp-sdk/stellar@0.2.1 @reapp-sdk/ap2@0.2.1 @reapp-sdk/express-middleware@0.2.1
+npm install @reapp-sdk/stellar@0.2.2 @reapp-sdk/ap2@0.2.2 @reapp-sdk/express-middleware@0.2.2
 ```
 
 ## Bound-v2 client API
@@ -127,11 +127,11 @@ The gate check:
 Registry proof is a separate external check:
 
 ```bash
-npm view @reapp-sdk/core@0.3.0 version dist.integrity
-npm view @reapp-sdk/stellar@0.2.1 version dist.integrity
-npm view @reapp-sdk/ap2@0.2.1 version dist.integrity
-npm view @reapp-sdk/express-middleware@0.2.1 version dist.integrity
-npm view reapp-protocol-cli@0.1.4 version dist.integrity
+npm view @reapp-sdk/core@0.3.1 version dist.integrity
+npm view @reapp-sdk/stellar@0.2.2 version dist.integrity
+npm view @reapp-sdk/ap2@0.2.2 version dist.integrity
+npm view @reapp-sdk/express-middleware@0.2.2 version dist.integrity
+npm view reapp-protocol-cli@0.1.5 version dist.integrity
 ```
 
 Then install into an empty temporary project, compile strict TypeScript imports,
@@ -141,5 +141,5 @@ public registry evidence.
 ## Testnet contract
 
 All current packages default to the upgradeable simple MandateRegistry
-[`CC6JMPDH…CRWE`](https://stellar.expert/explorer/testnet/contract/CC6JMPDHRPBR2HBLJKRCIKV54HXDV2RFXDKW6MALQKWM6JEAJQHICRWE),
-WASM `13f7023d4a361b6e49d3d39f61f55c5eeece51a602013a3cddae420d2ce8552b`.
+[`CCHQ5G4Y…CZRM`](https://stellar.expert/explorer/testnet/contract/CCHQ5G4Y4YBMY6D3TYYJSVJVCKUM22Q6TMKCCHVAHY4X7K6QELQACZRM),
+WASM `ba370a80369daa0a0dea2554410dca6f2a9f7a76ba707cb92a83434e2fe76e87`.

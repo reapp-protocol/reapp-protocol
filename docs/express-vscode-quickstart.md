@@ -34,7 +34,7 @@ Open an empty folder in VS Code, then run:
 ```bash
 npm init -y
 npm pkg set type=module
-npm install @reapp-sdk/core@0.3.0 @stellar/stellar-sdk
+npm install @reapp-sdk/core@0.3.1 @stellar/stellar-sdk
 ```
 
 Create `index.mjs` from the browser's generated example. The load-bearing client

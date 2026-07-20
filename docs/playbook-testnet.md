@@ -8,11 +8,11 @@ stage consumes the verified evidence from the prior stage.
 
 | Surface | Baseline |
 |---|---|
-| Simple/default contract | `CC6JMPDHRPBR2HBLJKRCIKV54HXDV2RFXDKW6MALQKWM6JEAJQHICRWE`, 0.2.0, hash `13f7023d…8552b` |
+| Simple/default contract | `CCHQ5G4Y4YBMY6D3TYYJSVJVCKUM22Q6TMKCCHVAHY4X7K6QELQACZRM`, 0.2.3, hash `ba370a80…76e87`, source verified |
 | Composite contract | `CCYRF7FKYGSNWX5I7WLYXZ6LNUNVCSPE4BOTQFVWVTABOHAP52DYHEYW`, 0.3.0, hash `b3368d7f…f0a1` |
-| Core / Stellar | 0.3.0 / 0.2.1 |
-| Express / AP2 | 0.2.1 / 0.2.1 |
-| CLI | `reapp-protocol-cli@0.1.4` |
+| Core / Stellar | 0.3.1 / 0.2.2 |
+| Express / AP2 | 0.2.2 / 0.2.2 |
+| CLI | `reapp-protocol-cli@0.1.5` |
 
 All commands use Stellar testnet. Never place secrets in command history,
 documentation, commits, screenshots, or logs. Use a configured Stellar identity
@@ -135,7 +135,8 @@ stellar contract invoke --id <contract-id> --source reapp-agent --network testne
   schedule_upgrade --new_wasm_hash <64-hex-wasm-hash>
 ```
 
-Confirm pending state and the fixed 86,400-second deadline:
+Confirm pending state and the contract-reported deadline. The current simple
+testnet contract reports `3,600` seconds; the composite reports `86,400`:
 
 ```bash
 stellar contract invoke --id <contract-id> --source reapp-agent --network testnet --no-cache -- --get_pending_upgrade
@@ -234,7 +235,7 @@ registry in a clean project. Do not call a package released until this succeeds.
 The unscoped `reapp-cli` name belongs to another publisher. Public examples use:
 
 ```bash
-npx reapp-protocol-cli@0.1.4 demo research-agent
+npx reapp-protocol-cli@0.1.5 demo research-agent
 ```
 
 ## 10. Source commits and pushes

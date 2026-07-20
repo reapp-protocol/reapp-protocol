@@ -8,7 +8,7 @@ move funds.
 
 | Contract | Testnet id | Release | WASM SHA-256 |
 |---|---|---|---|
-| Simple/default | [`CC6JMPDH…CRWE`](https://stellar.expert/explorer/testnet/contract/CC6JMPDHRPBR2HBLJKRCIKV54HXDV2RFXDKW6MALQKWM6JEAJQHICRWE) | [`simple-v0.2.0`](https://github.com/reapp-protocol/reapp-protocol-contracts/releases/tag/simple-v0.2.0_contracts_simple_mandate_registry_mandate-registry_pkg0.2.0_cli25.1.0) | `13f7023d4a361b6e49d3d39f61f55c5eeece51a602013a3cddae420d2ce8552b` |
+| Simple/default | [`CCHQ5G4Y…CZRM`](https://stellar.expert/explorer/testnet/contract/CCHQ5G4Y4YBMY6D3TYYJSVJVCKUM22Q6TMKCCHVAHY4X7K6QELQACZRM) | [`simple-v0.2.3`](https://github.com/reapp-protocol/reapp-protocol-contracts/releases/tag/simple-v0.2.3_contracts_simple_mandate_registry_mandate-registry_pkg0.2.3_cli25.1.0) | `ba370a80369daa0a0dea2554410dca6f2a9f7a76ba707cb92a83434e2fe76e87` |
 | Composite | [`CCYRF7FK…HEYW`](https://stellar.expert/explorer/testnet/contract/CCYRF7FKYGSNWX5I7WLYXZ6LNUNVCSPE4BOTQFVWVTABOHAP52DYHEYW) | [`composites-v0.3.0`](https://github.com/reapp-protocol/reapp-protocol-contracts/releases/tag/composites-v0.3.0_contracts_composites_mandate_registry_mandate-registry_pkg0.3.0_cli25.1.0) | `b3368d7fb68017d078792b125dff0389d4c4c893c86fb075baeb9100f0e0f0a1` |
 
 `@reapp-sdk/stellar` defaults to the simple contract. The composite contract is
@@ -42,7 +42,7 @@ MandateRegistry payment because it does not validate or consume contract state.
 | `schedule_upgrade(hash)` | Admin schedules a replacement and returns earliest execution time. |
 | `get_pending_upgrade` | Read proposed hash and earliest execution time. |
 | `cancel_upgrade` | Admin removes the proposal. |
-| `get_upgrade_delay` | Returns fixed `86,400` seconds. |
+| `get_upgrade_delay` | Returns fixed `3,600` seconds on the default simple contract. |
 | `execute_upgrade` | Admin replaces WASM after delay while paused, preserving id/storage. |
 
 The composite contract applies pause to solo payment and firing pool capture.
@@ -73,13 +73,14 @@ eviction, and simulation remain available.
 Upgrade execution requires all three controls:
 
 1. current-admin authorization;
-2. elapsed 24-hour delay; and
+2. elapsed one-hour delay on the default simple contract; and
 3. paused state.
 
 The positive lifecycle test uploads a real replacement WASM, schedules it,
 proves early execution fails, proves unpaused execution fails at the deadline,
 pauses, executes, invokes a new method at the original contract id, and verifies
 preserved admin, pause state, mandate storage, and cleared pending state.
+The composite testnet deployment retains its 24-hour delay.
 
 This is testnet operational control. Mainnet governance additionally requires
 documented 2-of-3 key holders, rotation, lost-key recovery, monitoring, and an

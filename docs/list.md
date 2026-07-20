@@ -2,7 +2,7 @@
 
 Current testnet facts:
 
-- Default simple contract: [`CC6JMPDH…CRWE`](https://stellar.expert/explorer/testnet/contract/CC6JMPDHRPBR2HBLJKRCIKV54HXDV2RFXDKW6MALQKWM6JEAJQHICRWE), release `simple-v0.2.0`, WASM `13f7023d…8552b`.
+- Default simple contract: [`CCHQ5G4Y…CZRM`](https://stellar.expert/explorer/testnet/contract/CCHQ5G4Y4YBMY6D3TYYJSVJVCKUM22Q6TMKCCHVAHY4X7K6QELQACZRM), release `simple-v0.2.3`, WASM `ba370a80…76e87`, source verified.
 - Composite contract: [`CCYRF7FK…HEYW`](https://stellar.expert/explorer/testnet/contract/CCYRF7FKYGSNWX5I7WLYXZ6LNUNVCSPE4BOTQFVWVTABOHAP52DYHEYW), release `composites-v0.3.0`, WASM `b3368d7f…f0a1`.
 - Historical deployments remain explorer-visible but are not SDK defaults.
 

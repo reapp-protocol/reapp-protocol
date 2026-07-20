@@ -2,7 +2,7 @@
 
 **Protocol, SDK, CLI, and reference agents for mandate-enforced agent payments on Stellar. The SDK prepares requests; the contract decides whether money moves.**
 
-[![Stellar](https://img.shields.io/badge/Stellar-Testnet-7B73FF?logo=stellar&logoColor=white)](https://stellar.expert/explorer/testnet/contract/CC6JMPDHRPBR2HBLJKRCIKV54HXDV2RFXDKW6MALQKWM6JEAJQHICRWE)
+[![Stellar](https://img.shields.io/badge/Stellar-Testnet-7B73FF?logo=stellar&logoColor=white)](https://stellar.expert/explorer/testnet/contract/CCHQ5G4Y4YBMY6D3TYYJSVJVCKUM22Q6TMKCCHVAHY4X7K6QELQACZRM)
 [![CI](https://github.com/reapp-protocol/reapp-protocol/actions/workflows/ci.yml/badge.svg)](https://github.com/reapp-protocol/reapp-protocol/actions/workflows/ci.yml)
 [![TypeScript](https://img.shields.io/badge/TypeScript-SDK-3178C6?logo=typescript&logoColor=white)](packages/sdk)
 [![npm](https://img.shields.io/badge/npm-%40reapp--sdk%2Fcore-CB3837?logo=npm&logoColor=white)](https://www.npmjs.com/package/@reapp-sdk/core)
@@ -55,7 +55,7 @@ flowchart LR
 | Replay resistance | Every spend supplies the current mandate sequence; stale and out-of-order calls are rejected. |
 | Bound HTTP delivery | Exact-origin GET challenges, agent signatures, pre-broadcast receipts, explicit application acknowledgment, and atomic claim plus immutable-result replay close public-transaction reuse. |
 | Adaptable HTTP layer | x402 request and response parsing is isolated from the mandate model and contract interface. |
-| Controlled evolution | Testnet contracts support admin pause and 24-hour timelocked same-address upgrades while preserving storage and contract ID. |
+| Controlled evolution | The default testnet contract supports admin pause and a one-hour timelocked same-address upgrade while preserving storage and contract ID. |
 
 ---
 
@@ -63,7 +63,7 @@ flowchart LR
 
 | Surface | Current source or deployment |
 |---|---|
-| Default simple MandateRegistry | [`CC6JMPDH…CRWE`](https://stellar.expert/explorer/testnet/contract/CC6JMPDHRPBR2HBLJKRCIKV54HXDV2RFXDKW6MALQKWM6JEAJQHICRWE) — [`simple-v0.2.0`](https://github.com/reapp-protocol/reapp-protocol-contracts/releases/tag/simple-v0.2.0_contracts_simple_mandate_registry_mandate-registry_pkg0.2.0_cli25.1.0), WASM `13f7023d…8552b`, pause, authority rotation, and 24-hour same-address upgrades |
+| Default simple MandateRegistry | [`CCHQ5G4Y…CZRM`](https://stellar.expert/explorer/testnet/contract/CCHQ5G4Y4YBMY6D3TYYJSVJVCKUM22Q6TMKCCHVAHY4X7K6QELQACZRM) — [`simple-v0.2.3`](https://github.com/reapp-protocol/reapp-protocol-contracts/releases/tag/simple-v0.2.3_contracts_simple_mandate_registry_mandate-registry_pkg0.2.3_cli25.1.0), WASM `ba370a80…76e87`, verified source, pause, authority rotation, and one-hour same-address upgrades |
 | Composite MandateRegistry | [`CCYRF7FK…HEYW`](https://stellar.expert/explorer/testnet/contract/CCYRF7FKYGSNWX5I7WLYXZ6LNUNVCSPE4BOTQFVWVTABOHAP52DYHEYW) — deterministic clearing pools with the same operational controls |
 | Contract releases and hashes | [`reapp-protocol-contracts`](https://github.com/reapp-protocol/reapp-protocol-contracts) |
 | High-level SDK | [`@reapp-sdk/core`](https://www.npmjs.com/package/@reapp-sdk/core) — mandates, payments, and `agent.fetch()` |
@@ -102,7 +102,7 @@ npm run gatecheck:t2
 Run the reviewer CLI from any clean directory:
 
 ```bash
-npx reapp-protocol-cli@0.1.4 demo research-agent
+npx reapp-protocol-cli@0.1.5 demo research-agent
 ```
 
 Run both reference agents from this repository with one command:

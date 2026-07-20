@@ -1,7 +1,7 @@
 # T2 threat model — Stellar testnet
 
-Scope: current upgradeable MandateRegistry deployments, core 0.3.0, Express
-middleware 0.2.1, AP2 package 0.2.1 (AP2 profile v0.2), CLI 0.1.4, and the reference agents.
+Scope: current upgradeable MandateRegistry deployments, core 0.3.1, Express
+middleware 0.2.2, AP2 package 0.2.2 (AP2 profile v0.2), CLI 0.1.5, and the reference agents.
 
 ## Protected assets
 
@@ -38,8 +38,8 @@ middleware 0.2.1, AP2 package 0.2.1 (AP2 profile v0.2), CLI 0.1.4, and the refer
 9. Signed hash, validity window, and receipt are durable before broadcast; a
    restart hydrates the lock and application acknowledgment alone clears it.
 10. Admin rotation, pause, and upgrade actions require current-admin authorization.
-11. Upgrade execution also requires the 24-hour delay and paused state and keeps
-    the same contract id and storage.
+11. Upgrade execution also requires the configured delay (one hour on the
+    simple testnet contract), paused state, and keeps the same contract id and storage.
 
 ## Adversarial cases and controls
 

@@ -36,6 +36,6 @@
     "typescript": "^5.7.2"
   },
   "dependencies": {
-    "@reapp-sdk/core": "^0.3.0"
+    "@reapp-sdk/core": "^0.3.1"
   }
 }

@@ -1,4 +1,4 @@
-# @reapp-sdk/express-middleware 0.2.1
+# @reapp-sdk/express-middleware 0.2.2
 
 Fail-closed Express 4/5 paid JSON routes for REAPP on Stellar.
 
@@ -12,7 +12,7 @@ never re-run arbitrary fulfillment work.
 ## Install
 
 ```bash
-npm install @reapp-sdk/express-middleware@0.2.1 express@5.2.1
+npm install @reapp-sdk/express-middleware@0.2.2 express@5.2.1
 ```
 
 ## Safe paid route
@@ -160,8 +160,8 @@ change without changing contract storage or weakening `execute_payment`.
 
 ## Current contract evidence
 
-- Testnet contract: [`CC6JMPDH…CRWE`](https://stellar.expert/explorer/testnet/contract/CC6JMPDHRPBR2HBLJKRCIKV54HXDV2RFXDKW6MALQKWM6JEAJQHICRWE)
-- WASM SHA-256: `13f7023d4a361b6e49d3d39f61f55c5eeece51a602013a3cddae420d2ce8552b`
-- Release: [`simple-v0.2.0`](https://github.com/reapp-protocol/reapp-protocol-contracts/releases/tag/simple-v0.2.0_contracts_simple_mandate_registry_mandate-registry_pkg0.2.0_cli25.1.0)
+- Testnet contract: [`CCHQ5G4Y…CZRM`](https://stellar.expert/explorer/testnet/contract/CCHQ5G4Y4YBMY6D3TYYJSVJVCKUM22Q6TMKCCHVAHY4X7K6QELQACZRM)
+- WASM SHA-256: `ba370a80369daa0a0dea2554410dca6f2a9f7a76ba707cb92a83434e2fe76e87`
+- Release: [`simple-v0.2.3`](https://github.com/reapp-protocol/reapp-protocol-contracts/releases/tag/simple-v0.2.3_contracts_simple_mandate_registry_mandate-registry_pkg0.2.3_cli25.1.0)
 
 Apache-2.0.

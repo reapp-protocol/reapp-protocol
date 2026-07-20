@@ -19,18 +19,18 @@ Three purchases settle; the fourth is rejected by the contract budget.
 ## Terminal-only CLI proof
 
 ```bash
-npx reapp-protocol-cli@0.1.4 demo research-agent
+npx reapp-protocol-cli@0.1.5 demo research-agent
 ```
 
 For a reusable CLI project:
 
 ```bash
-npx reapp-protocol-cli@0.1.4 init
-npx reapp-protocol-cli@0.1.4 setup
-npx reapp-protocol-cli@0.1.4 mandate create
-npx reapp-protocol-cli@0.1.4 pay
-npx reapp-protocol-cli@0.1.4 settlement reconcile
-npx reapp-protocol-cli@0.1.4 settlement acknowledge <TX_HASH>
+npx reapp-protocol-cli@0.1.5 init
+npx reapp-protocol-cli@0.1.5 setup
+npx reapp-protocol-cli@0.1.5 mandate create
+npx reapp-protocol-cli@0.1.5 pay
+npx reapp-protocol-cli@0.1.5 settlement reconcile
+npx reapp-protocol-cli@0.1.5 settlement acknowledge <TX_HASH>
 ```
 
 ## Clean VS Code consumer project
@@ -41,7 +41,7 @@ npx reapp-protocol-cli@0.1.4 settlement acknowledge <TX_HASH>
 
 ```bash
 npm init -y
-npm install @reapp-sdk/core@0.3.0 @stellar/stellar-sdk
+npm install @reapp-sdk/core@0.3.1 @stellar/stellar-sdk
 ```
 
 Use the hosted [`reapp.live/express`](https://reapp.live/express) workbench to

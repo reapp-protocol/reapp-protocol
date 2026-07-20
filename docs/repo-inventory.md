@@ -4,11 +4,11 @@
 
 | Path | Public surface | Ownership |
 |---|---|---|
-| `packages/sdk` | `@reapp-sdk/core@0.3.0` | High-level mandates, contract payments, bound-v2 client, receipts and recovery. |
-| `packages/stellar` | `@reapp-sdk/stellar@0.2.1` | Generated typed bindings, testnet config, signer and SEP-41 helpers. |
-| `packages/ap2` | `@reapp-sdk/ap2@0.2.1` | Signed AP2 v0.2 profile validator and replay admission. |
-| `packages/express-middleware` | `@reapp-sdk/express-middleware@0.2.1` | Exact-origin GET proof, Stellar verifier, and atomic claim/immutable-result route. |
-| `packages/cli` | `reapp-protocol-cli@0.1.4` | `init`, `setup`, mandate, crash-safe pay/reconcile/acknowledge, and demo flow. |
+| `packages/sdk` | `@reapp-sdk/core@0.3.1` | High-level mandates, contract payments, bound-v2 client, receipts and recovery. |
+| `packages/stellar` | `@reapp-sdk/stellar@0.2.2` | Generated typed bindings, permanent testnet contract config, signer and SEP-41 helpers. |
+| `packages/ap2` | `@reapp-sdk/ap2@0.2.2` | Signed AP2 v0.2 profile validator and replay admission. |
+| `packages/express-middleware` | `@reapp-sdk/express-middleware@0.2.2` | Exact-origin GET proof, Stellar verifier, and atomic claim/immutable-result route. |
+| `packages/cli` | `reapp-protocol-cli@0.1.5` | `init`, `setup`, mandate, crash-safe pay/reconcile/acknowledge, and demo flow. |
 
 ## Reference applications
 
@@ -26,7 +26,7 @@ The protocol repository includes a compatible contract workspace for development
 and tests. The authoritative source-verification releases and deployment gate
 live in `reapp-protocol-contracts`:
 
-- simple/default `CC6JMPDH…CRWE`, release 0.2.0;
+- simple/default `CCHQ5G4Y…CZRM`, release 0.2.3;
 - composite `CCYRF7FK…HEYW`, release 0.3.0.
 
 The contract gate covers unauthorized callers, expiry, overspend, replay,

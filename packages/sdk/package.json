@@ -1,6 +1,6 @@
 {
   "name": "@reapp-sdk/core",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Thin, untrusted client for the REAPP MandateRegistry. The contract is the source of truth.",
   "keywords": [
     "stellar",
@@ -29,7 +29,7 @@
     "test": "node --import tsx --test src/x402.test.ts src/payment-sequence.test.ts src/fetch.test.ts test/index.test.mjs"
   },
   "dependencies": {
-    "@reapp-sdk/stellar": "^0.2.1",
+    "@reapp-sdk/stellar": "^0.2.2",
     "@stellar/stellar-sdk": "^14.5.0",
     "buffer": "6.0.3"
   },

@@ -14,7 +14,7 @@ Both current testnet contracts report the same administrator:
 
 | Contract | Address | Control state |
 |---|---|---|
-| [Simple 0.2.0](https://stellar.expert/explorer/testnet/contract/CC6JMPDHRPBR2HBLJKRCIKV54HXDV2RFXDKW6MALQKWM6JEAJQHICRWE) | `CC6JMPDHRPBR2HBLJKRCIKV54HXDV2RFXDKW6MALQKWM6JEAJQHICRWE` | 24-hour delayed same-address upgrade; money path currently unpaused |
+| [Simple 0.2.3](https://stellar.expert/explorer/testnet/contract/CCHQ5G4Y4YBMY6D3TYYJSVJVCKUM22Q6TMKCCHVAHY4X7K6QELQACZRM) | `CCHQ5G4Y4YBMY6D3TYYJSVJVCKUM22Q6TMKCCHVAHY4X7K6QELQACZRM` | One-hour delayed same-address upgrade; money path currently unpaused |
 | [Composite 0.3.0](https://stellar.expert/explorer/testnet/contract/CCYRF7FKYGSNWX5I7WLYXZ6LNUNVCSPE4BOTQFVWVTABOHAP52DYHEYW) | `CCYRF7FKYGSNWX5I7WLYXZ6LNUNVCSPE4BOTQFVWVTABOHAP52DYHEYW` | 24-hour delayed same-address upgrade; money paths currently unpaused |
 
 The administrator is currently a single-signer testnet account. Its public
@@ -136,7 +136,8 @@ place.
 Treat this as full administrator compromise. Publish an incident notice, pause
 if the honest custodians can still satisfy authorization, stop new mandate
 creation through official clients, preserve chain evidence, and prepare a new
-deployment. The 24-hour contract delay prevents an immediate WASM replacement,
+deployment. The configured contract delay (one hour for the simple testnet
+contract and 24 hours for the composite) prevents an immediate WASM replacement,
 but a compromised administrator can still schedule one; monitoring must alert
 on every upgrade event and pending hash.
 
@@ -146,8 +147,10 @@ on every upgrade event and pending hash.
 2. Verify the release WASM hash, interface, and provenance record independently.
 3. Upload the exact WASM and record its on-chain hash.
 4. With two administrator approvals, call `schedule_upgrade(new_wasm_hash)`.
-5. Read `get_pending_upgrade()` from an unsigned client. Confirm the exact hash
-   and an execution time at least 86,400 seconds after scheduling.
+5. Read `get_upgrade_delay()` and `get_pending_upgrade()` from an unsigned
+   client. Confirm the exact hash and an execution time at least the reported
+   delay after scheduling (`3,600` seconds for the simple testnet contract;
+   `86,400` seconds for the composite).
 6. During the delay, publish the hash and change record; monitor for cancellation
    or replacement attempts.
 7. After the delay, call `pause()` and prove every money-moving method fails

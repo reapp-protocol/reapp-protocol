@@ -1,4 +1,4 @@
-# @reapp-sdk/core 0.3.0
+# @reapp-sdk/core 0.3.1
 
 Create an agent, connect to the live MandateRegistry contract on Stellar, and run a crash-safe mandate-validated payment through a small typed surface.
 
@@ -9,7 +9,7 @@ The SDK is untrusted by design. It never custodies funds and it never enforces t
 ## Install
 
 ```
-npm install @reapp-sdk/core@0.3.0 @stellar/stellar-sdk@14.5.0
+npm install @reapp-sdk/core@0.3.1 @stellar/stellar-sdk@14.5.0
 ```
 
 `@stellar/stellar-sdk` is a direct dependency you also import yourself for `Keypair`. The package ships its own ESM build with TypeScript types.
@@ -284,7 +284,7 @@ When `pay` (or any call) is rejected on-chain, the SDK throws and the reason map
 | `Errors[9]` | InvalidAmount | A non-positive amount |
 | `Errors[10]` | Paused | The contract's money path is paused |
 | `Errors[11]` | UpgradeNotScheduled | No upgrade is pending |
-| `Errors[12]` | UpgradeNotReady | The 24-hour delay has not elapsed |
+| `Errors[12]` | UpgradeNotReady | The one-hour delay has not elapsed |
 | `Errors[13]` | UpgradeAlreadyScheduled | An upgrade is already pending |
 | `Errors[14]` | UpgradeRequiresPause | Execution requires paused state |
 
@@ -303,13 +303,13 @@ try {
 
 `@reapp-sdk/core` defaults to Stellar testnet and the upgradeable simple
 MandateRegistry pinned in `@reapp-sdk/stellar`:
-[`CC6JMPDHRPBR2HBLJKRCIKV54HXDV2RFXDKW6MALQKWM6JEAJQHICRWE`](https://stellar.expert/explorer/testnet/contract/CC6JMPDHRPBR2HBLJKRCIKV54HXDV2RFXDKW6MALQKWM6JEAJQHICRWE).
+[`CCHQ5G4Y4YBMY6D3TYYJSVJVCKUM22Q6TMKCCHVAHY4X7K6QELQACZRM`](https://stellar.expert/explorer/testnet/contract/CCHQ5G4Y4YBMY6D3TYYJSVJVCKUM22Q6TMKCCHVAHY4X7K6QELQACZRM).
 Pass a custom `NetworkConfig` as the last argument to any call to select a
 different compatible deployment, RPC, or passphrase.
 
 The current contract WASM SHA-256 is
-`13f7023d4a361b6e49d3d39f61f55c5eeece51a602013a3cddae420d2ce8552b`,
-matching the reproducible [`simple-v0.2.0` release](https://github.com/reapp-protocol/reapp-protocol-contracts/releases/tag/simple-v0.2.0_contracts_simple_mandate_registry_mandate-registry_pkg0.2.0_cli25.1.0).
+`ba370a80369daa0a0dea2554410dca6f2a9f7a76ba707cb92a83434e2fe76e87`,
+matching the reproducible [`simple-v0.2.3` release](https://github.com/reapp-protocol/reapp-protocol-contracts/releases/tag/simple-v0.2.3_contracts_simple_mandate_registry_mandate-registry_pkg0.2.3_cli25.1.0).
 
 ```ts
 reapp.testnet            // the default NetworkConfig

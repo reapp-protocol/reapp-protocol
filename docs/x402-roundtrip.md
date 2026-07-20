@@ -4,8 +4,8 @@ REAPP isolates the evolving HTTP payment wire format from the MandateRegistry.
 The contract owns spending authorization; the HTTP layer decides whether a
 merchant may release one exact resource after independently proving settlement.
 
-Current implementation: `@reapp-sdk/core@0.3.0` and
-`@reapp-sdk/express-middleware@0.2.1` on Stellar testnet.
+Current implementation: `@reapp-sdk/core@0.3.1` and
+`@reapp-sdk/express-middleware@0.2.2` on Stellar testnet.
 
 ## Sequence
 

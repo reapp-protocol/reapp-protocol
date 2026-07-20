@@ -1,4 +1,4 @@
-# @reapp-sdk/ap2 0.2.1
+# @reapp-sdk/ap2 0.2.2
 
 Signed AP2 v0.2 REAPP profile validation for contract-enforced Stellar payments.
 
@@ -16,7 +16,7 @@ redesigning `MandateRegistry`.
 ## Install
 
 ```bash
-npm install @reapp-sdk/ap2@0.2.1 @reapp-sdk/core@0.3.0 @stellar/stellar-sdk@14.5.0
+npm install @reapp-sdk/ap2@0.2.2 @reapp-sdk/core@0.3.1 @stellar/stellar-sdk@14.5.0
 ```
 
 ## Signed validator quick start
@@ -196,8 +196,8 @@ and namespace isolation.
 
 The default is the upgradeable simple `MandateRegistry` on Stellar testnet:
 
-- Contract: [`CC6JMPDHRPBR2HBLJKRCIKV54HXDV2RFXDKW6MALQKWM6JEAJQHICRWE`](https://stellar.expert/explorer/testnet/contract/CC6JMPDHRPBR2HBLJKRCIKV54HXDV2RFXDKW6MALQKWM6JEAJQHICRWE)
-- WASM SHA-256: `13f7023d4a361b6e49d3d39f61f55c5eeece51a602013a3cddae420d2ce8552b`
-- Reproducible release: [`simple-v0.2.0`](https://github.com/reapp-protocol/reapp-protocol-contracts/releases/tag/simple-v0.2.0_contracts_simple_mandate_registry_mandate-registry_pkg0.2.0_cli25.1.0)
+- Contract: [`CCHQ5G4Y4YBMY6D3TYYJSVJVCKUM22Q6TMKCCHVAHY4X7K6QELQACZRM`](https://stellar.expert/explorer/testnet/contract/CCHQ5G4Y4YBMY6D3TYYJSVJVCKUM22Q6TMKCCHVAHY4X7K6QELQACZRM)
+- WASM SHA-256: `ba370a80369daa0a0dea2554410dca6f2a9f7a76ba707cb92a83434e2fe76e87`
+- Reproducible release: [`simple-v0.2.3`](https://github.com/reapp-protocol/reapp-protocol-contracts/releases/tag/simple-v0.2.3_contracts_simple_mandate_registry_mandate-registry_pkg0.2.3_cli25.1.0)
 
 Apache-2.0.

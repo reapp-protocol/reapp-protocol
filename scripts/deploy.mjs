@@ -30,8 +30,6 @@ const CARGO_BIN = path.join(os.homedir(), ".cargo", "bin");
 const CHILD_ENV = { ...process.env, PATH: `${CARGO_BIN}${path.delimiter}${process.env.PATH ?? ""}` };
 
 const ENV_PATH = path.join(ROOT, ".env");
-// Single source of truth for deployed addresses; the SDK, binding, and apps read it.
-const DEPLOYMENTS_PATH = path.join(ROOT, "packages", "stellar", "src", "deployments.ts");
 const MANIFEST = path.join(ROOT, "contracts", "mandate-registry", "Cargo.toml");
 const CONTRACT_DIR = path.join(ROOT, "contracts", "mandate-registry");
 const EXPLORER = "https://stellar.expert/explorer/testnet/contract/";
@@ -170,16 +168,6 @@ function writeContractIdToEnv(id) {
   writeFileSync(ENV_PATH, text);
 }
 
-// Rewrite the canonical testnet contract id in deployments.ts (the single source
-// of truth that the SDK config, the binding, the scripts, and the apps read from).
-function writeContractIdToDeployments(id) {
-  let text = readFileSync(DEPLOYMENTS_PATH, "utf8");
-  const re = /(testnet:\s*{[^}]*?mandateRegistryId:\s*")[A-Z2-7]{56}(")/s;
-  if (!re.test(text)) die(`could not find testnet.mandateRegistryId in ${DEPLOYMENTS_PATH}`);
-  text = text.replace(re, `$1${id}$2`);
-  writeFileSync(DEPLOYMENTS_PATH, text);
-}
-
 // ── main ─────────────────────────────────────────────────────────────────--
 async function main() {
   log("");
@@ -243,7 +231,6 @@ async function main() {
   if (!contractId) die("deploy finished but no contract ID (C…) found in output.");
 
   writeContractIdToEnv(contractId);
-  writeContractIdToDeployments(contractId);
 
   const link = `${EXPLORER}${contractId}`;
   log("");
@@ -252,7 +239,7 @@ async function main() {
   log(RULE(c.green));
   log(`  ${c.bold("Contract")}   ${c.yellow(contractId)}`);
   log(`  ${c.bold("Explorer")}   ${c.link(link)}`);
-  log(`  ${c.bold("config")}     ${c.dim("deployments.ts + .env updated")}`);
+  log(`  ${c.bold("config")}     ${c.dim(".env updated; published SDK default unchanged")}`);
   log(RULE(c.green));
   log("");
 }
