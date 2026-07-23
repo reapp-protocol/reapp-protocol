@@ -11,7 +11,7 @@ const CACHE = "/tmp/reapp-t2-npm-cache";
 const packages = [
   ["packages/stellar", "@reapp-sdk/stellar", "0.2.2"],
   ["packages/sdk", "@reapp-sdk/core", "0.3.1"],
-  ["packages/ap2", "@reapp-sdk/ap2", "0.2.2"],
+  ["packages/ap2", "@reapp-sdk/ap2", "0.3.0"],
   ["packages/express-middleware", "@reapp-sdk/express-middleware", "0.2.2"],
   ["packages/cli", "reapp-protocol-cli", "0.1.5"],
 ];

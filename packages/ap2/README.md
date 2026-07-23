@@ -1,4 +1,4 @@
-# @reapp-sdk/ap2 0.2.2
+# @reapp-sdk/ap2 0.3.0
 
 Signed AP2 v0.1 REAPP profile validation for contract-enforced Stellar payments.
 
@@ -16,7 +16,7 @@ redesigning `MandateRegistry`.
 ## Install
 
 ```bash
-npm install @reapp-sdk/ap2@0.2.2 @reapp-sdk/core@0.3.1 @stellar/stellar-sdk@14.5.0
+npm install @reapp-sdk/ap2@0.3.0 @reapp-sdk/core@0.3.1 @stellar/stellar-sdk@14.5.0
 ```
 
 ## Signed validator quick start

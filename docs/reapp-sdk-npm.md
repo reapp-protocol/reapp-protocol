@@ -10,7 +10,7 @@ cannot replace the contract's `execute_payment` checks.
 |---|---:|---|
 | `@reapp-sdk/core` | 0.3.1 | Mandates, payments, bound-v2 `agent.fetch`, receipts, recovery. |
 | `@reapp-sdk/stellar` | 0.2.2 | Typed contract bindings, permanent testnet deployment, network config, signing and token helpers. |
-| `@reapp-sdk/ap2` | 0.2.2 | Signed AP2 profile validation and replay admission. |
+| `@reapp-sdk/ap2` | 0.3.0 | Signed AP2 profile validation and replay admission. |
 | `@reapp-sdk/express-middleware` | 0.2.2 | Bound-v2 Express payment boundary and chain verifier. |
 | `reapp-protocol-cli` | 0.1.5 | `init`, `setup`, mandate, crash-safe pay/reconcile/acknowledge, and demo commands. |
 
@@ -32,7 +32,7 @@ npm install @reapp-sdk/core@0.3.1 @stellar/stellar-sdk
 T2 SDK packages:
 
 ```bash
-npm install @reapp-sdk/stellar@0.2.2 @reapp-sdk/ap2@0.2.2 @reapp-sdk/express-middleware@0.2.2
+npm install @reapp-sdk/stellar@0.2.2 @reapp-sdk/ap2@0.3.0 @reapp-sdk/express-middleware@0.2.2
 ```
 
 ## Bound-v2 client API
@@ -129,7 +129,7 @@ Registry proof is a separate external check:
 ```bash
 npm view @reapp-sdk/core@0.3.1 version dist.integrity
 npm view @reapp-sdk/stellar@0.2.2 version dist.integrity
-npm view @reapp-sdk/ap2@0.2.2 version dist.integrity
+npm view @reapp-sdk/ap2@0.3.0 version dist.integrity
 npm view @reapp-sdk/express-middleware@0.2.2 version dist.integrity
 npm view reapp-protocol-cli@0.1.5 version dist.integrity
 ```

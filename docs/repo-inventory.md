@@ -6,7 +6,7 @@
 |---|---|---|
 | `packages/sdk` | `@reapp-sdk/core@0.3.1` | High-level mandates, contract payments, bound-v2 client, receipts and recovery. |
 | `packages/stellar` | `@reapp-sdk/stellar@0.2.2` | Generated typed bindings, permanent testnet contract config, signer and SEP-41 helpers. |
-| `packages/ap2` | `@reapp-sdk/ap2@0.2.2` | Signed AP2 v0.1 profile validator and replay admission. |
+| `packages/ap2` | `@reapp-sdk/ap2@0.3.0` | Signed AP2 v0.1 profile validator and replay admission. |
 | `packages/express-middleware` | `@reapp-sdk/express-middleware@0.2.2` | Exact-origin GET proof, Stellar verifier, and atomic claim/immutable-result route. |
 | `packages/cli` | `reapp-protocol-cli@0.1.5` | `init`, `setup`, mandate, crash-safe pay/reconcile/acknowledge, and demo flow. |
 
