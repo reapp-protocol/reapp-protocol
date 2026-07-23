@@ -10,7 +10,8 @@ then proves the fourth is rejected by the contract budget.
 ## Evidence
 
 ```bash
-npx reapp-protocol-cli@0.1.7 demo research-agent
+npm install -g reapp-protocol-cli
+reapp demo research-agent
 ```
 
 Installed command is `reapp` (the unscoped npm name `reapp-cli` is owned by an

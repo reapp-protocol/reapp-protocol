@@ -18,7 +18,8 @@ The unrelated npm package `reapp-cli` is owned by another publisher. Use the
 project's unambiguous public CLI name:
 
 ```bash
-npx reapp-protocol-cli@0.1.7 demo research-agent
+npm install -g reapp-protocol-cli
+reapp demo research-agent
 ```
 
 ## Install

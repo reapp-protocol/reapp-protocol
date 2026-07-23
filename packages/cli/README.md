@@ -19,14 +19,7 @@ Package version: `reapp-protocol-cli@0.1.7`. Installed command: `reapp`.
 ## Install
 
 ```
-npx reapp-protocol-cli@0.1.7 --help
-```
-
-For repeated use, install the package globally. The installed command is
-`reapp`.
-
-```
-npm install -g reapp-protocol-cli@0.1.7
+npm install -g reapp-protocol-cli
 reapp --help
 ```
 
@@ -35,7 +28,7 @@ reapp --help
 The fastest way to see the full flow is one command:
 
 ```
-npx reapp-protocol-cli@0.1.7 demo research-agent
+reapp demo research-agent
 ```
 
 The demo starts cold, creates three ephemeral testnet accounts, registers a real

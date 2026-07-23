@@ -235,7 +235,8 @@ registry in a clean project. Do not call a package released until this succeeds.
 The unscoped `reapp-cli` name belongs to another publisher. Public examples use:
 
 ```bash
-npx reapp-protocol-cli@0.1.7 demo research-agent
+npm install -g reapp-protocol-cli
+reapp demo research-agent
 ```
 
 ## 10. Source commits and pushes

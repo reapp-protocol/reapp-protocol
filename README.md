@@ -102,7 +102,8 @@ npm run gatecheck:t2
 Run the reviewer CLI from any clean directory:
 
 ```bash
-npx reapp-protocol-cli@0.1.7 demo research-agent
+npm install -g reapp-protocol-cli
+reapp demo research-agent
 ```
 
 Run both reference agents from this repository with one command:

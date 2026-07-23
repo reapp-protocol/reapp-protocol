@@ -19,18 +19,19 @@ Three purchases settle; the fourth is rejected by the contract budget.
 ## Terminal-only CLI proof
 
 ```bash
-npx reapp-protocol-cli@0.1.7 demo research-agent
+npm install -g reapp-protocol-cli
+reapp demo research-agent
 ```
 
 For a reusable CLI project:
 
 ```bash
-npx reapp-protocol-cli@0.1.7 init
-npx reapp-protocol-cli@0.1.7 setup
-npx reapp-protocol-cli@0.1.7 mandate create
-npx reapp-protocol-cli@0.1.7 pay
-npx reapp-protocol-cli@0.1.7 settlement reconcile
-npx reapp-protocol-cli@0.1.7 settlement acknowledge <TX_HASH>
+reapp init
+reapp setup
+reapp mandate create
+reapp pay
+reapp settlement reconcile
+reapp settlement acknowledge <TX_HASH>
 ```
 
 ## Clean VS Code consumer project
