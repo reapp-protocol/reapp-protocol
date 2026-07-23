@@ -79,7 +79,7 @@ expiry: u64;
  */
 max_amount: i128;
   /**
- * MVP: single allowed payee (scope). T1: `Vec<Address>` or scope-hash.
+ * MVP: single allowed payee (scope). Future: `Vec<Address>` or scope-hash.
  */
 merchant: string;
   /**

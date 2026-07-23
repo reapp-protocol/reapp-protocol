@@ -61,7 +61,7 @@ An annotated, file-by-file source listing of the `reapp-protocol` monorepo. For 
   - [`scripts/e2e-testnet.mjs`](#scriptse2e-testnetmjs)
   - [`scripts/e2e-sdk.mjs`](#scriptse2e-sdkmjs)
   - [`scripts/e2e-x402.ts`](#scriptse2e-x402ts)
-  - [`scripts/audit-mandate.mjs`](#scriptsaudit-mandatemjs)
+  - [`scripts/gatecheck-mandate.mjs`](#scriptsgatecheck-mandatemjs)
   - [`scripts/derive-freighter.mjs`](#scriptsderive-freightermjs)
   - [`scripts/screenshot-proofs.mjs`](#scriptsscreenshot-proofsmjs)
   - [`scripts/verify.mjs`](#scriptsverifymjs)
@@ -90,7 +90,7 @@ REAPP is an on-chain enforcement layer for autonomous agent payments on Stellar/
 
 **The core trust invariant.** Money moves only through `execute_payment`, which validates-and-consumes the mandate atomically before it transfers. The allowance is granted to the contract, not the agent or SDK, so the SDK is *untrusted infrastructure*: a buggy or malicious SDK cannot exceed the mandate because every spend is re-validated and consumed on-chain. Critically, the payee and the budget cap are read from the **stored mandate**, never from call parameters supplied at pay time - the agent passes only `mandate_id`, `amount`, and `expected_seq`, while `merchant`, `asset`, and `max_amount` come from contract storage. This closes the redirect-funds and overspend classes by construction.
 
-**Package layout.** `contracts/mandate-registry/` is the Rust/soroban-sdk contract - the entire protocol, deliberately small so it is auditable. `packages/stellar/` (`@reapp-sdk/stellar`) is the typed Soroban layer: a generated MandateRegistry client, network config, a keypair-signer adapter, a registry-client factory, and minimal SEP-41 helpers. `packages/sdk/` (`@reapp-sdk/core`) is the thin, untrusted developer-facing client - mandate construction, amount parsing to i128 stroops, the `Agent` class with `pay`/`fetch`, and the x402 wire-format adapter. `apps/` holds the two reference agents: `fulfillment-agent` (a 402-gated merchant that verifies payment on-chain before serving) and `consumer-agent` (a ResearchAgent that buys sources via `agent.fetch`). `scripts/` holds deploy, audit, and end-to-end harnesses (including the no-mocks `e2e-testnet.mjs`).
+**Package layout.** `contracts/mandate-registry/` is the Rust/soroban-sdk contract - the entire protocol, deliberately small so it is reviewable. `packages/stellar/` (`@reapp-sdk/stellar`) is the typed Soroban layer: a generated MandateRegistry client, network config, a keypair-signer adapter, a registry-client factory, and minimal SEP-41 helpers. `packages/sdk/` (`@reapp-sdk/core`) is the thin, untrusted developer-facing client - mandate construction, amount parsing to i128 stroops, the `Agent` class with `pay`/`fetch`, and the x402 wire-format adapter. `apps/` holds the two reference agents: `fulfillment-agent` (a 402-gated merchant that verifies payment on-chain before serving) and `consumer-agent` (a ResearchAgent that buys sources via `agent.fetch`). `scripts/` holds deploy, gate check, and end-to-end harnesses (including the no-mocks `e2e-testnet.mjs`).
 
 ### Diagrams
 
@@ -251,7 +251,7 @@ The contract is the security boundary; everything in TypeScript is a convenience
 - `max_amount: i128` - total budget authorized by the mandate.
 - `spent: i128` - cumulative consumed; invariant `0 <= spent <= max_amount`. Advanced on every payment.
 - `expiry: u64` - ledger-close timestamp (seconds) at or after which the mandate is dead.
-- `seq: u32` - monotonic payment counter; the mandate-level replay guard and audit cursor.
+- `seq: u32` - monotonic payment counter; the mandate-level replay guard and gate check cursor.
 - `status: Status` - lifecycle state (see enum below).
 - `vc_hash: BytesN<32>` - hash binding to the off-chain AP2 IntentMandate VC; also serves as the storage key / mandate id.
 
@@ -277,9 +277,9 @@ All mandates live in **persistent** storage (`env.storage().persistent()`), the 
 
 ### Repository Map
 
-**`contracts/mandate-registry/`** - the Rust/soroban-sdk enforcement contract, deployed and audited on Stellar testnet (`CB4KOTLG…7ZOA`). Its `src/` is split so that dependencies flow one way with no cycles: `lib.rs` (thin contract entry points, no logic), `mandate.rs` (the `Mandate` and `Status` types, pure data), `storage.rs` (the only module touching `env.storage`: `DataKey`, get/set, TTL), `registry.rs` (`register_mandate` / `revoke_mandate`), `payment.rs` (`check`, `validate_mandate`, `execute_payment` - the money path), `events.rs` (the three emitted events), and `error.rs` (typed errors). `test.rs` and `reentry_probe.rs` hold the unit/reentrancy suites; `test_snapshots/` holds recorded ledger snapshots; `target/` is the build output.
+**`contracts/mandate-registry/`** - the Rust/soroban-sdk enforcement contract, deployed and gate-checked on Stellar testnet (`CB4KOTLG…7ZOA`). Its `src/` is split so that dependencies flow one way with no cycles: `lib.rs` (thin contract entry points, no logic), `mandate.rs` (the `Mandate` and `Status` types, pure data), `storage.rs` (the only module touching `env.storage`: `DataKey`, get/set, TTL), `registry.rs` (`register_mandate` / `revoke_mandate`), `payment.rs` (`check`, `validate_mandate`, `execute_payment` - the money path), `events.rs` (the three emitted events), and `error.rs` (typed errors). `test.rs` and `reentry_probe.rs` hold the unit/reentrancy suites; `test_snapshots/` holds recorded ledger snapshots; `target/` is the build output.
 
-**`packages/stellar/` (`@reapp-sdk/stellar`)** - the typed Soroban layer. `src/client.ts` is the MandateRegistry contract client generated from the audited ABI (with the embedded contract spec and the `Errors`/`Mandate`/`Status` types). `config.ts` holds `NetworkConfig` and the `TESTNET` constants (RPC URL, passphrase, contract id, native SAC). `signer.ts` adapts a Stellar keypair into the signer shape the client needs. `registry.ts` is the factory that wires a client to a network plus signer. `token.ts` is the minimal SEP-41 helper set (`approve`, `balance`) built directly on `@stellar/stellar-sdk`. `index.ts` re-exports the layer.
+**`packages/stellar/` (`@reapp-sdk/stellar`)** - the typed Soroban layer. `src/client.ts` is the MandateRegistry contract client generated from the gate-checked ABI (with the embedded contract spec and the `Errors`/`Mandate`/`Status` types). `config.ts` holds `NetworkConfig` and the `TESTNET` constants (RPC URL, passphrase, contract id, native SAC). `signer.ts` adapts a Stellar keypair into the signer shape the client needs. `registry.ts` is the factory that wires a client to a network plus signer. `token.ts` is the minimal SEP-41 helper set (`approve`, `balance`) built directly on `@stellar/stellar-sdk`. `index.ts` re-exports the layer.
 
 **`packages/sdk/` (`@reapp-sdk/core`)** - the thin, untrusted developer client. `src/index.ts` holds `createIntentMandate` (canonical-hash id derivation), `toStroops` (strict human→i128 conversion), the `reapp` facade (`registerMandate`, `approveBudget`, `revokeMandate`, `agent`), and the `Agent` class with `pay` and the x402 `fetch`. `src/x402.ts` is the *only* module that knows the HTTP wire shape: `parse402`, `encodePaymentProof`, `decodePaymentProof`, and the header constant. `test/index.test.mjs` is the unit suite.
 
@@ -287,13 +287,13 @@ All mandates live in **persistent** storage (`env.storage().persistent()`), the 
 
 **`apps/fulfillment-agent/`** - the reference 402-gated merchant. `src/server.ts` is a zero-framework `node:http` server that answers `402` with an x402 challenge, then independently verifies the claimed payment on-chain (`extractContractEvents` → `interpretEvents` → the pure `selectPayment` decision) and refuses replays via `ProofLedger`. `src/fixtures/payment-meta.json` backs the unit tests of the pure verification logic.
 
-**`scripts/`** - operational harnesses: `deploy.mjs` (testnet deploy), `e2e-testnet.mjs` (the no-mocks on-chain end-to-end with rogue-rejection proofs), `e2e-sdk.mjs` and `e2e-x402.ts` (SDK and x402 round-trip e2e), `audit-mandate.mjs` (independent on-chain mandate auditor), `derive-freighter.mjs`, `screenshot-proofs.mjs`, and `verify.mjs` (the CI-mirroring local gate).
+**`scripts/`** - operational harnesses: `deploy.mjs` (testnet deploy), `e2e-testnet.mjs` (the no-mocks on-chain end-to-end with rogue-rejection proofs), `e2e-sdk.mjs` and `e2e-x402.ts` (SDK and x402 round-trip e2e), `gatecheck-mandate.mjs` (independent on-chain mandate gate checker), `derive-freighter.mjs`, `screenshot-proofs.mjs`, and `verify.mjs` (the CI-mirroring local gate).
 
 **`playbook/`** - `demo.ts`, a thin wrapper that runs the canonical on-chain script for the `npm run demo` "aha" moment.
 
 **`.github/`** - `workflows/ci.yml`, the CI pipeline (fmt, clippy, test, clean build). **`.githooks/`** - `pre-push`, the local hook that mirrors CI so nothing unverified is pushed.
 
-**`docs/`** - the tranche-1 step writeups (`tranche-1-step-1/2/3.md`) and `code-review.md`. **`security/`** - the independent audit records: contract (`audit-2026-06-10.md`), SDK (`sdk-audit-2026-06-15.md`), x402 (`x402-audit-2026-06-16.md`), plus a README. **`example-output/`** - captured proof artifacts: per-step sign-offs, verified writeups, an e2e log, and a `screenshots/` directory.
+**`docs/`** - the tranche-1 step writeups (`tranche-1-step-1/2/3.md`) and `code-review.md`. **`security/`** - the independent gate check records: contract (`gate-check-2026-06-10.md`), SDK (`sdk-gate-check-2026-06-15.md`), x402 (`x402-gate-check-2026-06-16.md`), plus a README. **`example-output/`** - captured proof artifacts: per-step sign-offs, verified writeups, an e2e log, and a `screenshots/` directory.
 
 ---
 
@@ -309,7 +309,7 @@ Every file inlined in this document, in the order it appears. Generated artifact
 | 4 | [`contracts/mandate-registry/src/mandate.rs`](#contractsmandate-registrysrcmandaters) | 36 | Pure data definition of the `Mandate` struct and `Status` enum; no logic, no storage, no auth. |
 | 5 | [`contracts/mandate-registry/src/payment.rs`](#contractsmandate-registrysrcpaymentrs) | 98 | The money path: the central `check` validator, the read-only `validate_mandate` dry run, and the atomic `execute_payment` that is the only function moving funds. |
 | 6 | [`contracts/mandate-registry/src/storage.rs`](#contractsmandate-registrysrcstoragers) | 40 | Sole persistence module: defines the storage key, all get/set/has accessors, and the TTL bump policy. |
-| 7 | [`contracts/mandate-registry/src/events.rs`](#contractsmandate-registrysrceventsrs) | 26 | Leaf module emitting the three contract events for off-chain indexers and audit. |
+| 7 | [`contracts/mandate-registry/src/events.rs`](#contractsmandate-registrysrceventsrs) | 26 | Leaf module emitting the three contract events for off-chain indexers and gate check. |
 | 8 | [`contracts/mandate-registry/src/error.rs`](#contractsmandate-registrysrcerrorrs) | 25 | Leaf module defining the contract's typed error enum with stable numeric codes. |
 | 9 | [`contracts/mandate-registry/src/reentry_probe.rs`](#contractsmandate-registrysrcreentryprobers) | 80 | Adversarial regression test: a malicious SEP-41 token reenters execute_payment during transfer_from to prove no double-spend. |
 | 10 | [`contracts/mandate-registry/src/test.rs`](#contractsmandate-registrysrctestrs) | 346 | Integration and §10 negative-path test suite: happy path, every validation rejection, replay/sequence, auth reverts, and defense-in-depth. |
@@ -322,7 +322,7 @@ Every file inlined in this document, in the order it appears. Generated artifact
 | 17 | [`packages/sdk/tsconfig.json`](#packagessdktsconfigjson) | 10 | TypeScript build configuration for the package: extends the monorepo base and emits dist from src, excluding test files. |
 | 18 | [`packages/sdk/README.md`](#packagessdkreadmemd) | 163 | Public package documentation: the under-10-lines quick start, the three-signer flow, the x402 client, the full API reference, and the contract error-code table. |
 | 19 | [`packages/stellar/src/index.ts`](#packagesstellarsrcindexts) | 13 | Public barrel/entrypoint that re-exports the entire @reapp-sdk/stellar surface. |
-| 20 | [`packages/stellar/src/client.ts`](#packagesstellarsrcclientts) | 173 | Auto-generated typed contract binding for the MandateRegistry Soroban contract (the audited ABI as TypeScript). |
+| 20 | [`packages/stellar/src/client.ts`](#packagesstellarsrcclientts) | 173 | Auto-generated typed contract binding for the MandateRegistry Soroban contract (the gate-checked ABI as TypeScript). |
 | 21 | [`packages/stellar/src/registry.ts`](#packagesstellarsrcregistryts) | 16 | Thin factory that wires a NetworkConfig plus a KeypairSigner into a ready-to-use typed MandateRegistry Client. |
 | 22 | [`packages/stellar/src/token.ts`](#packagesstellarsrctokents) | 81 | Minimal dependency-free SEP-41 token client: approve an allowance and read a balance via raw stellar-sdk RPC. |
 | 23 | [`packages/stellar/src/signer.ts`](#packagesstellarsrcsignerts) | 27 | Adapter turning a Stellar secret key or Keypair into the signer shape the contract client and tx builders expect. |
@@ -342,7 +342,7 @@ Every file inlined in this document, in the order it appears. Generated artifact
 | 37 | [`scripts/e2e-testnet.mjs`](#scriptse2e-testnetmjs) | 278 | Full on-chain end-to-end proof of the mandate flow and its bypass-proof properties against live testnet using the stellar CLI and the native XLM SAC - no mocks. |
 | 38 | [`scripts/e2e-sdk.mjs`](#scriptse2e-sdkmjs) | 134 | End-to-end proof of the full mandate flow driven through the published @reapp-sdk/core and @reapp-sdk/stellar packages against live testnet - proving the SDK surface, not the raw CLI. |
 | 39 | [`scripts/e2e-x402.ts`](#scriptse2e-x402ts) | 120 | End-to-end proof of the x402 HTTP round-trip: an agent fetches a 402-gated resource, settles payment on-chain via the SDK, receives the resource, and is blocked by the contract once the budget is exhausted. |
-| 40 | [`scripts/audit-mandate.mjs`](#scriptsaudit-mandatemjs) | 196 | Independent, read-only on-chain auditor: reads a mandate straight from the MandateRegistry plus the SEP-41 allowance and user balance, and reports the true amount an agent can still spend - derived purely from chain state. |
+| 40 | [`scripts/gatecheck-mandate.mjs`](#scriptsgatecheck-mandatemjs) | 196 | Independent, read-only on-chain gate checker: reads a mandate straight from the MandateRegistry plus the SEP-41 allowance and user balance, and reports the true amount an agent can still spend - derived purely from chain state. |
 | 41 | [`scripts/derive-freighter.mjs`](#scriptsderive-freightermjs) | 144 | Local helper that recovers the Stellar secret key for a known public key from a Freighter BIP-39 seed phrase, by deriving and scanning HD account indexes. |
 | 42 | [`scripts/screenshot-proofs.mjs`](#scriptsscreenshot-proofsmjs) | 51 | Captures full-page Playwright screenshots of the canonical testnet transactions and the contract overview page, for use as visual proof in grant/demo materials. |
 | 43 | [`scripts/verify.mjs`](#scriptsverifymjs) | 43 | Local CI-equivalent gate run before every push (and wired as a git pre-push hook) that mirrors the CI pipeline so nothing that would fail CI reaches the remote. |
@@ -414,7 +414,7 @@ codegen-units = 1
 
 Declares `#![no_std]` and the six internal modules (`error`, `events`, `mandate`, `payment`, `registry`, `storage`), re-exporting `Error`, `Mandate`, and `Status` for the generated client and tests. The doc comment fixes the one-way dependency flow (`lib → {registry, payment} → storage → mandate/error`, with `events` as a leaf), which is the architectural invariant the rest of the code respects (e.g. `payment` and `registry` never depend on each other).
 
-The `MandateRegistry` struct carries `#[contract]` and its `impl` carries `#[contractimpl]`, which is what generates the `MandateRegistryClient` used in tests. Each of the five public methods is a one-line forwarder into a module function, keeping the audited surface minimal: `register_mandate` → `registry::register_mandate`, `validate_mandate` → `payment::validate_mandate`, `execute_payment` → `payment::execute_payment`, `revoke_mandate` → `registry::revoke_mandate`, and `get_mandate` → `storage::get_mandate`.
+The `MandateRegistry` struct carries `#[contract]` and its `impl` carries `#[contractimpl]`, which is what generates the `MandateRegistryClient` used in tests. Each of the five public methods is a one-line forwarder into a module function, keeping the gate-checked surface minimal: `register_mandate` → `registry::register_mandate`, `validate_mandate` → `payment::validate_mandate`, `execute_payment` → `payment::execute_payment`, `revoke_mandate` → `registry::revoke_mandate`, and `get_mandate` → `storage::get_mandate`.
 
 The doc comments encode the security model: money moves only through `execute_payment`, which validates-and-consumes atomically; `validate_mandate` is an explicitly read-only, no-auth dry run despite its consume-sounding name; and `execute_payment`'s `expected_seq` must equal the mandate's current `seq` or it fails with `BadSequence`. The two test modules (`test`, `reentry_probe`) are wired in under `#[cfg(test)]` at the bottom.
 
@@ -435,7 +435,7 @@ The doc comments encode the security model: money moves only through `execute_pa
 //! MandateRegistry — REAPP's on-chain enforcement layer.
 //!
 //! The contract is the entire protocol and is small by design: a small
-//! interface is auditable. Money moves only through `execute_payment`, which
+//! interface is reviewable. Money moves only through `execute_payment`, which
 //! validates-and-consumes the mandate atomically before transferring. The SDK
 //! is untrusted; this contract is the source of truth.
 //!
@@ -519,7 +519,7 @@ impl MandateRegistry {
         registry::revoke_mandate(&env, mandate_id)
     }
 
-    /// Read-only accessor for the stored mandate (audit / preflight).
+    /// Read-only accessor for the stored mandate (gate check / preflight).
     pub fn get_mandate(env: Env, mandate_id: BytesN<32>) -> Result<Mandate, Error> {
         storage::get_mandate(&env, mandate_id)
     }
@@ -646,7 +646,7 @@ It derives `Clone, Debug, PartialEq`, which is why `payment::execute_payment` ca
 - `Mandate.vc_hash` — Binds to the off-chain AP2 IntentMandate VC and serves as the storage key (the mandate id).
 - `enum Status { Active, Revoked, Exhausted }` — Lifecycle states; only Active is spendable, checked in payment::check.
 
-> **Note:** The `spent <= max_amount` invariant is documented here but enforced in payment::check / execute_payment, not by the type. vc_hash is simultaneously the audit binding and the primary key, so the off-chain VC hash uniquely identifies the on-chain mandate; collisions would be caught by the AlreadyExists check in registry.
+> **Note:** The `spent <= max_amount` invariant is documented here but enforced in payment::check / execute_payment, not by the type. vc_hash is simultaneously the gate check binding and the primary key, so the off-chain VC hash uniquely identifies the on-chain mandate; collisions would be caught by the AlreadyExists check in registry.
 
 ```rust
 //! The `Mandate` type. Pure data — no logic, no storage.
@@ -670,7 +670,7 @@ pub struct Mandate {
     pub spent: i128,
     /// Ledger close timestamp (seconds) after which the mandate is dead.
     pub expiry: u64,
-    /// Monotonic payment counter (mandate-level audit / replay guard).
+    /// Monotonic payment counter (mandate-level gate check / replay guard).
     pub seq: u32,
     pub status: Status,
     /// Hash binding to the off-chain AP2 IntentMandate VC; also the storage key.
@@ -872,7 +872,7 @@ pub fn set_mandate(env: &Env, id: &BytesN<32>, mandate: &Mandate) {
 
 ### `contracts/mandate-registry/src/events.rs`
 
-*Leaf module emitting the three contract events for off-chain indexers and audit.*
+*Leaf module emitting the three contract events for off-chain indexers and gate check.*
 
 Provides three thin wrappers over `env.events().publish(...)`, each with a defined topic/data shape so off-chain consumers (the SDK, indexers, explorers) can filter and reconstruct activity. `mandate_registered` publishes topic `("register", user)` with data `mandate_id` - called at the end of `registry::register_mandate`. `payment_executed` publishes topic `("payment", merchant)` with data `(mandate_id, amount)` - called at the end of `payment::execute_payment` after funds move. `mandate_revoked` publishes topic `("revoke",)` (single-element tuple) with data `mandate_id` - called at the end of `registry::revoke_mandate`.
 
@@ -2433,7 +2433,7 @@ The API section documents every public surface (createIntentMandate with a field
 - `Network` — Defaults to testnet and the live MandateRegistry id CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA; reapp.testnet.nativeSac and mandateRegistryId accessors.
 - `Relationship to @reapp-sdk/stellar` — core is built on the stellar package (typed bindings, network config, signer, SEP-41 helpers); drop down only for direct contract access.
 
-> **Note:** Per project memory, the live testnet MandateRegistry is CB4KOTLG...BQCL (the same id this README documents), while CCJ4KV5Z...SWND is a superseded impl, so the README's contract id is current. The README describes the contract as 'audited'/'live' on testnet; framing-wise, mainnet is still future work, so readers should treat 'live' as testnet-live. The README's error-code table omits code 3, which is intentional, only the listed codes are surfaced as documented rejection causes.
+> **Note:** Per project memory, the live testnet MandateRegistry is CB4KOTLG...BQCL (the same id this README documents), while CCJ4KV5Z...SWND is a superseded impl, so the README's contract id is current. The README describes the contract as 'gate-checked'/'live' on testnet; framing-wise, mainnet is still future work, so readers should treat 'live' as testnet-live. The README's error-code table omits code 3, which is intentional, only the listed codes are surfaced as documented rejection causes.
 
 ````markdown
 # @reapp-sdk/core
@@ -2583,7 +2583,7 @@ try {
 
 ## Network
 
-`@reapp-sdk/core` defaults to Stellar testnet and the live, audited MandateRegistry at `CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA`. Pass a custom `NetworkConfig` as the last argument to any call to point at a different RPC, passphrase, or contract.
+`@reapp-sdk/core` defaults to Stellar testnet and the live, gate-checked MandateRegistry at `CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA`. Pass a custom `NetworkConfig` as the last argument to any call to point at a different RPC, passphrase, or contract.
 
 ```ts
 reapp.testnet            // the default NetworkConfig
@@ -2630,7 +2630,7 @@ It is the seam the higher-level `@reapp-sdk/core` package and the repo's deploy/
 /**
  * @reapp-sdk/stellar — Soroban layer for REAPP.
  *
- * Exports the typed MandateRegistry client (generated from the audited contract
+ * Exports the typed MandateRegistry client (generated from the gate-checked contract
  * ABI), network config, a keypair signer adapter, the registry-client factory,
  * and minimal SEP-41 helpers.
  */
@@ -2643,7 +2643,7 @@ export * as token from "./token.js";
 
 ### `packages/stellar/src/client.ts`
 
-*Auto-generated typed contract binding for the MandateRegistry Soroban contract (the audited ABI as TypeScript).*
+*Auto-generated typed contract binding for the MandateRegistry Soroban contract (the gate-checked ABI as TypeScript).*
 
 This is a `stellar contract bindings typescript`-style generated file. It defines the on-chain data model as TypeScript types and a `Client` class that extends the SDK's `ContractClient`, embedding the contract's XDR `Spec` (the base64 ABI entries) directly in the constructor so the client can encode/decode every method's arguments and results without a network round-trip for type info.
 
@@ -2747,7 +2747,7 @@ max_amount: i128;
  */
 merchant: string;
   /**
- * Monotonic payment counter (mandate-level audit / replay guard).
+ * Monotonic payment counter (mandate-level gate check / replay guard).
  */
 seq: u32;
   /**
@@ -2770,7 +2770,7 @@ export type DataKey = {tag: "Mandate", values: readonly [Buffer]};
 export interface Client {
   /**
    * Construct and simulate a get_mandate transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   * Read-only accessor for the stored mandate (audit / preflight).
+   * Read-only accessor for the stored mandate (gate check / preflight).
    */
   get_mandate: ({mandate_id}: {mandate_id: Buffer}, options?: MethodOptions) => Promise<AssembledTransaction<Result<Mandate>>>
 
@@ -3035,7 +3035,7 @@ export function keypairSigner(
 
 Declares the `NetworkConfig` interface - `rpcUrl`, `networkPassphrase`, `mandateRegistryId` (the deployed MandateRegistry contract), and `nativeSac` (the native XLM Stellar Asset Contract, a real SEP-41 token) - and exports the concrete `TESTNET` config.
 
-`TESTNET` points at the public Soroban testnet RPC (`https://soroban-testnet.stellar.org`), the SDF testnet passphrase, the live audited MandateRegistry id `CB4KOTLG…7ZOA`, and the testnet native SAC `CDLZFC3S…CYSC`. This object is the single source of truth consumed by `registryClient` (registry.ts) and the token helpers, and is re-exported at the top level via the index barrel for `@reapp-sdk/core` and scripts.
+`TESTNET` points at the public Soroban testnet RPC (`https://soroban-testnet.stellar.org`), the SDF testnet passphrase, the live gate-checked MandateRegistry id `CB4KOTLG…7ZOA`, and the testnet native SAC `CDLZFC3S…CYSC`. This object is the single source of truth consumed by `registryClient` (registry.ts) and the token helpers, and is re-exported at the top level via the index barrel for `@reapp-sdk/core` and scripts.
 
 **Key items:**
 
@@ -3055,7 +3055,7 @@ export interface NetworkConfig {
   nativeSac: string;
 }
 
-/** Stellar testnet — the live, audited MandateRegistry deployment. */
+/** Stellar testnet — the live, gate-checked MandateRegistry deployment. */
 export const TESTNET: NetworkConfig = {
   rpcUrl: "https://soroban-testnet.stellar.org",
   networkPassphrase: "Test SDF Network ; September 2015",
@@ -3254,7 +3254,7 @@ Configures `tsc` for this package: `target: ESNext`, `module: NodeNext` with `mo
 
 *Package documentation: what the low-level Stellar layer exports, how to use it, and when to prefer @reapp-sdk/core.*
 
-Positions `@reapp-sdk/stellar` as the low-level Soroban building block for REAPP (typed MandateRegistry client, testnet config, keypair signing adapter, SEP-41 helpers) and steers most consumers toward `@reapp-sdk/core`, which wraps these pieces into a mandate-validated payment in under 10 lines. It gives the install command, a table of the main exports (`TESTNET`, `registryClient`, `Client`/`Mandate`/`Errors`, `keypairSigner`, `token.approve`/`token.balance`), and names the live audited contract id `CB4KOTLG…7ZOA`.
+Positions `@reapp-sdk/stellar` as the low-level Soroban building block for REAPP (typed MandateRegistry client, testnet config, keypair signing adapter, SEP-41 helpers) and steers most consumers toward `@reapp-sdk/core`, which wraps these pieces into a mandate-validated payment in under 10 lines. It gives the install command, a table of the main exports (`TESTNET`, `registryClient`, `Client`/`Mandate`/`Errors`, `keypairSigner`, `token.approve`/`token.balance`), and names the live gate-checked contract id `CB4KOTLG…7ZOA`.
 
 It includes a runnable example reading a mandate straight from the contract: build a `keypairSigner` from a secret, create a `registryClient(TESTNET, signer)`, then `await registry.get_mandate({ mandate_id }).result.unwrap()`. The closing note states the security invariant that gives the package its meaning: the contract is the source of truth - every spend is validated and consumed on-chain by `execute_payment`, so a buggy or malicious client cannot exceed the mandate. Licensed Apache-2.0.
 
@@ -3262,11 +3262,11 @@ It includes a runnable example reading a mandate straight from the contract: bui
 
 - `Install section` — `npm install @reapp-sdk/stellar @stellar/stellar-sdk` - installs the package alongside the Stellar SDK.
 - `Exports table` — Documents TESTNET, registryClient, Client/Mandate/Errors, keypairSigner, and token.approve/balance with one-line descriptions.
-- `Live contract id` — States TESTNET.mandateRegistryId = CB4KOTLG…7ZOA as the live audited deployment.
+- `Live contract id` — States TESTNET.mandateRegistryId = CB4KOTLG…7ZOA as the live gate-checked deployment.
 - `get_mandate example` — End-to-end snippet: keypairSigner → registryClient → get_mandate(...).result.unwrap().
 - `Security invariant note` — Asserts the contract is the source of truth; execute_payment validates+consumes on-chain so clients cannot exceed the mandate.
 
-> **Note:** The README's framing ('live, audited') reflects the testnet deployment only - consistent with the project's testnet-only reality; reviewers should not read 'live/audited' as mainnet. The advertised contract id must match config.TESTNET and client.ts networks; any drift here is a documentation/security mismatch.
+> **Note:** The README's framing ('live, gate-checked') reflects the testnet deployment only - consistent with the project's testnet-only reality; reviewers should not read 'live/gate-checked' as mainnet. The advertised contract id must match config.TESTNET and client.ts networks; any drift here is a documentation/security mismatch.
 
 ````markdown
 # @reapp-sdk/stellar
@@ -3275,7 +3275,7 @@ The Soroban layer for **REAPP**, agent-driven payments on Stellar, enforced
 on-chain by the **MandateRegistry** contract.
 
 This package is the low-level building block: a **typed MandateRegistry client**
-generated from the audited contract ABI, network config for testnet, a keypair
+generated from the gate-checked contract ABI, network config for testnet, a keypair
 signing adapter, and minimal SEP-41 token helpers.
 
 > **Most apps want [`@reapp-sdk/core`](https://www.npmjs.com/package/@reapp-sdk/core), not this.**
@@ -3298,7 +3298,7 @@ npm install @reapp-sdk/stellar @stellar/stellar-sdk
 | `keypairSigner(keypair, passphrase)` | Adapt a Stellar `Keypair` into a transaction signer |
 | `token.approve(...)`, `token.balance(...)` | Minimal SEP-41 token helpers |
 
-The live, audited contract is `TESTNET.mandateRegistryId` =
+The live, gate-checked contract is `TESTNET.mandateRegistryId` =
 `CB4KOTLGMM5JEPFPU6QBJLADIBP3RSGUX44FOYTFRICNXKKFPYIW7ZOA`.
 
 ## Example: read a mandate straight from the contract
@@ -3646,7 +3646,7 @@ Uses `node:test` + `node:assert/strict` to exercise the three exported security 
 
 The golden tests decode the fixture end to end: they assert the real tx carries exactly two contract events (the token's `transfer` and the registry's `payment`), that the registry-emitted one has topic0 `payment`, topic1 equal to `MERCHANT`, and amount equal to `PRICE` (10_000_000n), and that a sibling event from a different contract is also present so the merchant must distinguish them. A second golden test confirms `selectPayment` accepts the real payment for `MERCHANT`, and a third confirms the same real tx does NOT unlock for a different merchant (`OTHER`).
 
-The `selectPayment` block is the exhaustive security matrix, driven by a `paymentEvent()` factory that builds a valid registry event and lets each case override one field. It asserts acceptance of exact and over-payment, and rejection of: the audit-caught forgery (right topics/amount but wrong emitting contract `SAC`), null contract id, wrong merchant, non-payment topic, underpayment (with a `/below the price/` reason), undecodable amount, and the empty-events case (`/no Soroban contract events/`). Two combination tests prove a forged sibling event next to a genuine registry payment still resolves to acceptance, while a lone payment-shaped event from the token contract does not unlock.
+The `selectPayment` block is the exhaustive security matrix, driven by a `paymentEvent()` factory that builds a valid registry event and lets each case override one field. It asserts acceptance of exact and over-payment, and rejection of: the forgery caught by the gate check (right topics/amount but wrong emitting contract `SAC`), null contract id, wrong merchant, non-payment topic, underpayment (with a `/below the price/` reason), undecodable amount, and the empty-events case (`/no Soroban contract events/`). Two combination tests prove a forged sibling event next to a genuine registry payment still resolves to acceptance, while a lone payment-shaped event from the token contract does not unlock.
 
 The `ProofLedger` block verifies the replay/TOCTOU guard: a proof reserves once then blocks the replay, a released proof can be retried (so a transient failure does not burn a real payment), and distinct proofs are tracked independently. Together these tests pin the exact invariants server.ts depends on.
 
@@ -3669,7 +3669,7 @@ The `ProofLedger` block verifies the replay/TOCTOU guard: a proof reserves once 
 - `does not unlock when only payment-shaped event is forged` — A lone (payment, merchant, price) event from SAC does not unlock.
 - `ProofLedger reserve/release/independent tests` — Replay blocked after reserve; released proof retryable; distinct proofs tracked separately.
 
-> **Note:** The decisive regression test is 'REJECTS a forged event: right topics and amount, wrong emitting contract' - the exact bypass an audit caught, where the token's own transfer (or any attacker contract) emits a payment-shaped event. The golden fixture is what gives these tests teeth: they run against real captured Soroban TransactionMetaV4, so a change to extractContractEvents/interpretEvents that silently breaks against live RPC output would fail here, not just against synthetic XDR.
+> **Note:** The decisive regression test is 'REJECTS a forged event: right topics and amount, wrong emitting contract' - the exact bypass caught by a gate check, where the token's own transfer (or any attacker contract) emits a payment-shaped event. The golden fixture is what gives these tests teeth: they run against real captured Soroban TransactionMetaV4, so a change to extractContractEvents/interpretEvents that silently breaks against live RPC output would fail here, not just against synthetic XDR.
 
 ```ts
 import { test } from "node:test";
@@ -3755,7 +3755,7 @@ test("accepts an overpayment", () => {
 });
 
 test("REJECTS a forged event: right topics and amount, wrong emitting contract", () => {
-  // The exact bypass the audit caught: a ("payment", merchant, price) event that
+  // The exact bypass the gate check caught: a ("payment", merchant, price) event that
   // would unlock the resource, but emitted by the token (or any attacker) contract.
   assert.equal(selectPayment([paymentEvent({ contractId: SAC })], CHECK).ok, false);
 });
@@ -4103,7 +4103,7 @@ Extends `../../tsconfig.base.json` and sets emit to `./dist`, source root `./src
 
 ## Scripts & Tooling
 
-Operational scripts: deploy, the testnet end-to-end orchestrators, the on-chain mandate auditor, key derivation, proof capture, and the local verify gate that mirrors CI.
+Operational scripts: deploy, the testnet end-to-end orchestrators, the on-chain mandate gate checker, key derivation, proof capture, and the local verify gate that mirrors CI.
 
 ### `scripts/deploy.mjs`
 
@@ -4113,7 +4113,7 @@ This is the one-shot deploy driver behind `npm run deploy:testnet`. It resolves 
 
 The deployer secret comes from `REAPP_BURNER_SECRET_KEY` if it is shaped like a Stellar secret (`S…`, 56 chars); otherwise it falls back to `askHidden()` which reads the key from the TTY in raw mode without echoing. The actual deploy is run through `capture()`, which records stdout/stderr while masking the secret in the printed command line (`display` array swaps the secret for `maskSecret()`). The contract ID is extracted with the regex `/C[A-Z2-7]{55}/g`, taking the last match, then `writeContractIdToEnv()` upserts `MANDATE_REGISTRY_CONTRACT_ID=` into `.env`.
 
-It connects to the rest of the system as the producer of `MANDATE_REGISTRY_CONTRACT_ID`, the env var that `e2e-testnet.mjs`, `audit-mandate.mjs`, and the SDK's `TESTNET` config all consume. All explorer links emitted by the stellar CLI are rewritten to testnet.stellarchain.io via `chainify()`. The whole script is purely operational (no test assertions); failure anywhere calls `die()` and exits non-zero.
+It connects to the rest of the system as the producer of `MANDATE_REGISTRY_CONTRACT_ID`, the env var that `e2e-testnet.mjs`, `gatecheck-mandate.mjs`, and the SDK's `TESTNET` config all consume. All explorer links emitted by the stellar CLI are rewritten to testnet.stellarchain.io via `chainify()`. The whole script is purely operational (no test assertions); failure anywhere calls `die()` and exits non-zero.
 
 **Key items:**
 
@@ -4998,11 +4998,11 @@ async function main() {
 main().catch((e) => die(String(e instanceof Error ? e.message : e)));
 ```
 
-### `scripts/audit-mandate.mjs`
+### `scripts/gatecheck-mandate.mjs`
 
-*Independent, read-only on-chain auditor: reads a mandate straight from the MandateRegistry plus the SEP-41 allowance and user balance, and reports the true amount an agent can still spend - derived purely from chain state.*
+*Independent, read-only on-chain gate checker: reads a mandate straight from the MandateRegistry plus the SEP-41 allowance and user balance, and reports the true amount an agent can still spend - derived purely from chain state.*
 
-`node scripts/audit-mandate.mjs <id> [--source <PUBKEY>] [--json]` (or `npm run audit -- <id>`) is the external-verifier tool that backs REAPP's central claim: the limit lives in the contract, not the app. `parseArgs()` extracts the 64-hex mandate id, an optional funded source account (defaults to `REAPP_BURNER_PUBLIC_KEY`), and a `--json` flag. The mandate id is validated as exactly 64 hex chars (a 32-byte sha256). It reads the mandate through the published `registryClient(net, readOnlySigner(source)).get_mandate(...)` - `readOnlySigner` returns a signer object whose `signTransaction`/`signAuthEntry` throw, guaranteeing the audit can simulate but never sign or send. A `#2`/NotFound error is mapped to a clear 'no mandate' message using `Errors[2].message`.
+`node scripts/gatecheck-mandate.mjs <id> [--source <PUBKEY>] [--json]` (or `npm run gatecheck -- <id>`) is the external-verifier tool that backs REAPP's central claim: the limit lives in the contract, not the app. `parseArgs()` extracts the 64-hex mandate id, an optional funded source account (defaults to `REAPP_BURNER_PUBLIC_KEY`), and a `--json` flag. The mandate id is validated as exactly 64 hex chars (a 32-byte sha256). It reads the mandate through the published `registryClient(net, readOnlySigner(source)).get_mandate(...)` - `readOnlySigner` returns a signer object whose `signTransaction`/`signAuthEntry` throw, guaranteeing the gate checker can simulate but never sign or send. A `#2`/NotFound error is mapped to a clear 'no mandate' message using `Errors[2].message`.
 
 From the mandate it derives `status` (Active/Revoked/Exhausted), `max`, `spent`, `remaining = max - spent`, `expiry`, and whether it's expired. It then independently reads two more on-chain ceilings: the SEP-41 `allowance(user → contract)` via a simulated `allowance` call (`allowance()` builds and `simulateTransaction`s a `Contract.call`, never submitting), and the user's `token.balance`. Both are wrapped in try/catch since not every asset is a readable SAC. The true headroom is `min(remaining, allowance, balance)` (`numericCeiling`), but a `blockers` list (revoked / exhausted / expired / no budget / no allowance / no balance) gates everything: if any blocker is present, `canMoveNow` is forced to `0n` regardless of numeric headroom.
 
@@ -5020,15 +5020,15 @@ Output is either a `--json` object (machine-readable, with all fields plus `spen
 - `blockers / spendable / canMoveNow` — Status/expiry/budget/allowance/balance gates; `canMoveNow` = numericCeiling if no blockers else 0n.
 - `main()` — Validates args → reads mandate → reads allowance + balance → computes ceiling/blockers → prints JSON or colored report; always exits 0.
 
-> **Note:** Core invariant: the auditor never trusts an application claim and never signs - `readOnlySigner` makes any signing attempt throw, and `allowance()`/`get_mandate` only simulate, so running the audit can never move funds or mutate state. The verdict is deliberately conservative: a revoked/expired/exhausted mandate reports `canMoveNow = 0` even if budget and allowance remain, because the contract is the gate. Gotcha: allowance/balance reads are best-effort (try/catch swallow), so for assets that aren't a readable SAC those ceilings drop out and `numericCeiling` falls back to `remaining` alone - the report marks them 'unreadable' rather than failing.
+> **Note:** Core invariant: the gate checker never trusts an application claim and never signs - `readOnlySigner` makes any signing attempt throw, and `allowance()`/`get_mandate` only simulate, so running the gate check can never move funds or mutate state. The verdict is deliberately conservative: a revoked/expired/exhausted mandate reports `canMoveNow = 0` even if budget and allowance remain, because the contract is the gate. Gotcha: allowance/balance reads are best-effort (try/catch swallow), so for assets that aren't a readable SAC those ceilings drop out and `numericCeiling` falls back to `remaining` alone - the report marks them 'unreadable' rather than failing.
 
 ```js
 #!/usr/bin/env node
 /**
- * reapp audit — independent, on-chain auditor for a REAPP mandate.
+ * reapp gate check — independent, on-chain gate checker for a REAPP mandate.
  *
- *   node scripts/audit-mandate.mjs <mandate-id-hex> [--source <PUBKEY>] [--json]
- *   npm run audit -- <mandate-id-hex>
+ *   node scripts/gatecheck-mandate.mjs <mandate-id-hex> [--source <PUBKEY>] [--json]
+ *   npm run gatecheck -- <mandate-id-hex>
  *
  * The whole point of REAPP is that the spending limit lives in the contract, not
  * the app or the SDK. This tool proves that from the outside: it reads the mandate
@@ -5084,7 +5084,7 @@ function parseArgs(args) {
 /** A read-only "signer": a real, funded source account for simulation. get_mandate
  *  and the SEP-41 reads never sign, so signTransaction is never invoked. */
 function readOnlySigner(publicKey) {
-  const refuse = async () => { throw new Error("audit is read-only; it never signs or sends"); };
+  const refuse = async () => { throw new Error("gate check is read-only; it never signs or sends"); };
   return { publicKey, keypair: null, signTransaction: refuse, signAuthEntry: refuse };
 }
 
@@ -5110,7 +5110,7 @@ async function main() {
   const { id, source, json } = parseArgs(argv.slice(2));
   const net = TESTNET;
 
-  if (!id) die("usage: node scripts/audit-mandate.mjs <mandate-id-hex> [--source <PUBKEY>] [--json]");
+  if (!id) die("usage: node scripts/gatecheck-mandate.mjs <mandate-id-hex> [--source <PUBKEY>] [--json]");
   if (!/^[0-9a-fA-F]{64}$/.test(id)) die(`mandate id must be 64 hex chars (a 32-byte sha256); got ${JSON.stringify(id)}`);
   if (!source || !source.startsWith("G")) die("need a funded testnet source account for the read: pass --source <PUBKEY> or set REAPP_BURNER_PUBLIC_KEY in .env");
 
@@ -5181,7 +5181,7 @@ async function main() {
   const statusColor = status === "Active" ? c.green : status === "Exhausted" ? c.yellow : c.red;
   console.log("");
   console.log(RULE(c.magenta));
-  console.log(`  ${c.bold(c.magenta("REAPP"))}  ${c.dim("·")}  ${c.bold("mandate audit")} ${c.dim("— read straight from the contract, no app trust")}`);
+  console.log(`  ${c.bold(c.magenta("REAPP"))}  ${c.dim("·")}  ${c.bold("mandate gate check")} ${c.dim("— read straight from the contract, no app trust")}`);
   console.log(RULE(c.magenta));
   const f = (l, v) => console.log(`  ${c.gray("·")} ${c.dim(`${l}`.padEnd(18))} ${v}`);
   f("network", "testnet");
@@ -5531,7 +5531,7 @@ console.log("\n✓ verify passed — safe to push");
 
 *Template for the git-ignored `.env` - declares the testnet network config, burner keypair, and post-deploy contract IDs the scripts read.*
 
-This is the copy-me template that documents every environment variable the operational scripts consume (`deploy.mjs`, `e2e-testnet.mjs`, the demo, the auditor, etc., via `dotenv`). The top comment sets the security posture: copy to `.env` (which is git-ignored), use a hot testnet account only, never reuse it on mainnet, and never commit real values.
+This is the copy-me template that documents every environment variable the operational scripts consume (`deploy.mjs`, `e2e-testnet.mjs`, the demo, the gate checker, etc., via `dotenv`). The top comment sets the security posture: copy to `.env` (which is git-ignored), use a hot testnet account only, never reuse it on mainnet, and never commit real values.
 
 It is organized into three groups. **Network**: `STELLAR_NETWORK=testnet`, `SOROBAN_RPC_URL` pointing at the public Soroban testnet RPC, and `NETWORK_PASSPHRASE` set to the canonical SDF testnet passphrase (which must match exactly for transaction signing/hashing). **Burner account**: `REAPP_BURNER_PUBLIC_KEY` (the `G...` address) and `REAPP_BURNER_SECRET_KEY` (the `S...` secret) - the placeholder comment explains that `npm run keys:derive-freighter` scans BIP39 indexes to find the public key matching a seed phrase, and crucially that the seed phrase is typed at runtime and never stored. **Deployment**: `MANDATE_REGISTRY_CONTRACT_ID` and `USDC_SAC_CONTRACT_ID`, left blank to be filled in after `npm run deploy:testnet` wires up the contract and the USDC Stellar Asset Contract.
 
@@ -5571,22 +5571,22 @@ USDC_SAC_CONTRACT_ID=
 
 *Top-level project overview - states the thesis, the core security invariant, the repo layout, and how to run the two flagship demos.*
 
-The README frames the whole protocol in one paragraph: a user signs an AP2 IntentMandate, an AI agent pays for a 402-gated resource via x402, and the Soroban `MandateRegistry` contract enforces scope, budget, expiry, and replay at consume time - so a compromised agent or SDK cannot exceed the mandate. The status block records that Tranche 1 is complete across three steps: Step 1 deployed/audited/live MandateRegistry on testnet (19/19 unit tests, 9/9 on-chain e2e, CI green); Step 2 published `@reapp-sdk/core` and `@reapp-sdk/stellar` to npm with an under-10-line flow running 8/8 live and an independent audit (0 defects); Step 3 made the x402 round-trip work end to end (`Agent.fetch(url)` gets a 402, pays on-chain, receives the resource, budget enforced through HTTP). Each step links to its `docs/tranche-1-step-N.md` record.
+The README frames the whole protocol in one paragraph: a user signs an AP2 IntentMandate, an AI agent pays for a 402-gated resource via x402, and the Soroban `MandateRegistry` contract enforces scope, budget, expiry, and replay at consume time - so a compromised agent or SDK cannot exceed the mandate. The status block records that Tranche 1 is complete across three steps: Step 1 deployed a gate-checked, live MandateRegistry on testnet (19/19 unit tests, 9/9 on-chain e2e, CI green); Step 2 published `@reapp-sdk/core` and `@reapp-sdk/stellar` to npm with an under-10-line flow running 8/8 live and an independent gate check (0 defects); Step 3 made the x402 round-trip work end to end (`Agent.fetch(url)` gets a 402, pays on-chain, receives the resource, budget enforced through HTTP). Each step links to its `docs/tranche-1-step-N.md` record.
 
 The "core invariant" section is the security spine: money moves only through `MandateRegistry.execute_payment`, which validates-and-consumes the mandate before transferring, and the user grants the SEP-41 allowance to the *contract*, never to the agent or SDK. Hence the repeated mantra - the SDK is untrusted, the contract is the source of truth.
 
-The "Layout" code block maps the monorepo: the Rust enforcement contract (`contracts/mandate-registry/`), the two SDK packages (`packages/sdk` = `@reapp-sdk/core` with `Agent.fetch`, `packages/stellar` = `@reapp-sdk/stellar` typed Soroban layer), the two reference apps (`apps/fulfillment-agent/` 402-gated merchant that verifies payment on-chain before serving, `apps/consumer-agent/` ResearchAgent that buys via `agent.fetch`), the auditor (`scripts/audit-mandate.mjs`), the demo (`playbook/demo.ts`), and `security/` audit records. The "Run it" section documents the two operator commands and their expected outcomes: `npm run demo` (authorize → pay → 1 XLM moves, plus the three rogue rejections) and `npm run e2e:x402` (ResearchAgent buys four sources; three settle on-chain, the fourth is budget-rejected).
+The "Layout" code block maps the monorepo: the Rust enforcement contract (`contracts/mandate-registry/`), the two SDK packages (`packages/sdk` = `@reapp-sdk/core` with `Agent.fetch`, `packages/stellar` = `@reapp-sdk/stellar` typed Soroban layer), the two reference apps (`apps/fulfillment-agent/` 402-gated merchant that verifies payment on-chain before serving, `apps/consumer-agent/` ResearchAgent that buys via `agent.fetch`), the gate checker (`scripts/gatecheck-mandate.mjs`), the demo (`playbook/demo.ts`), and `security/` gate check records. The "Run it" section documents the two operator commands and their expected outcomes: `npm run demo` (authorize → pay → 1 XLM moves, plus the three rogue rejections) and `npm run e2e:x402` (ResearchAgent buys four sources; three settle on-chain, the fourth is budget-rejected).
 
 **Key items:**
 
 - `Thesis paragraph` — AP2 IntentMandate + x402 agent payment + Soroban MandateRegistry enforcing scope/budget/expiry/replay at consume time.
-- `Status block (Tranche 1, Steps 1-3)` — Records contract deploy/audit, SDK npm publish, and working x402 round-trip, each linking a `docs/tranche-1-step-N.md`.
+- `Status block (Tranche 1, Steps 1-3)` — Records the contract deployment and gate check, SDK npm publish, and working x402 round-trip, each linking a `docs/tranche-1-step-N.md`.
 - `Core invariant` — Money moves only via `MandateRegistry.execute_payment` (validate-and-consume before transfer); SEP-41 allowance granted to the contract, never the agent/SDK.
-- `Layout map` — Directory-by-directory guide: contract, SDK core/stellar packages, fulfillment/consumer reference apps, auditor script, demo, security records.
+- `Layout map` — Directory-by-directory guide: contract, SDK core/stellar packages, fulfillment/consumer reference apps, gate checker script, demo, security records.
 - `Run it: npm run demo` — On-chain happy path (1 XLM moves) plus contract rejection of overspend, replay, and pay-after-revoke.
 - `Run it: npm run e2e:x402` — Full x402 round-trip; three purchases settle on-chain and the fourth is rejected by the on-chain budget.
 
-> **Note:** The status framing is testnet-only despite confident language: all claims (deployed, live, published, audited) describe testnet, and per project framing mainnet is what the funding round is for - reviewers should read "live" as live-on-testnet. The security claim hinges on the SEP-41 allowance being granted to the contract address (not the agent/SDK); if that allowance were ever granted to the SDK/agent the core invariant would not hold, so it is the single most important configuration fact to verify against the deployed setup.
+> **Note:** The status framing is testnet-only despite confident language: all claims (deployed, live, published, gate-checked) describe testnet, and per project framing mainnet is what the funding round is for - reviewers should read "live" as live-on-testnet. The security claim hinges on the SEP-41 allowance being granted to the contract address (not the agent/SDK); if that allowance were ever granted to the SDK/agent the core invariant would not hold, so it is the single most important configuration fact to verify against the deployed setup.
 
 ````markdown
 # reapp-protocol
@@ -5597,16 +5597,16 @@ agent pays for a 402-gated resource via **x402**, and a Soroban contract
 time, so a compromised agent or SDK cannot exceed the mandate.
 
 > **Status:** Tranche 1 complete (Steps 1, 2, 3).
-> **Step 1.** `MandateRegistry` deployed, audited, and live on Stellar testnet
+> **Step 1.** `MandateRegistry` deployed, gate-checked, and live on Stellar testnet
 > (19/19 tests, 9/9 on-chain e2e, CI green). See
 > [docs/mandate-registry-contract.md](docs/mandate-registry-contract.md).
 > **Step 2.** `@reapp-sdk/core` and `@reapp-sdk/stellar` published to npm; the
-> under-10-line flow runs 8/8 live on testnet; SDK independently audited (0 defects).
+> under-10-line flow runs 8/8 live on testnet; SDK independently gate-checked (0 defects).
 > See [docs/reapp-sdk-npm.md](docs/reapp-sdk-npm.md).
 > **Step 3.** The x402 round-trip works end to end on testnet: `Agent.fetch(url)`
 > receives a 402, pays on-chain, and gets the resource, with the budget enforced
 > through the HTTP layer. Reference merchant and ResearchAgent, independently
-> audited. See [docs/x402-roundtrip.md](docs/x402-roundtrip.md).
+> gate-checked. See [docs/x402-roundtrip.md](docs/x402-roundtrip.md).
 
 ## The core invariant
 
@@ -5618,14 +5618,14 @@ untrusted; the contract is the source of truth.
 ## Layout
 
 ```
-contracts/mandate-registry/   Rust / soroban-sdk, the enforcement contract (live, audited)
+contracts/mandate-registry/   Rust / soroban-sdk, the enforcement contract (live, gate-checked)
 packages/sdk/                 @reapp-sdk/core, thin untrusted client + Agent.fetch (x402)
 packages/stellar/             @reapp-sdk/stellar, typed Soroban layer
 apps/fulfillment-agent/       reference 402-gated merchant: verifies payment on-chain before serving
 apps/consumer-agent/          reference ResearchAgent: buys sources via agent.fetch, budget enforced on-chain
-scripts/audit-mandate.mjs     npm run audit, independent on-chain mandate auditor
+scripts/gatecheck-mandate.mjs     npm run gatecheck, independent on-chain mandate gate checker
 playbook/demo.ts              npm run demo, the on-chain "aha" (happy path + rogue rejections)
-security/                     contract, SDK, and x402 audit records
+security/                     contract, SDK, and x402 gate check records
 ```
 
 ## Run it

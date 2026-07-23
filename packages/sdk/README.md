@@ -77,7 +77,7 @@ const agent = reapp.agent({
 const res = await agent.fetch("https://merchant.example/report");
 const data = await res.json(); // served only after the merchant verified the on-chain payment
 
-const receipt = getSettlementReceipt(res); // exact proof for audit/recovery
+const receipt = getSettlementReceipt(res); // exact proof for gate checking/recovery
 await persistAcceptedResult(data, receipt); // application-owned durable commit
 await agent.acknowledgeDelivery(receipt!);   // only now clear the payment lock
 ```

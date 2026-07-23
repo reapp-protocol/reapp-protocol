@@ -1,7 +1,7 @@
 {
   "name": "@reapp-sdk/ap2",
   "version": "0.2.2",
-  "description": "Signed AP2 v0.2 REAPP profile validator and IntentMandate bridge for contract-enforced Stellar payments.",
+  "description": "Signed AP2 v0.1 REAPP profile validator and IntentMandate bridge for contract-enforced Stellar payments.",
   "keywords": [
     "ap2",
     "stellar",

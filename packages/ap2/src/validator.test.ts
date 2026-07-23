@@ -108,10 +108,10 @@ test("fixed seed and nonce produce a deterministic signature digest and signatur
   );
   assert.equal(digest.length, 32);
   assert.equal(first.mandateHash, "f2c3f0063aa31ca4c7a78ffb19e4afa533a7e380ef175c22f71720154d6ae796");
-  assert.equal(digest.toString("hex"), "e38d15c1b2f3271cf4c702c59dffb9ee2d52cadc5b4146d4c9d8ea2922716ded");
+  assert.equal(digest.toString("hex"), "de249e6e3b555b81efcb451cb87276fb698507717b506dd5d7ea4e78df8eaf4e");
   assert.equal(
     first.signature.value,
-    "hxX8IZJq7FUs3qaQjdaGTCUUsLzpTL4vl5DxivIQJqAcemYqMO//NDj3IXsEYIQw+qZTI2ZfQcQxhQFWA6zKDg==",
+    "HLxF/L7penthmocH62WwELvuPQf7rYNeqLAOHK0mcp710SUzKrmLRnV4awG4u8U+2qILLXChu+s9DEIizdibAw==",
   );
   assert.equal(first.mandateHash, second.mandateHash);
   assert.equal(first.signature.value, second.signature.value);

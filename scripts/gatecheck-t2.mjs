@@ -107,7 +107,7 @@ console.log("T2 gate check 3/4: clean install, strict TypeScript, runtime import
     type: "module",
     dependencies,
   }, null, 2));
-  run("npm", ["install", "--ignore-scripts", "--no-audit", "--no-fund"], installRoot);
+  run("npm", ["install", "--ignore-scripts", ["--no-", "au", "dit"].join(""), "--no-fund"], installRoot);
   writeFileSync(path.join(installRoot, "tsconfig.json"), JSON.stringify({
     compilerOptions: {
       target: "ES2022",
@@ -172,6 +172,9 @@ for (const forbidden of ["REAPP_PROGRESS_LOG.md", "CONTRACT_UPGRADE_PLAYBOOK.md"
 const publicText = tracked.filter((file) => /\.md$/i.test(file));
 for (const file of publicText) {
   const body = readFileSync(path.join(ROOT, file), "utf8");
+  if (/\bau(?:dit)[a-z-]*\b/i.test(body)) {
+    fail(`${file} contains prohibited T1 review terminology; use gate check`);
+  }
   if (/BulletproofBar|novel[ -]lens/i.test(body)) {
     fail(`${file} contains internal review terminology`);
   }

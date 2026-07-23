@@ -45,7 +45,7 @@ test("canonical JSON is independent of object key insertion order", () => {
   assert.equal(first, '{"a":1,"z":[3,{"a":"x","b":true}]}');
 });
 
-test("binds the supported AP2 v0.2.0 intent to a 32-byte REAPP vc_hash", () => {
+test("binds the supported AP2 v0.1.0 intent to a 32-byte REAPP vc_hash", () => {
   const result = bind();
   assert.equal(result.ap2SpecVersion, AP2_SPEC_VERSION);
   assert.equal(result.ap2DataKey, AP2_INTENT_DATA_KEY);

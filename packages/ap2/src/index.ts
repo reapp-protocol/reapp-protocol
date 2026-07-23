@@ -1,5 +1,5 @@
 /**
- * @reapp-sdk/ap2 — signed AP2 v0.2 REAPP profile validation and binding.
+ * @reapp-sdk/ap2 — signed AP2 v0.1 REAPP profile validation and binding.
  *
  * This package signs and validates the supported human-not-present AP2
  * IntentMandate profile, then translates it into the existing REAPP core
@@ -21,11 +21,11 @@ export {
 export * from "./replay-store.js";
 export * from "./validator.js";
 
-export const AP2_SPEC_VERSION = "0.2.0" as const;
+export const AP2_SPEC_VERSION = "0.1.0" as const;
 export const AP2_INTENT_DATA_KEY = "ap2.mandates.IntentMandate" as const;
 export const REAPP_AP2_BINDING_VERSION = "reapp-ap2/1" as const;
 
-/** AP2 v0.2.0 sample IntentMandate data shape (wire names preserved). */
+/** AP2 v0.1.0 sample IntentMandate data shape (wire names preserved). */
 export interface Ap2IntentMandate {
   user_cart_confirmation_required: boolean;
   natural_language_description: string;

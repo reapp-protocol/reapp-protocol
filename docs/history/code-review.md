@@ -4,7 +4,7 @@ A complete code review in one file: a focused review up front (Part 1), then the
 
 Snapshot: `reapp-protocol` at commit `4f5888a`, 2026-06-16. Every quoted code block in Part 2 is character-for-character identical to the source on disk, including the original code comments (some contain em-dashes; those belong to the code, not to this review). The review prose has none.
 
-Scope: the Soroban `MandateRegistry` contract, `@reapp-sdk/core` (`index.ts`, `x402.ts`), and the demo plus reference apps (the 402-gated merchant, the ResearchAgent, the e2e orchestrator, the demo, and the on-chain auditor). The reapp.live web app is documented separately after its 0.2.0 update.
+Scope: the Soroban `MandateRegistry` contract, `@reapp-sdk/core` (`index.ts`, `x402.ts`), and the demo plus reference apps (the 402-gated merchant, the ResearchAgent, the e2e orchestrator, the demo, and the on-chain gate checker). The reapp.live web app is documented separately after its 0.2.0 update.
 
 ## Contents
 
@@ -17,7 +17,7 @@ Scope: the Soroban `MandateRegistry` contract, `@reapp-sdk/core` (`index.ts`, `x
 
 ## Verdict
 
-The enforcement core is sound: every dollar moves through a single on-chain entry point that re-derives the agent, merchant, asset, and budget from stored state, so a buggy or hostile SDK cannot redirect funds, overspend, or replay a payment. The contract is the only thing that is trusted, and it is well-built (auth bound to the stored agent, checks-effects-interactions ordering, a tested reentrancy probe, overflow-checks turned on so arithmetic edges revert instead of wrapping). The two real audit findings on the off-chain path (a forged `payment` event that bypassed access control, and a replay TOCTOU at the merchant) were found, fixed, and verified, and the remaining items are honest mainnet-hardening watch-items rather than open holes. This is testnet-grade and sound for the Tranche 1 milestone. The test-coverage gap earlier reviews flagged has since been closed: the merchant's `verifyOnChain` (the second security boundary) now has a unit suite, including a golden case decoded from a real on-chain payment and the forged-event rejection, and the `parse402` and `Agent.fetch` paths are covered too. The full clean-build gate (contract, SDK, and merchant) is green.
+The enforcement core is sound: every dollar moves through a single on-chain entry point that re-derives the agent, merchant, asset, and budget from stored state, so a buggy or hostile SDK cannot redirect funds, overspend, or replay a payment. The contract is the only thing that is trusted, and it is well-built (auth bound to the stored agent, checks-effects-interactions ordering, a tested reentrancy probe, overflow-checks turned on so arithmetic edges revert instead of wrapping). The two real gate check findings on the off-chain path (a forged `payment` event that bypassed access control, and a replay TOCTOU at the merchant) were found, fixed, and verified, and the remaining items are honest mainnet-hardening watch-items rather than open holes. This is testnet-grade and sound for the Tranche 1 milestone. The test-coverage gap earlier reviews flagged has since been closed: the merchant's `verifyOnChain` (the second security boundary) now has a unit suite, including a golden case decoded from a real on-chain payment and the forged-event rejection, and the `parse402` and `Agent.fetch` paths are covered too. The full clean-build gate (contract, SDK, and merchant) is green.
 
 ## How it is built
 
@@ -123,14 +123,14 @@ Every gate is in the exact order `execute_payment` runs it: authorization first,
 
 ## Findings and watch-items
 
-Merged and deduped across the four reviewer lenses. Resolved audit findings are included so the history is visible.
+Merged and deduped across the four reviewer lenses. Resolved gate check findings are included so the history is visible.
 
 | Severity | Item | Location | Notes |
 | --- | --- | --- | --- |
 | Resolved | `verifyOnChain` (the second security boundary) now has automated tests | `apps/fulfillment-agent/src/server.ts`, `server.test.ts` | Fixed. The security decision was factored into the pure `selectPayment` (with `interpretEvents` / `extractContractEvents` for the XDR and a `ProofLedger` for the replay reservation) and is now covered by 17 tests: a golden case decoded from a real on-chain payment, the forged-event rejection (a payment-shaped event from a non-registry contract), wrong merchant, underpay, non-payment topic, no events, and the replay reservation. |
 | Low | `Agent.fetch` reuses `init` on the paid retry: drains one-shot bodies and forces GET | `packages/sdk/src/index.ts` | Ergonomic, not a money bypass (the spend already settled correctly on-chain). A POST/PUT gated resource silently retries as GET; a consumed/streaming body resends empty. Carry `init.method` through and buffer the body, or document fetch as GET-style only. |
 | Low | `decimals` defaults to 7 and is never validated against the asset's real on-chain decimals | `packages/sdk/src/index.ts` | Budget-bounded (user signs the same mis-scaled value), so no overcharge beyond intent, but a careless integrator on a non-7-decimal token gets the wrong budget. Mainnet: fetch decimals on-chain or require + validate. |
-| Low | Custom `NetworkConfig.mandateRegistryId` silently redirects where the allowance is granted | `packages/sdk/src/index.ts`, `packages/stellar/src/token.ts` | Self-inflicted trust-critical config (default is the audited testnet contract). Document `mandateRegistryId` as trust-critical; mainnet: allowlist published deployments or warn on mismatch. |
+| Low | Custom `NetworkConfig.mandateRegistryId` silently redirects where the allowance is granted | `packages/sdk/src/index.ts`, `packages/stellar/src/token.ts` | Self-inflicted trust-critical config (default is the gate-checked testnet contract). Document `mandateRegistryId` as trust-critical; mainnet: allowlist published deployments or warn on mismatch. |
 | Low | `fetch` pays whatever the untrusted 402 demands, capped only by total budget (no per-call ceiling) | `packages/sdk/src/index.ts` | A compromised merchant can over-charge one call up to the remaining budget; cannot exceed `max_amount` or redirect. Mainnet: optional per-call price ceiling. |
 | Low | No asset allowlist: a user may register a mandate against an arbitrary token | `contracts/mandate-registry/src/registry.rs`, `payment.rs` | Blast radius is self-inflicted (user signs the mandate and the approval); reentrancy avenue already neutralized. Mainnet: SAC/asset allowlist in `register_mandate`. |
 | Low | Budget add `m.spent + amount` can panic-revert on a near-`i128::MAX` amount | `contracts/mandate-registry/src/payment.rs` | Safe (revert, not wrap) under `overflow-checks`, but the surfaced error depends on prior spend: clean `BudgetExceeded` at `spent==0`, opaque host panic later. Optional: `checked_add` to a typed error for uniformity. |
@@ -141,7 +141,7 @@ Merged and deduped across the four reviewer lenses. Resolved audit findings are 
 | Info | `seq` is `u32`; the 2^32-th spend on one mandate panic-reverts (does not wrap) | `contracts/mandate-registry/src/payment.rs` | Self-limiting and harmless under `overflow-checks`; budget would exhaust first. Document that saturation reverts so no one assumes a replay window. |
 | Info | Exhausted flip uses equality (`spent == max_amount`) | `contracts/mandate-registry/src/payment.rs` | Sound given the budget check guarantees `spent` can only reach, never exceed, `max_amount`. `>=` would be equally correct and more robust to future edits. |
 | Info | Expired and out-of-scope rogues not driven through the live stack | `scripts/e2e-testnet.mjs` | Both fully covered at the contract unit layer; completeness note, not a hole. Optionally round out the live demo to all five typed rejections. |
-| Info | `audit-mandate.mjs` (out-of-band auditor) is untested and unasserted | `scripts/audit-mandate.mjs` | Read-only diagnostic, not in the money path. Extract the pure ceiling/blocker scoring and unit-test the matrix. |
+| Info | `gatecheck-mandate.mjs` (out-of-band gate checker) is untested and unasserted | `scripts/gatecheck-mandate.mjs` | Read-only diagnostic, not in the money path. Extract the pure ceiling/blocker scoring and unit-test the matrix. |
 | Resolved | Merchant honored a forged `payment` event (Critical) | `apps/fulfillment-agent/src/server.ts` | Fixed: `verifyOnChain` binds the emitting contract id and skips non-registry events. Verified present and structured as `continue`, not an early accept. Keep the explanatory comment. |
 | Resolved | Replay TOCTOU in the merchant's redeemed-proof set (Medium) | `apps/fulfillment-agent/src/server.ts` | Fixed: proof reserved synchronously with `redeemed.add(txHash)` before the `await`, released only on verification failure. Ordering verified. |
 | Resolved | `toStroops` could two's-complement wrap past `i128::MAX` | `packages/sdk/src/index.ts` | Fixed: explicit `stroops > I128_MAX` throw. Never exploitable (contract re-validated), now caught loudly SDK-side. Unit-covered. |
@@ -161,7 +161,7 @@ Merged and deduped across the four reviewer lenses. Resolved audit findings are 
 - **Strict, money-aware SDK parsing:** `toStroops` is ASCII-anchored and i128-bounded, and the wire decoders fail closed on malformed input, with the security boundary kept on-chain regardless.
 - **The contract test suite is comprehensive** (19 green tests covering overspend, replay, expired, revoked, out-of-scope, zero amount, duplicate register, unknown mandate, exhausted, and the auth-revert cases), and the live x402 e2e makes a precise, falsifiable budget-enforcement assertion through the full HTTP stack.
 - **Both security boundaries are now tested.** Beyond the contract suite, the merchant's `verifyOnChain` has 17 tests (including a golden case decoded from a real on-chain payment and the forged-event rejection), and the `parse402` and `Agent.fetch` wire and orchestration paths are unit-covered.
-- **The audits are honest:** the critical and medium findings were found, fixed, and verified, with remaining items correctly classified as mainnet hardening rather than papered over.
+- **The gate checks are honest:** the critical and medium findings were found, fixed, and verified, with remaining items correctly classified as mainnet hardening rather than papered over.
 
 ## How to read Part 2
 
@@ -187,7 +187,7 @@ The full mapping, in reading order. Each entry gives a location, a plain-English
 
 ## Smart contract: MandateRegistry
 
-The MandateRegistry is REAPP's on-chain enforcement layer, a small Soroban smart contract that is the source of truth for what an agent is allowed to spend. A user signs an AP2 IntentMandate off-chain, that mandate is registered here, and when an agent pays for a 402 gated resource over x402 the agent calls into this contract to move the money. At consume time the contract enforces scope (which merchant), budget (cumulative spend versus max), expiry (a deadline timestamp), and replay (a monotonic sequence counter), so a compromised agent or a buggy SDK cannot exceed the signed mandate. The design is deliberately tiny because a small interface is auditable, and money moves only through `execute_payment`, which validates and consumes the mandate atomically before transferring. The SDK is treated as untrusted; every check is re-run on-chain against stored state on every spend.
+The MandateRegistry is REAPP's on-chain enforcement layer, a small Soroban smart contract that is the source of truth for what an agent is allowed to spend. A user signs an AP2 IntentMandate off-chain, that mandate is registered here, and when an agent pays for a 402 gated resource over x402 the agent calls into this contract to move the money. At consume time the contract enforces scope (which merchant), budget (cumulative spend versus max), expiry (a deadline timestamp), and replay (a monotonic sequence counter), so a compromised agent or a buggy SDK cannot exceed the signed mandate. The design is deliberately tiny because a small interface is reviewable, and money moves only through `execute_payment`, which validates and consumes the mandate atomically before transferring. The SDK is treated as untrusted; every check is re-run on-chain against stored state on every spend.
 
 ### Module map
 
@@ -315,10 +315,10 @@ Review notes:
 ### get_mandate (entry point)
 `contracts/mandate-registry/src/lib.rs:90`
 
-What it does: This is a read-only accessor that returns the stored `Mandate` for audit or preflight. It delegates directly to `storage::get_mandate` and returns `NotFound` if the id is unknown.
+What it does: This is a read-only accessor that returns the stored `Mandate` for gate check or preflight. It delegates directly to `storage::get_mandate` and returns `NotFound` if the id is unknown.
 
 ```rust
-    /// Read-only accessor for the stored mandate (audit / preflight).
+    /// Read-only accessor for the stored mandate (gate check / preflight).
     pub fn get_mandate(env: Env, mandate_id: BytesN<32>) -> Result<Mandate, Error> {
         storage::get_mandate(&env, mandate_id)
     }
@@ -560,7 +560,7 @@ pub struct Mandate {
     pub spent: i128,
     /// Ledger close timestamp (seconds) after which the mandate is dead.
     pub expiry: u64,
-    /// Monotonic payment counter (mandate-level audit / replay guard).
+    /// Monotonic payment counter (mandate-level gate check / replay guard).
     pub seq: u32,
     pub status: Status,
     /// Hash binding to the off-chain AP2 IntentMandate VC; also the storage key.
@@ -728,7 +728,7 @@ pub fn payment_executed(env: &Env, mandate_id: &BytesN<32>, merchant: &Address, 
 ```
 
 Review notes:
-- Emitted AFTER `set_mandate` and AFTER the `transfer_from` in `execute_payment`, so the event reflects a committed spend; on revert (failed transfer) the event is rolled back too. Good ordering for an audit trail.
+- Emitted AFTER `set_mandate` and AFTER the `transfer_from` in `execute_payment`, so the event reflects a committed spend; on revert (failed transfer) the event is rolled back too. Good ordering for a gate check trail.
 - The event reports `amount` but not the running `spent` or new `seq`; an indexer wanting cumulative state must read the mandate or sum events. Note this is a design choice, not a bug.
 
 ### mandate_revoked (event)
@@ -1144,7 +1144,7 @@ What it does: Grants the MandateRegistry contract a SEP-41 token allowance up to
 
 Review notes:
 - Allowance amount equals `mandate.maxAmount` (the full budget). This is the SEP-41 spending cap the contract relies on as a second line of defense: even a contract bug could not pull more than the approved allowance. Reviewers should confirm this is the intended ceiling and that the allowance is per-mandate-budget, not unlimited.
-- The spender is `net.mandateRegistryId`. It is essential this is the correct, audited registry contract id; approving the wrong spender would grant an allowance to an unintended contract. Reviewers should verify `net.mandateRegistryId` is trustworthy and matches the registry the agent actually pays through.
+- The spender is `net.mandateRegistryId`. It is essential this is the correct, gate-checked registry contract id; approving the wrong spender would grant an allowance to an unintended contract. Reviewers should verify `net.mandateRegistryId` is trustworthy and matches the registry the agent actually pays through.
 - This approval is asset-scoped to `mandate.asset` only, which is good (it does not blanket-approve other assets).
 - SEP-41 allowances are typically cumulative or overwriting depending on the token implementation. Reviewers should understand whether re-approving for a second mandate on the same asset stacks or replaces the allowance, since multiple live mandates sharing an asset could otherwise let total approved spend exceed any single budget. The expiry of the allowance (ledger-based) is set inside `token.approve` and is not visible here; reviewers should check that file separately to ensure the allowance does not outlive the mandate by an unbounded margin.
 - No local check that `opts.signer` is the mandate `user`; the token contract requires the owner's auth to set an allowance, so the chain enforces it.
@@ -1405,7 +1405,7 @@ Review notes:
 
 ## Demo and reference apps
 
-This component is the runnable reference and demonstration layer of REAPP: a 402-gated reference merchant, a consumer agent that buys gated resources, and three scripts that exercise the whole stack against live Stellar testnet. The flow it shows is the core REAPP safety story end to end. A user signs an AP2 IntentMandate, an agent pays for a 402-gated resource over x402 by settling `execute_payment` through the Soroban MandateRegistry, and the contract enforces scope (which merchant), budget (max amount), expiry, and replay (sequence) at consume time. The point these files make load-bearing is that the agent and the SDK are untrusted: a compromised agent or SDK cannot exceed the mandate because the limit lives in the contract, and the merchant independently re-verifies every payment against the chain before serving anything. The auditor script proves the same property from the outside by reading mandate state straight from the registry and reporting the true spendable headroom from chain state alone.
+This component is the runnable reference and demonstration layer of REAPP: a 402-gated reference merchant, a consumer agent that buys gated resources, and three scripts that exercise the whole stack against live Stellar testnet. The flow it shows is the core REAPP safety story end to end. A user signs an AP2 IntentMandate, an agent pays for a 402-gated resource over x402 by settling `execute_payment` through the Soroban MandateRegistry, and the contract enforces scope (which merchant), budget (max amount), expiry, and replay (sequence) at consume time. The point these files make load-bearing is that the agent and the SDK are untrusted: a compromised agent or SDK cannot exceed the mandate because the limit lives in the contract, and the merchant independently re-verifies every payment against the chain before serving anything. The gate checker script proves the same property from the outside by reading mandate state straight from the registry and reporting the true spendable headroom from chain state alone.
 
 ### Module map
 
@@ -1415,7 +1415,7 @@ This component is the runnable reference and demonstration layer of REAPP: a 402
 | `apps/consumer-agent/src/research-agent.ts` | Reference consumer (ResearchAgent); buys sources via `agent.fetch`, surfacing contract rejections as block reasons. |
 | `scripts/e2e-x402.ts` | Live testnet x402 round-trip; three paid sources, the fourth blocked by the contract budget. |
 | `playbook/demo.ts` | Thin wrapper that runs the canonical on-chain happy-path plus rogue-rejection demo script. |
-| `scripts/audit-mandate.mjs` | Independent on-chain auditor; reads mandate, allowance, and balance, reports true spendable amount. |
+| `scripts/gatecheck-mandate.mjs` | Independent on-chain gate checker; reads mandate, allowance, and balance, reports true spendable amount. |
 
 ### ServerOptions
 `apps/fulfillment-agent/src/server.ts:46`
@@ -1605,7 +1605,7 @@ export function selectPayment(
 
 Review notes:
 - This is the load-bearing access-control check, and it is now the most-tested function in the merchant: `server.test.ts` exercises the forged-emitter rejection, wrong merchant, underpay, non-payment topic, the no-events case, and a forged sibling event alongside a genuine one.
-- The contract-id bind (`ev.contractId !== cfg.registryId`) is the fix for the original critical audit finding. A payment-shaped event from the token contract (or any attacker contract) is skipped, not honored.
+- The contract-id bind (`ev.contractId !== cfg.registryId`) is the fix for the original critical gate check finding. A payment-shaped event from the token contract (or any attacker contract) is skipped, not honored.
 - Deny by default: anything that does not positively match continues to the next event, and an exhausted loop returns a deny.
 
 ### ProofLedger
@@ -1638,7 +1638,7 @@ export class ProofLedger {
 ```
 
 Review notes:
-- `reserve` collapses the old check-then-add into one synchronous call, which is what closes the replay TOCTOU window (the second resolved audit finding). The class makes that invariant explicit and unit-testable.
+- `reserve` collapses the old check-then-add into one synchronous call, which is what closes the replay TOCTOU window (the second resolved gate check finding). The class makes that invariant explicit and unit-testable.
 - In-memory only: a real merchant persists this; a process restart clears it and re-opens prior payments to replay. The production caveat from the original `redeemed` set still applies.
 
 ### startServer
@@ -1784,7 +1784,7 @@ Review notes:
 What it does: The merchant's automated test suite (17 tests). It proves the verification pipeline against both real and adversarial inputs without a live network. A golden fixture (`fixtures/payment-meta.json`) is a real, successful `execute_payment` captured from testnet via Soroban RPC; the suite decodes it end to end (`extractContractEvents` then `interpretEvents`) and confirms `selectPayment` accepts the real payment to this merchant and rejects the same transaction for any other merchant. The remaining tests drive `selectPayment` directly over synthetic `DecodedEvent`s, plus `ProofLedger` directly.
 
 Review notes:
-- Forged-event rejection is locked in: a `payment`-shaped event with the right merchant and amount, but emitted by a non-registry contract, is rejected. That is exactly the original critical audit finding, now a permanent regression test.
+- Forged-event rejection is locked in: a `payment`-shaped event with the right merchant and amount, but emitted by a non-registry contract, is rejected. That is exactly the original critical gate check finding, now a permanent regression test.
 - The negative matrix covers wrong merchant, underpayment (with the "below the price" reason), a non-payment topic, an event with no decodable amount, no events at all, and a forged sibling event sitting next to a genuine one (the real two-event shape a payment transaction emits).
 - `ProofLedger` is tested directly: reserve-once then block-the-replay, release then reserve-again, and independent tracking of distinct proofs.
 - Because the golden case is decoded from a real transaction, a future change that breaks the V4 meta extraction or the topic and amount decode fails the test, not just synthetic assumptions.
@@ -1829,7 +1829,7 @@ export function blockReason(msg: string): string {
 ```
 
 Review notes:
-- This is string-substring matching on error codes, which is brittle: it relies on the contract error format embedding `#6`, `#5`, etc. If the SDK changes how it surfaces errors, every branch silently falls through to the generic default. A reviewer should confirm these codes match the contract's `Errors` enum (the auditor uses `Errors[2]` for NotFound, so the registry has a numbered error table to cross-check against).
+- This is string-substring matching on error codes, which is brittle: it relies on the contract error format embedding `#6`, `#5`, etc. If the SDK changes how it surfaces errors, every branch silently falls through to the generic default. A reviewer should confirm these codes match the contract's `Errors` enum (the gate checker uses `Errors[2]` for NotFound, so the registry has a numbered error table to cross-check against).
 - Substring matching could misfire: a message that incidentally contains `#6` for an unrelated reason would be mislabeled "budget exceeded". Order matters too; `#6` is checked before `#4`, so a message containing both would resolve to the first matched branch.
 - The e2e script asserts `blockedReason === "budget exceeded"`, so the exact string here is a contract between this function and the test. Any rename breaks the e2e pass condition silently.
 
@@ -2064,10 +2064,10 @@ Review notes:
 - It does not validate that `e2e-testnet.mjs` exists before spawning; a missing target would surface as a spawn error and a non-zero/None status, which becomes exit 1. Acceptable.
 - `stdio: "inherit"` means the demo's full narration and any secrets it logs pass straight through to the terminal; this wrapper adds no redaction. The security of the demo rests entirely in the spawned script (out of scope for this file).
 
-### audit sgr / c / RULE / die / xlm (script helpers)
-`scripts/audit-mandate.mjs:38`
+### gatecheck / sgr / c / RULE / die / xlm (script helpers)
+`scripts/gatecheck-mandate.mjs:38`
 
-What it does: The auditor's terminal-formatting and fatal-error helpers, plus `xlm`, the amount formatter. `xlm` renders a stroops value as a trimmed decimal XLM string with the raw stroops in parentheses. `die` prints a red error and exits non-zero.
+What it does: The gate checker's terminal-formatting and fatal-error helpers, plus `xlm`, the amount formatter. `xlm` renders a stroops value as a trimmed decimal XLM string with the raw stroops in parentheses. `die` prints a red error and exits non-zero.
 
 ```ts
 const TTY = Boolean(stdout.isTTY) && !process.env.NO_COLOR;
@@ -2082,14 +2082,14 @@ const xlm = (stroops) => `${(Number(stroops) / 1e7).toFixed(7).replace(/0+$/, ""
 ```
 
 Review notes:
-- `xlm` always shows the raw `stroops` alongside the decimal, so even though the decimal goes through lossy `Number` conversion, the exact integer is preserved in the output. This is the right pattern for an auditor: the authoritative value (stroops) is never rounded away.
-- The decimal portion can lose precision for very large balances via `Number(stroops) / 1e7`, but the parenthetical stroops keeps the audit honest.
-- `die` exits 1 on any fatal; the auditor's normal exits are 0 (see `main`), so a non-zero exit unambiguously signals a read failure, not an unspendable mandate.
+- `xlm` always shows the raw `stroops` alongside the decimal, so even though the decimal goes through lossy `Number` conversion, the exact integer is preserved in the output. This is the right pattern for a gate checker: the authoritative value (stroops) is never rounded away.
+- The decimal portion can lose precision for very large balances via `Number(stroops) / 1e7`, but the parenthetical stroops keeps the gate check honest.
+- `die` exits 1 on any fatal; the gate checker's normal exits are 0 (see `main`), so a non-zero exit unambiguously signals a read failure, not an unspendable mandate.
 
 ### parseArgs
-`scripts/audit-mandate.mjs:48`
+`scripts/gatecheck-mandate.mjs:48`
 
-What it does: Parses the auditor CLI arguments into a structured object: a `--json` flag, a `--source` public key, and the positional mandate id. The source defaults to `REAPP_BURNER_PUBLIC_KEY` from the environment when not passed. The first non-flag argument becomes the mandate id.
+What it does: Parses the gate checker CLI arguments into a structured object: a `--json` flag, a `--source` public key, and the positional mandate id. The source defaults to `REAPP_BURNER_PUBLIC_KEY` from the environment when not passed. The first non-flag argument becomes the mandate id.
 
 ```ts
 function parseArgs(args) {
@@ -2111,28 +2111,28 @@ Review notes:
 - No validation of the id format in this function; that is deferred to `main`'s hex regex. Good separation, but means `parseArgs` returns unvalidated strings.
 
 ### readOnlySigner
-`scripts/audit-mandate.mjs:61`
+`scripts/gatecheck-mandate.mjs:61`
 
-What it does: Constructs a read-only signer object for simulation-only contract reads. It exposes a public key but its `signTransaction` and `signAuthEntry` both throw, guaranteeing the auditor can never sign or send a transaction. This enforces the auditor's read-only invariant at the SDK boundary.
+What it does: Constructs a read-only signer object for simulation-only contract reads. It exposes a public key but its `signTransaction` and `signAuthEntry` both throw, guaranteeing the gate checker can never sign or send a transaction. This enforces the gate checker's read-only invariant at the SDK boundary.
 
 ```ts
 /** A read-only "signer": a real, funded source account for simulation. get_mandate
  *  and the SEP-41 reads never sign, so signTransaction is never invoked. */
 function readOnlySigner(publicKey) {
-  const refuse = async () => { throw new Error("audit is read-only; it never signs or sends"); };
+  const refuse = async () => { throw new Error("gate check is read-only; it never signs or sends"); };
   return { publicKey, keypair: null, signTransaction: refuse, signAuthEntry: refuse };
 }
 ```
 
 Review notes:
-- This is a strong defense-in-depth control: even if a code path accidentally tried to sign, the signer throws, so the auditor cannot mutate chain state. The invariant "an audit never moves money" is enforced structurally, not just by convention.
-- `keypair: null` ensures no private key material is held at all. Good: the auditor never needs and never possesses a secret.
+- This is a strong defense-in-depth control: even if a code path accidentally tried to sign, the signer throws, so the gate checker cannot mutate chain state. The invariant "a gate check never moves money" is enforced structurally, not just by convention.
+- `keypair: null` ensures no private key material is held at all. Good: the gate checker never needs and never possesses a secret.
 - The refuse function is async and throws, so any await on it rejects; confirm the SDK awaits the signer (it does for simulation paths that never call it, and would reject loudly if it did).
 
 ### allowance
-`scripts/audit-mandate.mjs:67`
+`scripts/gatecheck-mandate.mjs:67`
 
-What it does: Reads a SEP-41 token `allowance(from, spender)` value purely by simulation, without signing or sending. It builds a transaction calling the token contract's `allowance` method, simulates it via RPC, and returns the decoded i128 result. This is how the auditor learns the on-chain allowance the user granted the registry contract.
+What it does: Reads a SEP-41 token `allowance(from, spender)` value purely by simulation, without signing or sending. It builds a transaction calling the token contract's `allowance` method, simulates it via RPC, and returns the decoded i128 result. This is how the gate checker learns the on-chain allowance the user granted the registry contract.
 
 ```ts
 /** SEP-41 allowance(from, spender) -> i128, read by simulation (no signing). */
@@ -2161,17 +2161,17 @@ Review notes:
 - The result is returned via `scValToNative` and later coerced to `BigInt`; the i128 decode preserves full precision before the BigInt conversion. No precision loss in the allowance path.
 - `allowHttp` is correctly gated on the URL scheme, matching the server. Fee and timeout are simulation-only and never paid.
 
-### main (audit-mandate)
-`scripts/audit-mandate.mjs:84`
+### main (gatecheck-mandate)
+`scripts/gatecheck-mandate.mjs:84`
 
-What it does: The auditor's core. It parses args, validates the mandate id and source, reads the mandate straight from the MandateRegistry, then independently reads the SEP-41 allowance to the contract and the user's balance. It computes the true spendable headroom as the minimum of remaining budget, allowance, and balance, but zeroes it when the mandate is revoked, expired, or exhausted. It then prints either JSON or a formatted report. The honest answer is that any single blocker (status, expiry, no budget, no allowance, no balance) makes the mandate unspendable regardless of the others.
+What it does: The gate checker's core. It parses args, validates the mandate id and source, reads the mandate straight from the MandateRegistry, then independently reads the SEP-41 allowance to the contract and the user's balance. It computes the true spendable headroom as the minimum of remaining budget, allowance, and balance, but zeroes it when the mandate is revoked, expired, or exhausted. It then prints either JSON or a formatted report. The honest answer is that any single blocker (status, expiry, no budget, no allowance, no balance) makes the mandate unspendable regardless of the others.
 
 ```ts
 async function main() {
   const { id, source, json } = parseArgs(argv.slice(2));
   const net = TESTNET;
 
-  if (!id) die("usage: node scripts/audit-mandate.mjs <mandate-id-hex> [--source <PUBKEY>] [--json]");
+  if (!id) die("usage: node scripts/gatecheck-mandate.mjs <mandate-id-hex> [--source <PUBKEY>] [--json]");
   if (!/^[0-9a-fA-F]{64}$/.test(id)) die(`mandate id must be 64 hex chars (a 32-byte sha256); got ${JSON.stringify(id)}`);
   if (!source || !source.startsWith("G")) die("need a funded testnet source account for the read: pass --source <PUBKEY> or set REAPP_BURNER_PUBLIC_KEY in .env");
 
@@ -2242,7 +2242,7 @@ async function main() {
   const statusColor = status === "Active" ? c.green : status === "Exhausted" ? c.yellow : c.red;
   console.log("");
   console.log(RULE(c.magenta));
-  console.log(`  ${c.bold(c.magenta("REAPP"))}  ${c.dim("·")}  ${c.bold("mandate audit")} ${c.dim("— read straight from the contract, no app trust")}`);
+  console.log(`  ${c.bold(c.magenta("REAPP"))}  ${c.dim("·")}  ${c.bold("mandate gate check")} ${c.dim("— read straight from the contract, no app trust")}`);
   console.log(RULE(c.magenta));
   const f = (l, v) => console.log(`  ${c.gray("·")} ${c.dim(`${l}`.padEnd(18))} ${v}`);
   f("network", "testnet");
@@ -2280,20 +2280,20 @@ async function main() {
 ```
 
 Review notes:
-- Source of truth: the mandate is read via `registry.get_mandate(...).result.unwrap()`, straight from the contract, with `readOnlySigner` guaranteeing no mutation. This is the auditor's central claim and it is honored: nothing trusts an app-reported value.
-- Expiry check: `expired = nowSec >= expiry` uses the local clock (`Date.now()`), not ledger time. A skewed auditor clock could mislabel expiry. The contract itself uses ledger time at enforcement, so this auditor view can diverge slightly from what the contract would do at the boundary. Worth flagging as a known approximation.
+- Source of truth: the mandate is read via `registry.get_mandate(...).result.unwrap()`, straight from the contract, with `readOnlySigner` guaranteeing no mutation. This is the gate checker's central claim and it is honored: nothing trusts an app-reported value.
+- Expiry check: `expired = nowSec >= expiry` uses the local clock (`Date.now()`), not ledger time. A skewed gate checker clock could mislabel expiry. The contract itself uses ledger time at enforcement, so this gate checker view can diverge slightly from what the contract would do at the boundary. Worth flagging as a known approximation.
 - Budget/overflow: `max`, `spent`, `remaining`, `allow`, `userBal` are all `BigInt`, so the `min` reduction and subtraction are exact with no integer overflow or float rounding. `remaining = max - spent` could go negative only if `spent > max`, which the `remaining <= 0n` blocker then catches; a negative `remaining` would also be the `min` and would drive `numericCeiling` negative, but `spendable` is already false in that case so `canMoveNow` becomes 0n. The logic fails safe.
-- The honest-answer invariant: `canMoveNow = spendable ? numericCeiling : 0n` correctly reports zero for any revoked/expired/exhausted/no-budget/no-allowance/no-balance condition even if other ceilings look healthy. This is the right conservative posture for an auditor: it never overstates spendable headroom.
-- Graceful degradation: allowance and balance reads are each wrapped in try/catch and default to `null` ("unreadable for this asset"). When null, they are excluded from both the ceiling `min` and the blocker checks. A reviewer should note this means an asset whose allowance is genuinely zero but unreadable would NOT raise the "no allowance" blocker, so `canMoveNow` could be overstated when reads fail. The tool cannot distinguish "unreadable" from "zero" and errs toward showing the budget ceiling. This is the one place the auditor could report a higher `canMoveNow` than the chain would actually permit.
+- The honest-answer invariant: `canMoveNow = spendable ? numericCeiling : 0n` correctly reports zero for any revoked/expired/exhausted/no-budget/no-allowance/no-balance condition even if other ceilings look healthy. This is the right conservative posture for a gate checker: it never overstates spendable headroom.
+- Graceful degradation: allowance and balance reads are each wrapped in try/catch and default to `null` ("unreadable for this asset"). When null, they are excluded from both the ceiling `min` and the blocker checks. A reviewer should note this means an asset whose allowance is genuinely zero but unreadable would NOT raise the "no allowance" blocker, so `canMoveNow` could be overstated when reads fail. The tool cannot distinguish "unreadable" from "zero" and errs toward showing the budget ceiling. This is the one place the gate checker could report a higher `canMoveNow` than the chain would actually permit.
 - Error mapping: a `#2` / `NotFound` mandate read is mapped to a friendly message using `Errors[2].message`, cross-referencing the contract error table. Other read failures get a generic die. Good specificity.
 - Input validation: id is validated as 64 hex chars before `Buffer.from(id, "hex")`, preventing a malformed buffer; source is validated as `G...`. Both fail closed via `die`.
 - The JSON branch has `exit(spendable ? 0 : 0)` (always 0), intentionally: a successful read is a success regardless of spendability. The redundant ternary is harmless but a reviewer may note it could be simplified to `exit(0)`.
-- No secret is ever used or logged; the auditor only needs a funded source public key for simulation. Strong read-only posture throughout.
+- No secret is ever used or logged; the gate checker only needs a funded source public key for simulation. Strong read-only posture throughout.
 
-### main entry (audit-mandate)
-`scripts/audit-mandate.mjs:195`
+### main entry (gatecheck-mandate)
+`scripts/gatecheck-mandate.mjs:195`
 
-What it does: Runs `main` and routes any rejection to `die`, printing a red error and exiting non-zero. It is the top-level error boundary for the auditor.
+What it does: Runs `main` and routes any rejection to `die`, printing a red error and exiting non-zero. It is the top-level error boundary for the gate checker.
 
 ```ts
 main().catch((e) => die(String(e instanceof Error ? e.message : e)));
@@ -2301,4 +2301,4 @@ main().catch((e) => die(String(e instanceof Error ? e.message : e)));
 
 Review notes:
 - All unhandled rejections become a non-zero exit, so any read failure that escapes the inner try/catch still fails loudly rather than printing a partial, misleading report.
-- Only the message is surfaced, not the stack; for an auditing tool a reviewer might prefer the stack on unexpected failures, but the clean output is consistent with the rest of the script.
+- Only the message is surfaced, not the stack; for a gate-checking tool a reviewer might prefer the stack on unexpected failures, but the clean output is consistent with the rest of the script.

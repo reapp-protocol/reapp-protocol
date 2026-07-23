@@ -15,7 +15,7 @@ const LOWER_HEX_32 = /^[0-9a-f]{64}$/;
 const CANONICAL_BASE64_64 = /^(?:[A-Za-z0-9+/]{4}){21}[A-Za-z0-9+/]{2}==$/;
 
 export interface ReappAp2CredentialPayload {
-  ap2SpecVersion: "0.2.0";
+  ap2SpecVersion: "0.1.0";
   ap2DataKey: "ap2.mandates.IntentMandate";
   bindingVersion: "reapp-ap2/1";
   intent: NormalizedAp2IntentMandate;

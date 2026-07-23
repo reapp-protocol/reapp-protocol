@@ -7,12 +7,13 @@ stale paths.
 
 ## Superseded testnet run artifacts
 
-The deploy lineage was `CB2LY7XI` → `CA3X…` → **`CB4KOTLG`** (the canonical,
-source-verified contract). See
-[Deployment history](../mandate-registry-contract.md#deployment-history) for the full
-table. The files below describe runs against the earlier, now-superseded deploys, so
-their contract ids, transaction hashes, and test counts do **not** match the live
-contract.
+The early Step 1 deploy lineage was `CB2LY7XI` → `CA3X…` → `CB4KOTLG`, all now
+superseded. The current canonical, source-verified contracts are `CCHQ5G4Y…CZRM`
+(simple) and `CCYRF7FK…HEYW` (composite) — see the deliverable docs in [`../`](../)
+and [Deployment history](../mandate-registry-contract.md#deployment-history) for the
+full table. The files below describe runs against the earlier, now-superseded deploys,
+so their contract ids, transaction hashes, and test counts do **not** match the live
+contracts.
 
 | File | Created | What it is |
 |---|---|---|
@@ -28,7 +29,7 @@ regenerate a fresh live run with `npm run e2e:testnet` (see
 Large, generated, point-in-time code-review dumps. They are snapshots of the tree at
 the time they were produced, so they describe paths that have since moved (for
 example the removed `example-output/` folder). Kept for reference; not maintained.
-For a current read, see the source itself and the `security/` audit records.
+For a current read, see the source itself and the `security/` gate check records.
 
 | File | Created | What it is |
 |---|---|---|

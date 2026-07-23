@@ -112,7 +112,7 @@ export function createAp2ComplianceValidator(
 
       if (
         credential.credentialVersion !== REAPP_AP2_CREDENTIAL_VERSION ||
-        credential.payload.ap2SpecVersion !== "0.2.0" ||
+        credential.payload.ap2SpecVersion !== "0.1.0" ||
         credential.payload.ap2DataKey !== "ap2.mandates.IntentMandate" ||
         credential.payload.bindingVersion !== "reapp-ap2/1" ||
         credential.signature.algorithm !== REAPP_AP2_SIGNATURE_ALGORITHM

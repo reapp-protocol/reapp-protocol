@@ -68,7 +68,7 @@ flowchart LR
 | Contract releases and hashes | [`reapp-protocol-contracts`](https://github.com/reapp-protocol/reapp-protocol-contracts) |
 | High-level SDK | [`@reapp-sdk/core`](https://www.npmjs.com/package/@reapp-sdk/core) — mandates, payments, and `agent.fetch()` |
 | Stellar binding | [`@reapp-sdk/stellar`](https://www.npmjs.com/package/@reapp-sdk/stellar) — typed contract client, network config, signers, and SEP-41 helpers |
-| AP2 profile | [`@reapp-sdk/ap2`](https://www.npmjs.com/package/@reapp-sdk/ap2) — signed, version-pinned AP2 v0.2 validation plus fail-closed binding into the contract mandate |
+| AP2 profile | [`@reapp-sdk/ap2`](https://www.npmjs.com/package/@reapp-sdk/ap2) — signed, version-pinned AP2 v0.1 validation plus fail-closed binding into the contract mandate |
 | Express middleware | [`@reapp-sdk/express-middleware`](https://www.npmjs.com/package/@reapp-sdk/express-middleware) — authenticated bound-v2 challenges, independent settlement verification, and a paid JSON route with atomic claim plus immutable-result replay |
 | CLI | [`reapp-protocol-cli`](https://www.npmjs.com/package/reapp-protocol-cli) — setup, mandate creation, crash-safe payment reconciliation, exact success acknowledgment, and demo flow |
 
@@ -82,7 +82,7 @@ The contract is authoritative. SDK-side checks only fail fast; they never replac
 |---|---|
 | [`packages/sdk`](packages/sdk) | `@reapp-sdk/core`: contract client, bound-v2 adapter, durable settlement receipts, and no-second-payment recovery |
 | [`packages/stellar`](packages/stellar) | `@reapp-sdk/stellar`: generated binding, network config, signer, and token helpers |
-| [`packages/ap2`](packages/ap2) | `@reapp-sdk/ap2`: signed AP2 v0.2 REAPP profile validator with deterministic binding evidence and 59 tests |
+| [`packages/ap2`](packages/ap2) | `@reapp-sdk/ap2`: signed AP2 v0.1 REAPP profile validator with deterministic binding evidence and 59 tests |
 | [`packages/express-middleware`](packages/express-middleware) | `@reapp-sdk/express-middleware`: exact-origin GET verification and at-most-once paid JSON fulfillment |
 | [`packages/cli`](packages/cli) | `reapp-protocol-cli`: terminal workflow, pre-broadcast journal, exact-hash reconciliation, and explicit success acknowledgment |
 | [`apps/consumer-agent`](apps/consumer-agent) | Reference ResearchAgent that buys data through `agent.fetch()` |
@@ -128,7 +128,6 @@ Use the public browser companion at [reapp.live/express](https://reapp.live/expr
 or follow the verified [clean VS Code project guide](docs/express-vscode-quickstart.md).
 Operational evidence and boundaries are in the [live drill record](docs/live-failure-drills.md),
 [threat model](security/threat-model.md), [data flow](security/data-flow.md), and
-[upgrade authority runbook](security/upgrade-authority.md), and
-[T2 evidence map](docs/T2-SUBMISSION.md).
+[upgrade authority runbook](security/upgrade-authority.md).
 
 *The SDK is untrusted. The contract enforces the limit.*

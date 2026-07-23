@@ -1,7 +1,7 @@
 # Composite release — Work Log
 
 > Historical point-in-time work log. Contract ids, package versions, counts,
-> and status words below are not current. Use `docs/T2-SUBMISSION.md` and the
+> and status words below are not current. Use `docs/list.md` and the
 > current contract repository READMEs for release facts.
 
 Running log of everything done on the `composites` branch. Newest session at the

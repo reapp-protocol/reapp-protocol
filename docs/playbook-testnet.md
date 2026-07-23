@@ -283,7 +283,7 @@ T2 becomes complete only when all of these are true:
 - contracts/protocol/site commits pushed;
 - GitHub CI and Railway deployment green;
 - live `/express` proof matches the pushed source; and
-- `docs/T2-SUBMISSION.md` contains no pending or fabricated evidence.
+- the deliverable evidence docs contain no pending or fabricated evidence.
 
 Mainnet readiness is a separate decision. It requires production 2-of-3 key
 governance, shared linearizable redemption storage, encrypted receipt custody,

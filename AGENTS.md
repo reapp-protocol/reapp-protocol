@@ -35,7 +35,8 @@ contract that is **not** part of the npm workspace.
 - `npm run typecheck` — root `tsc` (project references).
 
 Contract (run inside `contracts/mandate-registry/`):
-- `cargo test` — full suite incl. the §10 negative suite (19 tests + snapshots).
+- `cargo test` — full suite: the §10 negative suite (18 tests in `test.rs` + snapshots),
+  the pool suite (34 in `pool_test.rs`), and a reentrancy probe.
 - `cargo test <name>` — a single test, e.g. `cargo test overspend_cumulative_rejected`.
 - `cargo fmt --all -- --check` and `cargo clippy --all-targets -- -D warnings`.
 
@@ -97,7 +98,7 @@ The under-10-line flow (`reapp.createIntentMandate` → `registerMandate` →
   the txHash on-chain — the header is never trusted on its own.
 
 ### `packages/ap2/` — `@reapp-sdk/ap2` (version-pinned bridge)
-Maps the supported AP2 v0.2.0 human-not-present IntentMandate subset into the
+Maps the supported AP2 v0.1.0 human-not-present IntentMandate subset into the
 existing core mandate without changing core's canonical hash. Unsupported SKU,
 refundability, multi-merchant, and cart-confirmation semantics fail closed. AP2
 normalization and evidence stay separate from x402, and the contract remains the
@@ -115,6 +116,8 @@ only enforcement boundary.
   402's `payTo` to the mandate merchant) are fail-fast convenience only. The real
   boundary is always the contract + the merchant's on-chain verification. Don't
   present an SDK check as the enforcement.
+- **Terminology:** use “gate check” in reports, documentation, and commit messages;
+  never reintroduce the prohibited T1 review term.
 - The contract is gatechecked and live on testnet; treat its interface as a published
   contract. The negative/§10 suite is not optional and must stay green from commit one.
 - `security/` holds the contract, SDK, and x402 gatecheck records; the release docs

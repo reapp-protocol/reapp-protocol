@@ -1,16 +1,16 @@
 # @reapp-sdk/ap2 0.2.2
 
-Signed AP2 v0.2 REAPP profile validation for contract-enforced Stellar payments.
+Signed AP2 v0.1 REAPP profile validation for contract-enforced Stellar payments.
 
-`@reapp-sdk/ap2` turns the supported AP2 v0.2 `IntentMandate` subset into a
+`@reapp-sdk/ap2` turns the supported AP2 v0.1 `IntentMandate` subset into a
 versioned Stellar Ed25519 credential, validates it at mandate admission, and
 returns the exact REAPP mandate that must be registered on-chain. The validator
 checks the signature, trusted user, merchant scope, amount, expiry, binding
 hash, and one-time admission replay state.
 
-This is deliberately a narrow **REAPP profile for AP2 v0.2**, not a universal
+This is deliberately a narrow **REAPP profile for AP2 v0.1**, not a universal
 verifier for every upstream AP2 VC or JWS format. It has no HTTP or x402
-dependency, so AP2 v0.3 or x402 wire changes can be handled by adapters without
+dependency, so later AP2 or x402 wire changes can be handled by adapters without
 redesigning `MandateRegistry`.
 
 ## Install
@@ -119,8 +119,8 @@ not understand, it fails closed instead of silently dropping the field.
 
 ## Supported AP2 subset
 
-The profile is pinned to [AP2 v0.2.0](https://github.com/google-agentic-commerce/AP2/releases/tag/v0.2.0)
-and its sample [`IntentMandate` data shape](https://github.com/google-agentic-commerce/AP2/blob/v0.2.0/code/sdk/python/ap2/models/mandate.py).
+The profile is pinned to [AP2 v0.1.0](https://github.com/google-agentic-commerce/AP2/releases/tag/v0.1.0)
+and its sample [`IntentMandate` data shape](https://github.com/google-agentic-commerce/AP2/blob/v0.1.0/src/ap2/types/mandate.py).
 
 | AP2 field | REAPP behavior |
 |---|---|

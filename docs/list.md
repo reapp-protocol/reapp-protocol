@@ -10,7 +10,6 @@ Current testnet facts:
 
 | Document | Purpose |
 |---|---|
-| [`T2-SUBMISSION.md`](T2-SUBMISSION.md) | Clause-by-clause T2 and Stellar-feedback evidence map. |
 | [`hackathon-quickstart.md`](hackathon-quickstart.md) | Clean-clone, CLI, SDK, and reference-agent testnet setup. |
 | [`express-vscode-quickstart.md`](express-vscode-quickstart.md) | Build a clean VS Code consumer against the `/express` companion. |
 | [`playbook-testnet.md`](playbook-testnet.md) | Linear contract-to-SDK release and operating procedure. |
