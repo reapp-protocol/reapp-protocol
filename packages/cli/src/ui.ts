@@ -23,6 +23,19 @@ export const c = {
   red: (s: string) => wrap("38;5;203", s),
 };
 
+/**
+ * OSC 8 hyperlink: clickable in terminals that support it (iTerm2, VS Code,
+ * modern xterm), and shows just `label` everywhere else — so it degrades cleanly.
+ */
+export const link = (url: string, label: string): string =>
+  `\x1b]8;;${url}\x07${label}\x1b]8;;\x07`;
+
+/** stellar.expert testnet explorer links. */
+export const explorer = {
+  tx: (hash: string) => `https://stellar.expert/explorer/testnet/tx/${hash}`,
+  account: (addr: string) => `https://stellar.expert/explorer/testnet/account/${addr}`,
+};
+
 type Tag = "INFO" | "OK" | "CHAIN" | "WARN" | "ERR" | "STEP";
 const TAGS: Record<Tag, (s: string) => string> = {
   INFO: c.cyan,

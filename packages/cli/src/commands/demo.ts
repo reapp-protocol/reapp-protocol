@@ -14,7 +14,7 @@
 import { SettlementUncertainError, reapp, type Agent } from "@reapp-sdk/core";
 import { TESTNET, registryClient, keypairSigner, token } from "@reapp-sdk/stellar";
 import { Keypair, rpc } from "@stellar/stellar-sdk";
-import { log, c, banner } from "../ui.js";
+import { log, c, banner, link, explorer } from "../ui.js";
 import {
   acknowledgeCompletedSettlement,
   assertNoPendingSettlement,
@@ -121,10 +121,34 @@ async function attemptPurchase(agent: Agent): Promise<Attempt> {
   }
 }
 
-export async function runDemo(target = "research-agent"): Promise<void> {
-  if (target !== "research-agent") {
+const DEMOS: { id: string; summary: string }[] = [
+  {
+    id: "research-agent",
+    summary:
+      "An agent buys research sources on-chain, one real payment each; the 3 XLM mandate budget covers three and the contract rejects the fourth.",
+  },
+];
+
+/** Print the available demos and how to run each. */
+function listDemos(): void {
+  console.log("\n" + banner() + "\n");
+  log.info("available demos");
+  for (const d of DEMOS) {
+    log.step(d.id, { run: `reapp demo ${d.id}` });
+    console.log("  " + c.gray(d.summary));
+  }
+  console.log();
+}
+
+export async function runDemo(target?: string): Promise<void> {
+  if (!target) {
+    listDemos();
+    return;
+  }
+  if (!DEMOS.some((d) => d.id === target)) {
     log.warn(`unknown demo "${target}"`);
-    log.info("available demos", { run: "reapp demo research-agent" });
+    listDemos();
+    process.exitCode = 1;
     return;
   }
 
@@ -182,7 +206,7 @@ export async function runDemo(target = "research-agent"): Promise<void> {
         seq += 1;
         await waitForSeq(rclient, mandate.idBuffer, seq);
         purchased += 1;
-        log.ok("purchased on-chain", { tx: short(r.hash) });
+        log.ok("purchased on-chain", { tx: link(explorer.tx(r.hash), short(r.hash)) });
         // The demo has accepted and rendered this exact result. Only now may its
         // completed journal be acknowledged so the next source can be prepared.
         await acknowledgeCompletedSettlement(r.hash);

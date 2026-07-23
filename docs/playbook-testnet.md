@@ -12,7 +12,7 @@ stage consumes the verified evidence from the prior stage.
 | Composite contract | `CCYRF7FKYGSNWX5I7WLYXZ6LNUNVCSPE4BOTQFVWVTABOHAP52DYHEYW`, 0.3.0, hash `b3368d7f…f0a1` |
 | Core / Stellar | 0.3.1 / 0.2.2 |
 | Express / AP2 | 0.2.2 / 0.3.0 |
-| CLI | `reapp-protocol-cli@0.1.5` |
+| CLI | `reapp-protocol-cli@0.1.7` |
 
 All commands use Stellar testnet. Never place secrets in command history,
 documentation, commits, screenshots, or logs. Use a configured Stellar identity
@@ -235,7 +235,7 @@ registry in a clean project. Do not call a package released until this succeeds.
 The unscoped `reapp-cli` name belongs to another publisher. Public examples use:
 
 ```bash
-npx reapp-protocol-cli@0.1.5 demo research-agent
+npx reapp-protocol-cli@0.1.7 demo research-agent
 ```
 
 ## 10. Source commits and pushes

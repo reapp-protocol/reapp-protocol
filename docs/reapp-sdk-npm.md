@@ -12,13 +12,13 @@ cannot replace the contract's `execute_payment` checks.
 | `@reapp-sdk/stellar` | 0.2.2 | Typed contract bindings, permanent testnet deployment, network config, signing and token helpers. |
 | `@reapp-sdk/ap2` | 0.3.0 | Signed AP2 profile validation and replay admission. |
 | `@reapp-sdk/express-middleware` | 0.2.2 | Bound-v2 Express payment boundary and chain verifier. |
-| `reapp-protocol-cli` | 0.1.5 | `init`, `setup`, mandate, crash-safe pay/reconcile/acknowledge, and demo commands. |
+| `reapp-protocol-cli` | 0.1.7 | `init`, `setup`, mandate, crash-safe pay/reconcile/acknowledge, and demo commands. |
 
 The unrelated npm package `reapp-cli` is owned by another publisher. Use the
 project's unambiguous public CLI name:
 
 ```bash
-npx reapp-protocol-cli@0.1.5 demo research-agent
+npx reapp-protocol-cli@0.1.7 demo research-agent
 ```
 
 ## Install
@@ -131,7 +131,7 @@ npm view @reapp-sdk/core@0.3.1 version dist.integrity
 npm view @reapp-sdk/stellar@0.2.2 version dist.integrity
 npm view @reapp-sdk/ap2@0.3.0 version dist.integrity
 npm view @reapp-sdk/express-middleware@0.2.2 version dist.integrity
-npm view reapp-protocol-cli@0.1.5 version dist.integrity
+npm view reapp-protocol-cli@0.1.7 version dist.integrity
 ```
 
 Then install into an empty temporary project, compile strict TypeScript imports,

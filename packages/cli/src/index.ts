@@ -59,8 +59,8 @@ settlement
 
 program
   .command("demo")
-  .description("run a self-contained on-chain demo (ephemeral accounts, no setup needed)")
-  .argument("[target]", "which demo to run", "research-agent")
+  .description("list or run a self-contained on-chain demo (ephemeral accounts, no setup needed)")
+  .argument("[target]", "which demo to run; omit to list available demos")
   .action((target) => runDemo(target));
 
 program.parseAsync(process.argv).catch((err) => {
