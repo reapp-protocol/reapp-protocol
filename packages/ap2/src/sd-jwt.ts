@@ -12,11 +12,45 @@ import {
   KeyObject,
   sign as createSignature,
   verify as verifySignature,
-  type JsonWebKey,
 } from "node:crypto";
 
-export type Ap2JwsPublicKey = JsonWebKey | KeyObject | string | Buffer;
-export type Ap2JwsPrivateKey = JsonWebKey | KeyObject | string | Buffer;
+/**
+ * Package-owned structural JWK type.
+ *
+ * Node's exported `JsonWebKey` type moved from `node:crypto` into its
+ * `webcrypto` namespace across supported `@types/node` releases. Keeping the
+ * public AP2 API structural prevents that declaration-only change from
+ * breaking clean consumer installs while remaining assignable to Node's JWK
+ * inputs.
+ */
+export interface Ap2JsonWebKey {
+  alg?: string;
+  crv?: string;
+  d?: string;
+  dp?: string;
+  dq?: string;
+  e?: string;
+  ext?: boolean;
+  k?: string;
+  key_ops?: string[];
+  kty?: string;
+  n?: string;
+  oth?: Array<{
+    d?: string;
+    r?: string;
+    t?: string;
+  }>;
+  p?: string;
+  q?: string;
+  qi?: string;
+  use?: string;
+  x?: string;
+  y?: string;
+  [key: string]: unknown;
+}
+
+export type Ap2JwsPublicKey = Ap2JsonWebKey | KeyObject | string | Buffer;
+export type Ap2JwsPrivateKey = Ap2JsonWebKey | KeyObject | string | Buffer;
 
 export interface Ap2JwsHeader {
   alg: string;
@@ -453,13 +487,13 @@ function checkTimes(payload: Record<string, unknown>, hop: number, now: number, 
 function findConfirmationKey(
   payload: Record<string, unknown>,
   effective: readonly Record<string, unknown>[],
-): JsonWebKey | undefined {
+): Ap2JsonWebKey | undefined {
   for (const candidate of [...effective, payload]) {
     const cnf = candidate.cnf;
     if (typeof cnf !== "object" || cnf === null || Array.isArray(cnf)) continue;
     const jwk = (cnf as Record<string, unknown>).jwk;
     if (typeof jwk === "object" && jwk !== null && !Array.isArray(jwk)) {
-      return jwk as JsonWebKey;
+      return jwk as Ap2JsonWebKey;
     }
   }
   return undefined;

@@ -56,7 +56,8 @@ do not yet expose those new routes.
 npm test -w @reapp-sdk/ap2
 ```
 
-The suite covers canonical admission binding, open/closed SD-JWT chains,
+The package suite contains 56 named cases, including 30 individually reported
+validator cases. It covers canonical admission binding, open/closed SD-JWT chains,
 disclosures, Checkout/Payment linkage, known and unknown constraints,
 merchant/amount context, receipts, REAPP pool participation, byte-exact
 Soroban authorization vectors, expiry, replay concurrency, store outages, and

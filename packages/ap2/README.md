@@ -215,6 +215,7 @@ for route selection, security boundaries, schemas, and release status.
 | `canonicalizeJson(value)` | Deterministic recursively key-sorted JSON. |
 | `parseSignedAp2V01Mandate` / `rebuildV01CredentialBinding` | Exact legacy v0.1 admission compatibility; no v0.2 reinterpretation. |
 | `verifyDelegateSdJwtChain(chain, options)` | Verify bounded AP2 Delegate SD-JWT open/closed chains. |
+| `Ap2JsonWebKey` | Package-owned structural JWK type accepted by the JWS APIs without coupling consumers to one `@types/node` layout. |
 | `verifyAp2CheckoutAuthorization(input)` | Verify Checkout chain, signed Checkout JWT, context, and constraints. |
 | `verifyAp2MerchantAuthorization(input)` | Verify linked Checkout and Payment chains against a pending capture. |
 | `signAp2CheckoutReceipt` / `signAp2PaymentReceipt` | Sign AP2 success or error receipts. |
