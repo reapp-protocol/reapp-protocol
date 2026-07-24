@@ -1,7 +1,10 @@
 # T2 threat model — Stellar testnet
 
 Scope: current upgradeable MandateRegistry deployments, core 0.3.1, Express
-middleware 0.2.2, AP2 package 0.3.0 (AP2 profile v0.1), CLI 0.1.7, and the reference agents.
+middleware 0.2.2, AP2 package 0.4.0 (exact v0.1 compatibility plus the supported
+v0.2 admission and merchant-verification profiles), CLI 0.1.7, and the
+reference agents. The undeployed AP2 extension/Composite additions are covered
+by local contract tests, not claimed as current testnet surfaces.
 
 ## Protected assets
 
@@ -71,8 +74,9 @@ middleware 0.2.2, AP2 package 0.3.0 (AP2 profile v0.1), CLI 0.1.7, and the refer
 
 ## Verification coverage
 
-- AP2: 59 tests across valid, signature, identity, scope, amount, expiry, replay,
-  normalization, schema, and store failure cases.
+- AP2: tests across exact v0.1 admission, v0.2 admission, open/closed chains,
+  disclosures, constraints, signatures, identities, scope, amount, expiry,
+  replay, typed authorization vectors, and store failures.
 - Core and Express: bound challenge/proof, mismatches, redirects, receipt
   durability, chain verification, exact recovery, conflict, and outage tests.
 - Contracts: unauthorized caller, expiry, overspend, replay, pause, upgrade

@@ -11,7 +11,7 @@ stage consumes the verified evidence from the prior stage.
 | Simple/default contract | `CCHQ5G4Y4YBMY6D3TYYJSVJVCKUM22Q6TMKCCHVAHY4X7K6QELQACZRM`, 0.2.3, hash `ba370a80…76e87`, source verified |
 | Composite contract | `CCYRF7FKYGSNWX5I7WLYXZ6LNUNVCSPE4BOTQFVWVTABOHAP52DYHEYW`, 0.3.0, hash `b3368d7f…f0a1` |
 | Core / Stellar | 0.3.1 / 0.2.2 |
-| Express / AP2 | 0.2.2 / 0.3.0 |
+| Express / AP2 | 0.2.2 / 0.4.0 |
 | CLI | `reapp-protocol-cli@0.1.7` |
 
 All commands use Stellar testnet. Never place secrets in command history,
@@ -268,7 +268,7 @@ Live verification must cover:
 - capability → challenge → purchase sequence;
 - three explorer-linked settlements;
 - fourth contract rejection;
-- AP2 59-test visual matrix;
+- AP2 v0.1 backwards-compatibility and v0.2 adversarial test matrix;
 - no secret values in responses/logs; and
 - no stale contract ids, versions, or package links.
 

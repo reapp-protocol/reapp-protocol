@@ -1,65 +1,63 @@
-# AP2 compliance validator
+# AP2 v0.2 bridge validator
 
-`@reapp-sdk/ap2` verifies the Stellar Ed25519 signature, separately trusted user,
-single-merchant scope, amount, expiry, binding hash, strict schema, and atomic
-admission replay state. AP2 and x402 adapters are isolated from the MandateRegistry,
-so their profile/wire logic can evolve without touching the contract.
+`@reapp-sdk/ap2` provides both REAPP's signed AP2 v0.2 Open Payment admission
+profile and merchant-facing open/closed Delegate SD-JWT verification.
 
-## Validate your own mandate — local and offline
+The admission profile is intentionally narrow: strict schema/version
+boundaries, Stellar Ed25519 user and agent binding, one payee, matching amount
+and cumulative budget, expiry, checkout reference, binding hash, and atomic
+admission replay. The merchant APIs separately verify open/closed Checkout and
+Payment chains, selective disclosures, linkage, supported constraints, and
+receipts. Unsupported constraints fail closed. AP2 and x402 remain separate
+from `MandateRegistry`.
 
-Nothing to clone; validation runs in-process (no chain, no testnet).
-
-```bash
-npm install @reapp-sdk/ap2@0.3.0 @reapp-sdk/core@0.3.1 @stellar/stellar-sdk
-```
-
-```js
-// validate.mjs — sign an AP2 IntentMandate, then check it accepts and fails closed.
-import { Keypair } from "@stellar/stellar-sdk";
-import { reapp } from "@reapp-sdk/core";
-import { signAp2Mandate, createAp2ComplianceValidator, InMemoryAp2ReplayStore } from "@reapp-sdk/ap2";
-
-const user = Keypair.random(), agent = Keypair.random(), merchant = Keypair.random();
-
-const credential = signAp2Mandate({
-  intent: {
-    user_cart_confirmation_required: false,
-    natural_language_description: "Buy one research dataset",
-    merchants: [merchant.publicKey()],
-    intent_expiry: new Date((Math.floor(Date.now() / 1000) + 3600) * 1000).toISOString(),
-  },
-  stellar: {
-    user: user.publicKey(),
-    agent: agent.publicKey(),
-    asset: reapp.testnet.nativeSac,
-    maxAmount: "5.00",
-  },
-}, user);
-
-const check = () => createAp2ComplianceValidator({ replayStore: new InMemoryAp2ReplayStore(), replayNamespace: "local" });
-const req = (over = {}) => ({ credential, expectedUser: user.publicKey(), merchant: merchant.publicKey(), amount: "1.00", ...over });
-
-console.log("accepted   ", (await check().validateAndConsume(req())).mandateHash.slice(0, 10) + "…");
-for (const [label, over] of [["overspend", { amount: "6.00" }], ["wrong merchant", { merchant: Keypair.random().publicKey() }]]) {
-  try { await check().validateAndConsume(req(over)); console.log("NOT rejected:", label); }
-  catch (e) { console.log("rejected   ", label, "->", e.code); }
-}
-```
+## Local validation
 
 ```bash
-node validate.mjs
-# accepted    mandate 4001e01f3d…
-# rejected    overspend -> AMOUNT_EXCEEDS_MANDATE
-# rejected    wrong merchant -> MERCHANT_MISMATCH
+npm install @reapp-sdk/ap2@0.4.0 @reapp-sdk/core@0.3.1 @stellar/stellar-sdk
 ```
 
-Tamper any signed field — amount, merchant, expiry, the signature itself — and
-`validateAndConsume` throws an `Ap2ValidationError` with a stable `code`
-(`AMOUNT_EXCEEDS_MANDATE`, `MERCHANT_MISMATCH`, `EXPIRED`, `INVALID_SIGNATURE`,
-`REPLAYED`, …). The full API and every field are documented in the package README.
+See the package [quick start](../packages/ap2/README.md#quick-start) for the full
+construction and validation example.
+
+`validateAndConsume` requires trusted `expectedUser`, `merchant`,
+`checkoutReference`, and `amount` inputs. On success it returns the exact core
+mandate to register. Its replay check is admission-only; cumulative spending
+and payment replay remain atomically enforced on-chain.
+
+## Moving from AP2 v0.1
+
+Mandates already registered through the v0.1 bridge remain executable because
+the contract interface and stored `Mandate` shape are unchanged. The new
+admission bridge supplies the same contract-facing fields, so no Simple
+registry change is needed. This is AP2 v0.1 backwards compatibility.
+
+Credential admission recognizes both versioned envelopes. A
+`reapp-ap2-credential/1` value follows the exact legacy v0.1 IntentMandate
+schema and validation rules; `reapp-ap2-credential/2` follows the v0.2 Open
+Payment profile and additionally requires trusted checkout-reference context.
+Cross-version hybrids and unknown versions fail closed.
+
+The source implementation also supports a separate AP2 authorization contract
+and an AP2-aware Composite pool mode. Simple and released Composite children
+use distinct typed capture kinds. Pooled children use the REAPP
+pool-participation VCT, exact schedule hash, commit-time authorization, and
+capture-time Composite hook. Legacy and AP2 pools coexist but do not mix
+member modes inside one pool.
+
+The [merchant interoperability document](ap2-merchant-extension.md) explains
+the flows and current release boundary. The extension and updated Composite
+source are locally tested but not deployed, so the published testnet contracts
+do not yet expose those new routes.
 
 ## Test suite
 
-From a clone of the monorepo, the full suite runs with `npm test -w @reapp-sdk/ap2`:
-59 passing tests including valid mandates, altered signatures, wrong merchants,
-overspend, expiry, replay, schema mutation, and store failure.
+```bash
+npm test -w @reapp-sdk/ap2
+```
+
+The suite covers canonical admission binding, open/closed SD-JWT chains,
+disclosures, Checkout/Payment linkage, known and unknown constraints,
+merchant/amount context, receipts, REAPP pool participation, byte-exact
+Soroban authorization vectors, expiry, replay concurrency, store outages, and
+replay poisoning.

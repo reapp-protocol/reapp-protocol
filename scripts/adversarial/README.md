@@ -29,7 +29,7 @@ The scripts import the workspace packages (`@reapp-sdk/core`,
 `@reapp-sdk/stellar`, `@reapp-sdk/ap2`, `@reapp-sdk/express-middleware`), so they
 exercise the code in this repository. To attack the **published** packages
 instead, copy a script into an empty directory and
-`npm install @reapp-sdk/core@0.3.1 @reapp-sdk/stellar@0.2.2 @reapp-sdk/ap2@0.3.0 @reapp-sdk/express-middleware@0.2.2 @stellar/stellar-sdk@14.5.0 express@5.2.1`.
+`npm install @reapp-sdk/core@0.3.1 @reapp-sdk/stellar@0.2.2 @reapp-sdk/ap2@0.4.0 @reapp-sdk/express-middleware@0.2.2 @stellar/stellar-sdk@14.5.0 express@5.2.1`.
 
 ## What each script proves
 

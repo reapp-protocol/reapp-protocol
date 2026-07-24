@@ -1,30 +1,34 @@
 import { Buffer } from "buffer";
 import { Keypair, hash } from "@stellar/stellar-sdk";
-import { reapp, type IntentMandate } from "@reapp-sdk/core";
-import type {
-  Ap2MandateBinding,
-  BindIntentMandateInput,
-  NormalizedAp2IntentMandate,
+import {
+  AP2_OPEN_PAYMENT_VCT,
+  AP2_SPEC_VERSION,
+  REAPP_AP2_BINDING_VERSION,
+  bindPaymentMandate,
+  canonicalizeJson,
+  type Ap2MandateBinding,
+  type BindPaymentMandateInput,
+  type NormalizedAp2OpenPaymentMandate,
 } from "./index.js";
 
-export const REAPP_AP2_CREDENTIAL_VERSION = "reapp-ap2-credential/1" as const;
+export const REAPP_AP2_CREDENTIAL_VERSION = "reapp-ap2-credential/2" as const;
 export const REAPP_AP2_SIGNATURE_ALGORITHM = "stellar-ed25519-sha256" as const;
 
-const SIGNATURE_DOMAIN = "REAPP\0AP2\0SIGNED-MANDATE\0V1\0";
+const SIGNATURE_DOMAIN = "REAPP\0AP2\0SIGNED-MANDATE\0V2\0";
 const LOWER_HEX_32 = /^[0-9a-f]{64}$/;
 const CANONICAL_BASE64_64 = /^(?:[A-Za-z0-9+/]{4}){21}[A-Za-z0-9+/]{2}==$/;
 
 export interface ReappAp2CredentialPayload {
-  ap2SpecVersion: "0.1.0";
-  ap2DataKey: "ap2.mandates.IntentMandate";
-  bindingVersion: "reapp-ap2/1";
-  intent: NormalizedAp2IntentMandate;
+  ap2SpecVersion: typeof AP2_SPEC_VERSION;
+  ap2Vct: typeof AP2_OPEN_PAYMENT_VCT;
+  bindingVersion: typeof REAPP_AP2_BINDING_VERSION;
+  paymentMandate: NormalizedAp2OpenPaymentMandate;
   stellar: {
     user: string;
     agent: string;
     asset: string;
-    maxAmount: string;
     decimals: number;
+    currencyDecimals: number;
     nonce: string;
   };
 }
@@ -40,10 +44,8 @@ export interface SignedAp2Mandate {
 }
 
 type UnknownRecord = Record<string, unknown>;
-
-function isRecord(value: unknown): value is UnknownRecord {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
+const isRecord = (value: unknown): value is UnknownRecord =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
 
 function requireRecord(label: string, value: unknown): UnknownRecord {
   if (!isRecord(value) || Object.getPrototypeOf(value) !== Object.prototype) {
@@ -67,13 +69,6 @@ function requireText(label: string, value: unknown): string {
   return value;
 }
 
-function requireStringArray(label: string, value: unknown, length: number): string[] {
-  if (!Array.isArray(value) || value.length !== length) {
-    throw new Error(`${label} must contain exactly ${length} item${length === 1 ? "" : "s"}.`);
-  }
-  return value.map((item, index) => requireText(`${label}[${index}]`, item));
-}
-
 function deepFreeze<T>(value: T): Readonly<T> {
   if (Array.isArray(value)) {
     for (const entry of value) deepFreeze(entry);
@@ -86,52 +81,32 @@ function deepFreeze<T>(value: T): Readonly<T> {
   return value;
 }
 
-function canonicalize(value: unknown): string {
-  if (value === null) return "null";
-  if (typeof value === "string" || typeof value === "boolean") return JSON.stringify(value);
-  if (typeof value === "number") {
-    if (!Number.isFinite(value)) throw new Error("canonical JSON numbers must be finite");
-    return JSON.stringify(value);
-  }
-  if (Array.isArray(value)) return `[${value.map((entry) => canonicalize(entry)).join(",")}]`;
-  if (!isRecord(value)) throw new Error("canonical JSON values must be plain data");
-  return `{${Object.keys(value)
-    .sort()
-    .map((key) => `${JSON.stringify(key)}:${canonicalize(value[key])}`)
-    .join(",")}}`;
-}
-
 export function ap2CredentialSigningDigest(
   credentialVersion: string,
-  payload: Pick<
-    ReappAp2CredentialPayload,
-    "ap2SpecVersion" | "ap2DataKey" | "bindingVersion"
-  >,
+  payload: Pick<ReappAp2CredentialPayload, "ap2SpecVersion" | "ap2Vct" | "bindingVersion">,
   mandateHash: string,
 ): Buffer {
   if (!LOWER_HEX_32.test(mandateHash)) throw new Error("mandateHash must be lowercase 32-byte hex.");
-  const payloadHash = hash(Buffer.from(canonicalize(payload), "utf8"));
-  const bytes = Buffer.concat([
+  const payloadHash = hash(Buffer.from(canonicalizeJson(payload), "utf8"));
+  return hash(Buffer.concat([
     Buffer.from(SIGNATURE_DOMAIN, "utf8"),
     Buffer.from(credentialVersion, "utf8"),
     Buffer.from([0]),
     Buffer.from(payload.ap2SpecVersion, "utf8"),
     Buffer.from([0]),
-    Buffer.from(payload.ap2DataKey, "utf8"),
+    Buffer.from(payload.ap2Vct, "utf8"),
     Buffer.from([0]),
     Buffer.from(payload.bindingVersion, "utf8"),
     Buffer.from([0]),
     payloadHash,
     Buffer.from([0]),
     Buffer.from(mandateHash, "hex"),
-  ]);
-  return hash(bytes);
+  ]));
 }
 
-/** @internal Used by the public signAp2Mandate wrapper after binding succeeds. */
 export function createSignedAp2Credential(
   binding: Ap2MandateBinding,
-  input: BindIntentMandateInput,
+  input: BindPaymentMandateInput,
   signer: Keypair,
 ): Readonly<SignedAp2Mandate> {
   if (signer.publicKey() !== binding.mandate.user) {
@@ -139,23 +114,19 @@ export function createSignedAp2Credential(
   }
   const payload: ReappAp2CredentialPayload = {
     ap2SpecVersion: binding.ap2SpecVersion,
-    ap2DataKey: binding.ap2DataKey,
+    ap2Vct: binding.ap2Vct,
     bindingVersion: binding.bindingVersion,
-    intent: binding.normalizedIntent,
+    paymentMandate: binding.normalizedPaymentMandate,
     stellar: {
       user: binding.mandate.user,
       agent: binding.mandate.agent,
       asset: binding.mandate.asset,
-      maxAmount: String(input.stellar.maxAmount).trim(),
       decimals: binding.mandate.decimals,
+      currencyDecimals: input.stellar.currencyDecimals ?? 2,
       nonce: binding.bindingNonce,
     },
   };
-  const digest = ap2CredentialSigningDigest(
-    REAPP_AP2_CREDENTIAL_VERSION,
-    payload,
-    binding.mandate.id,
-  );
+  const digest = ap2CredentialSigningDigest(REAPP_AP2_CREDENTIAL_VERSION, payload, binding.mandate.id);
   return deepFreeze({
     credentialVersion: REAPP_AP2_CREDENTIAL_VERSION,
     payload,
@@ -169,116 +140,61 @@ export function createSignedAp2Credential(
 
 export function parseSignedAp2Mandate(value: unknown): SignedAp2Mandate {
   const envelope = requireRecord("credential", value);
-  requireExactKeys("credential", envelope, [
-    "credentialVersion",
-    "payload",
-    "mandateHash",
-    "signature",
-  ]);
-
-  const payloadValue = requireRecord("credential.payload", envelope.payload);
-  requireExactKeys("credential.payload", payloadValue, [
+  requireExactKeys("credential", envelope, ["credentialVersion", "payload", "mandateHash", "signature"]);
+  const payload = requireRecord("credential.payload", envelope.payload);
+  requireExactKeys("credential.payload", payload, [
     "ap2SpecVersion",
-    "ap2DataKey",
+    "ap2Vct",
     "bindingVersion",
-    "intent",
+    "paymentMandate",
     "stellar",
   ]);
-
-  const intentValue = requireRecord("credential.payload.intent", payloadValue.intent);
-  requireExactKeys("credential.payload.intent", intentValue, [
-    "user_cart_confirmation_required",
-    "natural_language_description",
-    "merchants",
-    "skus",
-    "requires_refundability",
-    "intent_expiry",
-  ]);
-  if (intentValue.user_cart_confirmation_required !== false) {
-    throw new Error("credential intent must be human-not-present.");
-  }
-  if (intentValue.requires_refundability !== false) {
-    throw new Error("credential intent cannot require unenforced refundability.");
-  }
-  const merchants = requireStringArray("credential.payload.intent.merchants", intentValue.merchants, 1);
-  const skus = requireStringArray("credential.payload.intent.skus", intentValue.skus, 0);
-
-  const stellarValue = requireRecord("credential.payload.stellar", payloadValue.stellar);
-  requireExactKeys("credential.payload.stellar", stellarValue, [
+  const stellar = requireRecord("credential.payload.stellar", payload.stellar);
+  requireExactKeys("credential.payload.stellar", stellar, [
     "user",
     "agent",
     "asset",
-    "maxAmount",
     "decimals",
+    "currencyDecimals",
     "nonce",
   ]);
-  if (
-    !Number.isInteger(stellarValue.decimals) ||
-    (stellarValue.decimals as number) < 0 ||
-    (stellarValue.decimals as number) > 38
-  ) {
+  if (!Number.isInteger(stellar.decimals) || (stellar.decimals as number) < 0 || (stellar.decimals as number) > 38) {
     throw new Error("credential.payload.stellar.decimals must be an integer from 0 through 38.");
   }
-
-  const signatureValue = requireRecord("credential.signature", envelope.signature);
-  requireExactKeys("credential.signature", signatureValue, ["algorithm", "value"]);
-
+  if (
+    !Number.isInteger(stellar.currencyDecimals) ||
+    (stellar.currencyDecimals as number) < 0 ||
+    (stellar.currencyDecimals as number) > 9
+  ) {
+    throw new Error("credential.payload.stellar.currencyDecimals must be an integer from 0 through 9.");
+  }
+  const signature = requireRecord("credential.signature", envelope.signature);
+  requireExactKeys("credential.signature", signature, ["algorithm", "value"]);
   const mandateHash = requireText("credential.mandateHash", envelope.mandateHash);
   if (!LOWER_HEX_32.test(mandateHash)) {
     throw new Error("credential.mandateHash must be lowercase 32-byte hex.");
   }
 
   return {
-    credentialVersion: requireText(
-      "credential.credentialVersion",
-      envelope.credentialVersion,
-    ) as typeof REAPP_AP2_CREDENTIAL_VERSION,
+    credentialVersion: requireText("credential.credentialVersion", envelope.credentialVersion) as typeof REAPP_AP2_CREDENTIAL_VERSION,
     payload: {
-      ap2SpecVersion: requireText(
-        "credential.payload.ap2SpecVersion",
-        payloadValue.ap2SpecVersion,
-      ) as ReappAp2CredentialPayload["ap2SpecVersion"],
-      ap2DataKey: requireText(
-        "credential.payload.ap2DataKey",
-        payloadValue.ap2DataKey,
-      ) as ReappAp2CredentialPayload["ap2DataKey"],
-      bindingVersion: requireText(
-        "credential.payload.bindingVersion",
-        payloadValue.bindingVersion,
-      ) as ReappAp2CredentialPayload["bindingVersion"],
-      intent: {
-        user_cart_confirmation_required: false,
-        natural_language_description: requireText(
-          "credential.payload.intent.natural_language_description",
-          intentValue.natural_language_description,
-        ),
-        merchants: [merchants[0]!],
-        skus: skus as [],
-        requires_refundability: false,
-        intent_expiry: requireText(
-          "credential.payload.intent.intent_expiry",
-          intentValue.intent_expiry,
-        ),
-      },
+      ap2SpecVersion: requireText("credential.payload.ap2SpecVersion", payload.ap2SpecVersion) as typeof AP2_SPEC_VERSION,
+      ap2Vct: requireText("credential.payload.ap2Vct", payload.ap2Vct) as typeof AP2_OPEN_PAYMENT_VCT,
+      bindingVersion: requireText("credential.payload.bindingVersion", payload.bindingVersion) as typeof REAPP_AP2_BINDING_VERSION,
+      paymentMandate: payload.paymentMandate as NormalizedAp2OpenPaymentMandate,
       stellar: {
-        user: requireText("credential.payload.stellar.user", stellarValue.user),
-        agent: requireText("credential.payload.stellar.agent", stellarValue.agent),
-        asset: requireText("credential.payload.stellar.asset", stellarValue.asset),
-        maxAmount: requireText(
-          "credential.payload.stellar.maxAmount",
-          stellarValue.maxAmount,
-        ),
-        decimals: stellarValue.decimals as number,
-        nonce: requireText("credential.payload.stellar.nonce", stellarValue.nonce),
+        user: requireText("credential.payload.stellar.user", stellar.user),
+        agent: requireText("credential.payload.stellar.agent", stellar.agent),
+        asset: requireText("credential.payload.stellar.asset", stellar.asset),
+        decimals: stellar.decimals as number,
+        currencyDecimals: stellar.currencyDecimals as number,
+        nonce: requireText("credential.payload.stellar.nonce", stellar.nonce),
       },
     },
     mandateHash,
     signature: {
-      algorithm: requireText(
-        "credential.signature.algorithm",
-        signatureValue.algorithm,
-      ) as typeof REAPP_AP2_SIGNATURE_ALGORITHM,
-      value: requireText("credential.signature.value", signatureValue.value),
+      algorithm: requireText("credential.signature.algorithm", signature.algorithm) as typeof REAPP_AP2_SIGNATURE_ALGORITHM,
+      value: requireText("credential.signature.value", signature.value),
     },
   };
 }
@@ -295,38 +211,15 @@ export function decodeCanonicalSignature(value: string): Buffer {
 }
 
 export function rebuildCredentialBinding(payload: ReappAp2CredentialPayload): Ap2MandateBinding {
-  const canonicalIntent = canonicalize(payload.intent);
-  const intentHash = hash(Buffer.from(canonicalIntent, "utf8")).toString("hex");
-  const expiryMs = Date.parse(payload.intent.intent_expiry);
-  const canonicalExpiry = Number.isFinite(expiryMs)
-    ? new Date(expiryMs).toISOString().replace(".000Z", "Z")
-    : "";
-  if (
-    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(payload.intent.intent_expiry) ||
-    canonicalExpiry !== payload.intent.intent_expiry
-  ) {
-    throw new Error("credential expiry must be a real canonical UTC whole-second timestamp.");
-  }
-  const unixExpiry = expiryMs / 1000;
-  const coreNonce = `${payload.bindingVersion}:${intentHash}:${payload.stellar.nonce}`;
-  const mandate: IntentMandate = reapp.createIntentMandate({
-    user: payload.stellar.user,
-    agent: payload.stellar.agent,
-    merchant: payload.intent.merchants[0],
-    asset: payload.stellar.asset,
-    maxAmount: payload.stellar.maxAmount,
-    expiry: unixExpiry,
-    decimals: payload.stellar.decimals,
-    nonce: coreNonce,
+  return bindPaymentMandate({
+    paymentMandate: payload.paymentMandate,
+    stellar: {
+      user: payload.stellar.user,
+      agent: payload.stellar.agent,
+      asset: payload.stellar.asset,
+      decimals: payload.stellar.decimals,
+      currencyDecimals: payload.stellar.currencyDecimals,
+      nonce: payload.stellar.nonce,
+    },
   });
-  return {
-    ap2SpecVersion: payload.ap2SpecVersion,
-    ap2DataKey: payload.ap2DataKey,
-    bindingVersion: payload.bindingVersion,
-    normalizedIntent: payload.intent,
-    canonicalIntent,
-    intentHash,
-    bindingNonce: payload.stellar.nonce,
-    mandate,
-  };
 }

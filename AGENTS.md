@@ -6,19 +6,21 @@ to this single source.
 
 ## What this is
 
-Agent-driven payments on Stellar. A user signs an AP2 **IntentMandate**; an AI
-agent pays for a 402-gated resource via **x402**; the Soroban **MandateRegistry**
-contract enforces scope, budget, expiry, and replay at consume time. A compromised
-agent or SDK cannot exceed the mandate.
+Agent-driven payments on Stellar. A user signs an AP2 mandate (v0.1
+IntentMandate or the supported v0.2 Open Payment profile); an AI agent pays for
+a 402-gated resource via **x402**; the Soroban **MandateRegistry** contract
+enforces scope, budget, expiry, and replay at consume time. A compromised agent
+or SDK cannot exceed the mandate.
 
 **The core invariant:** money moves only through `MandateRegistry.execute_payment`
-(solo payments) and `clear_pool` (composite capture of a pooled schedule each member
-pre-authorized at registration), each of which validates-and-consumes the mandate
-atomically *before* it transfers. The user approves the SEP-41 allowance for the
-**contract**, never for the agent or SDK. The SDK is untrusted; the contract is the
-source of truth. When changing anything, preserve this: never let a spend path bypass
-the two validated capture points, and never move the allowance or enforcement into
-TypeScript.
+(solo payments) and the shared `clear_pool` / `clear_pool_ap2` implementation
+(composite capture of a pooled schedule each member pre-authorized at
+registration), each of which validates-and-consumes the mandate atomically
+*before* it transfers. The user approves the SEP-41 allowance for the
+**contract**, never for the agent or SDK. The SDK is untrusted; the contract is
+the source of truth. When changing anything, preserve this: never let a spend
+path bypass the validated solo or pool capture point, and never move the
+allowance or enforcement into TypeScript.
 
 ## Commands
 
@@ -98,11 +100,16 @@ The under-10-line flow (`reapp.createIntentMandate` → `registerMandate` →
   the txHash on-chain — the header is never trusted on its own.
 
 ### `packages/ap2/` — `@reapp-sdk/ap2` (version-pinned bridge)
-Maps the supported AP2 v0.1.0 human-not-present IntentMandate subset into the
-existing core mandate without changing core's canonical hash. Unsupported SKU,
-refundability, multi-merchant, and cart-confirmation semantics fail closed. AP2
-normalization and evidence stay separate from x402, and the contract remains the
-only enforcement boundary.
+Maps the supported AP2 v0.2 autonomous Open Payment Mandate subset into the
+existing core mandate without changing core's canonical hash. Unsupported
+constraints, multi-payee scope, bounded recurrence, minimum amounts, and
+not-before semantics fail closed. Exact v0.1 IntentMandate envelopes retain
+their legacy admission rules. The package also verifies supported v0.2
+open/closed Delegate SD-JWT Checkout and Payment flows, signs receipts, and
+creates typed authorizations for the separate Simple/Composite extension. The
+pooled path is explicitly a REAPP pool-participation VCT. AP2 normalization and
+evidence stay separate from x402, and the registry contract remains the money
+boundary.
 
 ### `apps/`
 - `fulfillment-agent/` — reference 402-gated merchant; verifies payment on-chain

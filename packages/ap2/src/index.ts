@@ -1,11 +1,10 @@
 /**
- * @reapp-sdk/ap2 — signed AP2 v0.1 REAPP profile validation and binding.
+ * @reapp-sdk/ap2 — signed AP2 v0.2 REAPP profile validation and binding.
  *
- * This package signs and validates the supported human-not-present AP2
- * IntentMandate profile, then translates it into the existing REAPP core
- * mandate. It does not claim universal AP2 VC/JWS support and has no dependency
- * on the x402 wire format. Contract enforcement remains authoritative for
- * every payment.
+ * The bridge accepts the narrow autonomous Open Payment Mandate subset that
+ * MandateRegistry can faithfully enforce, then translates it into the existing
+ * REAPP core mandate. The envelope is REAPP-specific; it is not a general
+ * SD-JWT implementation. Contract enforcement remains authoritative.
  */
 import { Buffer } from "buffer";
 import { Address, Keypair, StrKey, hash } from "@stellar/stellar-sdk";
@@ -20,70 +19,128 @@ export {
 } from "./credential.js";
 export * from "./replay-store.js";
 export * from "./validator.js";
+export * from "./sd-jwt.js";
+export * from "./merchant.js";
+export * from "./authorization.js";
+export * from "./pool.js";
+export * from "./legacy-v01.js";
 
-export const AP2_SPEC_VERSION = "0.1.0" as const;
-export const AP2_INTENT_DATA_KEY = "ap2.mandates.IntentMandate" as const;
-export const REAPP_AP2_BINDING_VERSION = "reapp-ap2/1" as const;
+export const AP2_SPEC_VERSION = "0.2.0" as const;
+export const AP2_OPEN_PAYMENT_VCT = "mandate.payment.open.1" as const;
+export const REAPP_AP2_BINDING_VERSION = "reapp-ap2/2" as const;
 
-/** AP2 v0.1.0 sample IntentMandate data shape (wire names preserved). */
-export interface Ap2IntentMandate {
-  user_cart_confirmation_required: boolean;
-  natural_language_description: string;
-  merchants?: readonly string[];
-  skus?: readonly string[];
-  requires_refundability?: boolean;
-  intent_expiry: string;
+export interface Ap2Merchant {
+  id: string;
+  name: string;
+  website?: string;
 }
 
-/** The exact, fail-closed AP2 subset that REAPP can enforce today. */
-export interface NormalizedAp2IntentMandate {
-  user_cart_confirmation_required: false;
-  natural_language_description: string;
-  merchants: [string];
-  skus: [];
-  requires_refundability: false;
-  intent_expiry: string;
+export interface Ap2AllowedPayeesConstraint {
+  type: "payment.allowed_payees";
+  allowed: readonly Ap2Merchant[];
 }
 
-/** Stellar-specific authorization that AP2's commerce intent does not carry. */
+export interface Ap2AmountRangeConstraint {
+  type: "payment.amount_range";
+  currency: string;
+  max: number;
+  min?: number;
+}
+
+export interface Ap2BudgetConstraint {
+  type: "payment.budget";
+  max: number;
+  currency: string;
+}
+
+export interface Ap2AgentRecurrenceConstraint {
+  type: "payment.agent_recurrence";
+  frequency: "ON_DEMAND" | "DAILY" | "WEEKLY" | "BIWEEKLY" | "MONTHLY" | "QUARTERLY" | "ANNUALLY";
+  max_occurrences?: number;
+}
+
+export interface Ap2ExecutionDateConstraint {
+  type: "payment.execution_date";
+  not_before?: string;
+  not_after?: string;
+}
+
+export interface Ap2PaymentReferenceConstraint {
+  type: "payment.reference";
+  conditional_transaction_id: string;
+}
+
+export type Ap2PaymentConstraint =
+  | Ap2AllowedPayeesConstraint
+  | Ap2AmountRangeConstraint
+  | Ap2BudgetConstraint
+  | Ap2AgentRecurrenceConstraint
+  | Ap2ExecutionDateConstraint
+  | Ap2PaymentReferenceConstraint
+  | { type: string; readonly [key: string]: unknown };
+
+export interface Ap2Ed25519Confirmation {
+  jwk: {
+    kty: "OKP";
+    crv: "Ed25519";
+    x: string;
+  };
+}
+
+/** AP2 v0.2 Open Payment Mandate input shape used by the REAPP profile. */
+export interface Ap2OpenPaymentMandate {
+  vct: typeof AP2_OPEN_PAYMENT_VCT;
+  constraints: readonly Ap2PaymentConstraint[];
+  cnf: Ap2Ed25519Confirmation;
+  exp: number;
+}
+
+/** Canonically ordered, exact AP2 v0.2 subset REAPP accepts. */
+export interface NormalizedAp2OpenPaymentMandate {
+  vct: typeof AP2_OPEN_PAYMENT_VCT;
+  constraints: [
+    Ap2AllowedPayeesConstraint & { allowed: [Ap2Merchant] },
+    Ap2AmountRangeConstraint & { min?: never },
+    Ap2AgentRecurrenceConstraint & { frequency: "ON_DEMAND"; max_occurrences?: never },
+    Ap2BudgetConstraint,
+    Ap2ExecutionDateConstraint & { not_before?: never; not_after: string },
+    Ap2PaymentReferenceConstraint,
+  ];
+  cnf: Ap2Ed25519Confirmation;
+  exp: number;
+}
+
+/** Stellar authorization details AP2 does not carry. */
 export interface StellarMandateAuthorization {
   user: string;
   agent: string;
   asset: string;
-  /** Human amount, such as "5.00". */
-  maxAmount: string;
-  /** Token decimals; defaults to Stellar's 7. */
+  /** SEP-41 token decimals; defaults to Stellar's 7. */
   decimals?: number;
+  /** ISO-4217 minor-unit exponent used by amount_range; defaults to 2. */
+  currencyDecimals?: number;
   /** Optional reproducibility nonce; secure random bytes are used by default. */
   nonce?: string;
 }
 
-export interface BindIntentMandateInput {
-  intent: Ap2IntentMandate;
+export interface BindPaymentMandateInput {
+  paymentMandate: Ap2OpenPaymentMandate;
   stellar: StellarMandateAuthorization;
 }
 
 export interface Ap2MandateBinding {
   ap2SpecVersion: typeof AP2_SPEC_VERSION;
-  ap2DataKey: typeof AP2_INTENT_DATA_KEY;
+  ap2Vct: typeof AP2_OPEN_PAYMENT_VCT;
   bindingVersion: typeof REAPP_AP2_BINDING_VERSION;
-  normalizedIntent: NormalizedAp2IntentMandate;
-  canonicalIntent: string;
-  /** SHA-256 of canonicalIntent, as lowercase hex. */
-  intentHash: string;
+  normalizedPaymentMandate: NormalizedAp2OpenPaymentMandate;
+  canonicalPaymentMandate: string;
+  /** SHA-256 of canonicalPaymentMandate, as lowercase hex. */
+  paymentMandateHash: string;
   /** Random by default; supply one only for reproducible vectors. */
   bindingNonce: string;
   /** REAPP's contract-facing mandate; mandate.id is the on-chain vc_hash. */
   mandate: IntentMandate;
 }
-
-export type CanonicalJsonValue =
-  | null
-  | boolean
-  | number
-  | string
-  | readonly CanonicalJsonValue[]
-  | { readonly [key: string]: CanonicalJsonValue };
 
 /** Deterministic JSON with recursively sorted object keys. */
 export function canonicalizeJson(value: unknown): string {
@@ -102,14 +159,12 @@ export function canonicalizeJson(value: unknown): string {
   if (Array.isArray(value)) {
     return `[${value.map((entry) => canonicalizeJson(entry)).join(",")}]`;
   }
-  if (typeof value !== "object") {
-    throw new Error("value is not representable as canonical JSON");
-  }
+  if (typeof value !== "object") throw new Error("value is not representable as canonical JSON");
   const prototype = Object.getPrototypeOf(value);
   if (prototype !== Object.prototype && prototype !== null) {
     throw new Error("canonical JSON objects must be plain objects");
   }
-  const object = value as { readonly [key: string]: unknown };
+  const object = value as Record<string, unknown>;
   return `{${Object.keys(object)
     .sort()
     .map((key) => `${JSON.stringify(key)}:${canonicalizeJson(object[key]!)}`)
@@ -135,11 +190,7 @@ function requirePlainObject(label: string, value: unknown): Record<string, unkno
   return value as Record<string, unknown>;
 }
 
-function rejectUnknownKeys(
-  label: string,
-  value: unknown,
-  allowed: readonly string[],
-): Record<string, unknown> {
+function rejectUnknownKeys(label: string, value: unknown, allowed: readonly string[]): Record<string, unknown> {
   const object = requirePlainObject(label, value);
   const unknown = Object.keys(object).filter((key) => !allowed.includes(key));
   if (unknown.length > 0) {
@@ -166,122 +217,212 @@ function requireEd25519Address(label: string, value: unknown): string {
   return address;
 }
 
-function isLeapYear(year: number): boolean {
-  return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+function normalizeTimestamp(label: string, value: unknown): { iso: string; unixSeconds: number } {
+  const timestamp = requireExactText(label, value);
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(timestamp)) {
+    throw new Error(`${label} must be a canonical UTC whole-second ISO 8601 timestamp.`);
+  }
+  const milliseconds = Date.parse(timestamp);
+  const canonical = Number.isFinite(milliseconds)
+    ? new Date(milliseconds).toISOString().replace(".000Z", "Z")
+    : "";
+  if (canonical !== timestamp) throw new Error(`${label} must be a real calendar timestamp.`);
+  return { iso: timestamp, unixSeconds: milliseconds / 1000 };
 }
 
-function normalizeExpiry(value: unknown): { iso: string; unixSeconds: number } {
-  const expiry = requireExactText("intent.intent_expiry", value);
-  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.000)?(Z|[+-](\d{2}):(\d{2}))$/.exec(expiry);
-  if (!match) {
-    throw new Error("intent.intent_expiry must be an ISO 8601 timestamp with a timezone and whole-second precision.");
+function requireSafePositiveInteger(label: string, value: unknown): number {
+  if (!Number.isSafeInteger(value) || (value as number) <= 0) {
+    throw new Error(`${label} must be a positive safe integer.`);
   }
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  const hour = Number(match[4]);
-  const minute = Number(match[5]);
-  const second = Number(match[6]);
-  const offsetHour = match[8] === undefined ? 0 : Number(match[8]);
-  const offsetMinute = match[9] === undefined ? 0 : Number(match[9]);
-  const daysInMonth = [
-    31,
-    isLeapYear(year) ? 29 : 28,
-    31,
-    30,
-    31,
-    30,
-    31,
-    31,
-    30,
-    31,
-    30,
-    31,
-  ];
-  if (
-    month < 1 ||
-    month > 12 ||
-    day < 1 ||
-    day > daysInMonth[month - 1]! ||
-    hour > 23 ||
-    minute > 59 ||
-    second > 59 ||
-    offsetHour > 23 ||
-    offsetMinute > 59
-  ) {
-    throw new Error("intent.intent_expiry must be a real calendar timestamp.");
+  return value as number;
+}
+
+function requireCurrency(value: unknown): string {
+  const currency = requireExactText("payment amount currency", value);
+  if (!/^[A-Z]{3}$/.test(currency)) {
+    throw new Error("payment amount currency must be an uppercase ISO-4217 alpha-3 code.");
   }
-  const milliseconds = Date.parse(expiry);
-  if (!Number.isFinite(milliseconds) || milliseconds % 1000 !== 0) {
-    throw new Error("intent.intent_expiry must be a valid whole-second ISO 8601 timestamp.");
+  return currency;
+}
+
+function decimalNumberToMinor(label: string, value: unknown, decimals: number): number {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+    throw new Error(`${label} must be a positive finite number.`);
   }
-  const iso = new Date(milliseconds).toISOString().replace(".000Z", "Z");
-  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(iso)) {
-    throw new Error("intent.intent_expiry must normalize within the supported four-digit UTC year range.");
+  const match = /^(\d+)(?:\.(\d+))?$/.exec(String(value));
+  if (!match || (match[2]?.length ?? 0) > decimals) {
+    throw new Error(`${label} must resolve exactly to positive safe integer minor units.`);
   }
-  const unixSeconds = milliseconds / 1000;
-  if (!Number.isSafeInteger(unixSeconds) || unixSeconds <= Math.floor(Date.now() / 1000)) {
-    throw new Error("intent.intent_expiry must resolve to a future Unix timestamp.");
+  const minor = BigInt(`${match[1]}${(match[2] ?? "").padEnd(decimals, "0")}`);
+  if (minor <= 0n || minor > BigInt(Number.MAX_SAFE_INTEGER)) {
+    throw new Error(`${label} must resolve exactly to positive safe integer minor units.`);
   }
+  return Number(minor);
+}
+
+function minorToDecimal(minor: number, decimals: number): string {
+  const digits = String(minor).padStart(decimals + 1, "0");
+  if (decimals === 0) return digits;
+  return `${digits.slice(0, -decimals)}.${digits.slice(-decimals)}`;
+}
+
+function expectedAgentJwk(agent: string): Ap2Ed25519Confirmation {
+  const raw = StrKey.decodeEd25519PublicKey(agent);
   return {
-    iso,
-    unixSeconds,
+    jwk: {
+      kty: "OKP",
+      crv: "Ed25519",
+      x: Buffer.from(raw).toString("base64url"),
+    },
   };
 }
 
-/**
- * Normalize and validate the AP2 subset REAPP can enforce without inventing
- * application-only policy. Unsupported constraints fail closed.
- */
-export function normalizeAp2Intent(intent: Ap2IntentMandate): {
-  intent: NormalizedAp2IntentMandate;
+function normalizeMerchant(value: unknown): Ap2Merchant {
+  rejectUnknownKeys("payment.allowed_payees.allowed[0]", value, ["id", "name", "website"]);
+  const input = value as Ap2Merchant;
+  const merchant: Ap2Merchant = {
+    id: requireStellarAddress("payment.allowed_payees.allowed[0].id", input.id),
+    name: requireExactText("payment.allowed_payees.allowed[0].name", input.name),
+  };
+  if (input.website !== undefined) {
+    const website = requireExactText("payment.allowed_payees.allowed[0].website", input.website);
+    let parsed: URL;
+    try {
+      parsed = new URL(website);
+    } catch {
+      throw new Error("payment.allowed_payees.allowed[0].website must be a valid HTTPS URL.");
+    }
+    if (parsed.protocol !== "https:") {
+      throw new Error("payment.allowed_payees.allowed[0].website must be a valid HTTPS URL.");
+    }
+    merchant.website = website;
+  }
+  return merchant;
+}
+
+export function normalizeAp2PaymentMandate(
+  paymentMandate: Ap2OpenPaymentMandate,
+  stellar: StellarMandateAuthorization,
+): {
+  paymentMandate: NormalizedAp2OpenPaymentMandate;
+  merchant: string;
+  maxAmount: string;
   unixExpiry: number;
 } {
-  rejectUnknownKeys("intent", intent, [
-    "user_cart_confirmation_required",
-    "natural_language_description",
-    "merchants",
-    "skus",
-    "requires_refundability",
-    "intent_expiry",
-  ]);
-  if (intent.user_cart_confirmation_required !== false) {
-    throw new Error(
-      "REAPP's AP2 bridge requires user_cart_confirmation_required=false; cart-confirmation state is not enforced by MandateRegistry.",
-    );
+  rejectUnknownKeys("paymentMandate", paymentMandate, ["vct", "constraints", "cnf", "exp"]);
+  if (paymentMandate.vct !== AP2_OPEN_PAYMENT_VCT) {
+    throw new Error(`paymentMandate.vct must be ${AP2_OPEN_PAYMENT_VCT}.`);
   }
-  const description = requireExactText(
-    "intent.natural_language_description",
-    intent.natural_language_description,
+  if (!Array.isArray(paymentMandate.constraints)) {
+    throw new Error("paymentMandate.constraints must be an array.");
+  }
+
+  const byType = new Map<string, Ap2PaymentConstraint>();
+  for (const [index, constraint] of paymentMandate.constraints.entries()) {
+    const object = requirePlainObject(`paymentMandate.constraints[${index}]`, constraint);
+    const type = requireExactText(`paymentMandate.constraints[${index}].type`, object.type);
+    if (byType.has(type)) throw new Error(`paymentMandate contains duplicate constraint ${type}.`);
+    byType.set(type, constraint);
+  }
+  const supported = [
+    "payment.allowed_payees",
+    "payment.amount_range",
+    "payment.agent_recurrence",
+    "payment.budget",
+    "payment.execution_date",
+    "payment.reference",
+  ];
+  for (const type of byType.keys()) {
+    if (!supported.includes(type)) {
+      throw new Error(`paymentMandate contains unsupported constraint ${type}.`);
+    }
+  }
+  for (const type of supported) {
+    if (!byType.has(type)) throw new Error(`paymentMandate requires constraint ${type}.`);
+  }
+
+  const payees = byType.get("payment.allowed_payees") as Ap2AllowedPayeesConstraint;
+  rejectUnknownKeys("payment.allowed_payees", payees, ["type", "allowed"]);
+  if (!Array.isArray(payees.allowed) || payees.allowed.length !== 1) {
+    throw new Error("payment.allowed_payees.allowed must contain exactly one Stellar merchant.");
+  }
+  const merchant = normalizeMerchant(payees.allowed[0]);
+
+  const amountRange = byType.get("payment.amount_range") as Ap2AmountRangeConstraint;
+  rejectUnknownKeys("payment.amount_range", amountRange, ["type", "currency", "max", "min"]);
+  const currency = requireCurrency(amountRange.currency);
+  const maxMinor = requireSafePositiveInteger("payment.amount_range.max", amountRange.max);
+  if (amountRange.min !== undefined) {
+    throw new Error("payment.amount_range.min is unsupported because MandateRegistry has no minimum-payment policy.");
+  }
+
+  const recurrence = byType.get("payment.agent_recurrence") as Ap2AgentRecurrenceConstraint;
+  rejectUnknownKeys("payment.agent_recurrence", recurrence, ["type", "frequency", "max_occurrences"]);
+  if (recurrence.frequency !== "ON_DEMAND" || recurrence.max_occurrences !== undefined) {
+    throw new Error("payment.agent_recurrence must be ON_DEMAND without max_occurrences.");
+  }
+
+  const currencyDecimals = stellar.currencyDecimals ?? 2;
+  if (!Number.isInteger(currencyDecimals) || currencyDecimals < 0 || currencyDecimals > 9) {
+    throw new Error("stellar.currencyDecimals must be an integer from 0 through 9.");
+  }
+  const budget = byType.get("payment.budget") as Ap2BudgetConstraint;
+  rejectUnknownKeys("payment.budget", budget, ["type", "max", "currency"]);
+  if (requireCurrency(budget.currency) !== currency) {
+    throw new Error("payment.budget currency must match payment.amount_range currency.");
+  }
+  if (decimalNumberToMinor("payment.budget.max", budget.max, currencyDecimals) !== maxMinor) {
+    throw new Error("payment.budget.max must equal payment.amount_range.max in currency minor units.");
+  }
+
+  const execution = byType.get("payment.execution_date") as Ap2ExecutionDateConstraint;
+  rejectUnknownKeys("payment.execution_date", execution, ["type", "not_before", "not_after"]);
+  if (execution.not_before !== undefined) {
+    throw new Error("payment.execution_date.not_before is unsupported by MandateRegistry.");
+  }
+  const expiry = normalizeTimestamp("payment.execution_date.not_after", execution.not_after);
+  if (expiry.unixSeconds !== paymentMandate.exp) {
+    throw new Error("paymentMandate.exp must equal payment.execution_date.not_after.");
+  }
+  if (!Number.isSafeInteger(paymentMandate.exp) || paymentMandate.exp <= Math.floor(Date.now() / 1000)) {
+    throw new Error("paymentMandate.exp must be a future safe whole Unix timestamp.");
+  }
+
+  const reference = byType.get("payment.reference") as Ap2PaymentReferenceConstraint;
+  rejectUnknownKeys("payment.reference", reference, ["type", "conditional_transaction_id"]);
+  const conditionalTransactionId = requireExactText(
+    "payment.reference.conditional_transaction_id",
+    reference.conditional_transaction_id,
   );
-  if (!Array.isArray(intent.merchants) || intent.merchants.length !== 1) {
-    throw new Error("intent.merchants must contain exactly one Stellar merchant address.");
-  }
-  const merchant = requireStellarAddress("intent.merchants[0]", intent.merchants[0]);
-  if (intent.skus !== undefined && (!Array.isArray(intent.skus) || intent.skus.length > 0)) {
-    throw new Error("intent.skus is not supported because MandateRegistry does not enforce SKU constraints.");
-  }
-  if (intent.requires_refundability === true) {
-    throw new Error(
-      "intent.requires_refundability=true is not supported because MandateRegistry does not enforce refundability.",
-    );
-  }
+
+  rejectUnknownKeys("paymentMandate.cnf", paymentMandate.cnf, ["jwk"]);
+  rejectUnknownKeys("paymentMandate.cnf.jwk", paymentMandate.cnf.jwk, ["kty", "crv", "x"]);
+  const agent = requireEd25519Address("stellar.agent", stellar.agent);
+  const cnf = expectedAgentJwk(agent);
   if (
-    intent.requires_refundability !== undefined &&
-    typeof intent.requires_refundability !== "boolean"
+    paymentMandate.cnf.jwk.kty !== cnf.jwk.kty ||
+    paymentMandate.cnf.jwk.crv !== cnf.jwk.crv ||
+    paymentMandate.cnf.jwk.x !== cnf.jwk.x
   ) {
-    throw new Error("intent.requires_refundability must be a boolean when present.");
+    throw new Error("paymentMandate.cnf must contain the Ed25519 JWK for stellar.agent.");
   }
-  const expiry = normalizeExpiry(intent.intent_expiry);
+
   return {
-    intent: {
-      user_cart_confirmation_required: false,
-      natural_language_description: description,
-      merchants: [merchant],
-      skus: [],
-      requires_refundability: false,
-      intent_expiry: expiry.iso,
+    paymentMandate: {
+      vct: AP2_OPEN_PAYMENT_VCT,
+      constraints: [
+        { type: "payment.allowed_payees", allowed: [merchant] },
+        { type: "payment.amount_range", currency, max: maxMinor },
+        { type: "payment.agent_recurrence", frequency: "ON_DEMAND" },
+        { type: "payment.budget", max: budget.max, currency },
+        { type: "payment.execution_date", not_after: expiry.iso },
+        { type: "payment.reference", conditional_transaction_id: conditionalTransactionId },
+      ],
+      cnf,
+      exp: paymentMandate.exp,
     },
+    merchant: merchant.id,
+    maxAmount: minorToDecimal(maxMinor, currencyDecimals),
     unixExpiry: expiry.unixSeconds,
   };
 }
@@ -289,55 +430,43 @@ export function normalizeAp2Intent(intent: Ap2IntentMandate): {
 function secureNonce(): string {
   type CryptoSource = { getRandomValues(bytes: Uint8Array): Uint8Array };
   const source = (globalThis as typeof globalThis & { crypto?: CryptoSource }).crypto;
-  if (!source) {
-    throw new Error("Web Crypto is required to create a secure AP2 binding nonce.");
-  }
+  if (!source) throw new Error("Web Crypto is required to create a secure AP2 binding nonce.");
   const bytes = source.getRandomValues(new Uint8Array(16));
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-/**
- * Bind a supported AP2 IntentMandate to REAPP's existing core mandate.
- *
- * The AP2 hash is embedded in core's existing nonce field. Core's canonical
- * field order is unchanged, so existing non-AP2 mandate ids remain stable.
- */
-export function bindIntentMandate(input: BindIntentMandateInput): Ap2MandateBinding {
-  rejectUnknownKeys("input", input, ["intent", "stellar"]);
+export function bindPaymentMandate(input: BindPaymentMandateInput): Ap2MandateBinding {
+  rejectUnknownKeys("input", input, ["paymentMandate", "stellar"]);
   rejectUnknownKeys("stellar", input.stellar, [
     "user",
     "agent",
     "asset",
-    "maxAmount",
     "decimals",
+    "currencyDecimals",
     "nonce",
   ]);
-  const normalized = normalizeAp2Intent(input.intent);
-  const canonicalIntent = canonicalizeJson(normalized.intent);
-  const intentHash = hash(Buffer.from(canonicalIntent, "utf8")).toString("hex");
-
   const user = requireEd25519Address("stellar.user", input.stellar.user);
   const agent = requireEd25519Address("stellar.agent", input.stellar.agent);
   const asset = requireExactText("stellar.asset", input.stellar.asset);
-  if (!StrKey.isValidContract(asset)) {
-    throw new Error("stellar.asset must be a valid Stellar contract address.");
-  }
-
-  const bindingNonce = input.stellar.nonce === undefined
-    ? secureNonce()
-    : requireExactText("stellar.nonce", input.stellar.nonce);
+  if (!StrKey.isValidContract(asset)) throw new Error("stellar.asset must be a valid Stellar contract address.");
   const decimals = input.stellar.decimals ?? 7;
   if (!Number.isInteger(decimals) || decimals < 0 || decimals > 38) {
     throw new Error("stellar.decimals must be an integer from 0 through 38.");
   }
-  const maxAmount = requireExactText("stellar.maxAmount", input.stellar.maxAmount);
-  const coreNonce = `${REAPP_AP2_BINDING_VERSION}:${intentHash}:${bindingNonce}`;
+
+  const normalized = normalizeAp2PaymentMandate(input.paymentMandate, input.stellar);
+  const canonicalPaymentMandate = canonicalizeJson(normalized.paymentMandate);
+  const paymentMandateHash = hash(Buffer.from(canonicalPaymentMandate, "utf8")).toString("hex");
+  const bindingNonce = input.stellar.nonce === undefined
+    ? secureNonce()
+    : requireExactText("stellar.nonce", input.stellar.nonce);
+  const coreNonce = `${REAPP_AP2_BINDING_VERSION}:${paymentMandateHash}:${bindingNonce}`;
   const mandate = reapp.createIntentMandate({
     user,
     agent,
-    merchant: normalized.intent.merchants[0],
+    merchant: normalized.merchant,
     asset,
-    maxAmount,
+    maxAmount: normalized.maxAmount,
     expiry: normalized.unixExpiry,
     decimals,
     nonce: coreNonce,
@@ -345,20 +474,20 @@ export function bindIntentMandate(input: BindIntentMandateInput): Ap2MandateBind
 
   return {
     ap2SpecVersion: AP2_SPEC_VERSION,
-    ap2DataKey: AP2_INTENT_DATA_KEY,
+    ap2Vct: AP2_OPEN_PAYMENT_VCT,
     bindingVersion: REAPP_AP2_BINDING_VERSION,
-    normalizedIntent: normalized.intent,
-    canonicalIntent,
-    intentHash,
+    normalizedPaymentMandate: normalized.paymentMandate,
+    canonicalPaymentMandate,
+    paymentMandateHash,
     bindingNonce,
     mandate,
   };
 }
 
-/** Sign a supported AP2 intent using the Stellar user key after fail-closed binding. */
+/** Sign the supported AP2 v0.2 Open Payment Mandate with its Stellar user key. */
 export function signAp2Mandate(
-  input: BindIntentMandateInput,
+  input: BindPaymentMandateInput,
   signer: Keypair,
 ): Readonly<SignedAp2Mandate> {
-  return createSignedAp2Credential(bindIntentMandate(input), input, signer);
+  return createSignedAp2Credential(bindPaymentMandate(input), input, signer);
 }

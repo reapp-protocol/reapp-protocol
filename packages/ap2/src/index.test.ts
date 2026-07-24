@@ -4,38 +4,58 @@ import { Buffer } from "buffer";
 import { Keypair, StrKey } from "@stellar/stellar-sdk";
 import { reapp } from "@reapp-sdk/core";
 import {
-  AP2_INTENT_DATA_KEY,
+  AP2_OPEN_PAYMENT_VCT,
   AP2_SPEC_VERSION,
   REAPP_AP2_BINDING_VERSION,
-  bindIntentMandate,
+  bindPaymentMandate,
   canonicalizeJson,
-  type Ap2IntentMandate,
-  type StellarMandateAuthorization,
+  type Ap2OpenPaymentMandate,
+  type BindPaymentMandateInput,
 } from "./index.js";
 
 const user = Keypair.fromRawEd25519Seed(Buffer.alloc(32, 1)).publicKey();
 const agent = Keypair.fromRawEd25519Seed(Buffer.alloc(32, 2)).publicKey();
 const merchant = Keypair.fromRawEd25519Seed(Buffer.alloc(32, 3)).publicKey();
-
-const baseIntent: Ap2IntentMandate = {
-  user_cart_confirmation_required: false,
-  natural_language_description: "Buy one research dataset",
-  merchants: [merchant],
-  skus: [],
-  requires_refundability: false,
-  intent_expiry: "2099-01-01T00:00:00Z",
+const other = Keypair.fromRawEd25519Seed(Buffer.alloc(32, 4)).publicKey();
+const agentJwk = {
+  kty: "OKP" as const,
+  crv: "Ed25519" as const,
+  x: Buffer.from(StrKey.decodeEd25519PublicKey(agent)).toString("base64url"),
 };
 
-const bind = (intent: Ap2IntentMandate = baseIntent, nonce = "vector-1") =>
-  bindIntentMandate({
-    intent,
-    stellar: {
-      user,
-      agent,
-      asset: reapp.testnet.nativeSac,
-      maxAmount: "5.00",
-      nonce,
+const basePaymentMandate: Ap2OpenPaymentMandate = {
+  vct: AP2_OPEN_PAYMENT_VCT,
+  constraints: [
+    {
+      type: "payment.allowed_payees",
+      allowed: [{ id: merchant, name: "Research Merchant", website: "https://merchant.example/" }],
     },
+    { type: "payment.amount_range", currency: "USD", max: 500 },
+    { type: "payment.agent_recurrence", frequency: "ON_DEMAND" },
+    { type: "payment.budget", currency: "USD", max: 5 },
+    { type: "payment.execution_date", not_after: "2099-01-01T00:00:00Z" },
+    { type: "payment.reference", conditional_transaction_id: "checkout-sha256-vector" },
+  ],
+  cnf: { jwk: agentJwk },
+  exp: 4_070_908_800,
+};
+
+const baseInput: BindPaymentMandateInput = {
+  paymentMandate: basePaymentMandate,
+  stellar: {
+    user,
+    agent,
+    asset: reapp.testnet.nativeSac,
+    decimals: 7,
+    currencyDecimals: 2,
+    nonce: "vector-1",
+  },
+};
+
+const bind = (paymentMandate = basePaymentMandate, nonce = "vector-1") =>
+  bindPaymentMandate({
+    paymentMandate,
+    stellar: { ...baseInput.stellar, nonce },
   });
 
 test("canonical JSON is independent of object key insertion order", () => {
@@ -45,179 +65,144 @@ test("canonical JSON is independent of object key insertion order", () => {
   assert.equal(first, '{"a":1,"z":[3,{"a":"x","b":true}]}');
 });
 
-test("binds the supported AP2 v0.1.0 intent to a 32-byte REAPP vc_hash", () => {
+test("binds the supported AP2 v0.2 open payment mandate to REAPP", () => {
   const result = bind();
   assert.equal(result.ap2SpecVersion, AP2_SPEC_VERSION);
-  assert.equal(result.ap2DataKey, AP2_INTENT_DATA_KEY);
+  assert.equal(result.ap2Vct, AP2_OPEN_PAYMENT_VCT);
   assert.equal(result.bindingVersion, REAPP_AP2_BINDING_VERSION);
-  assert.equal(result.normalizedIntent.merchants[0], merchant);
   assert.equal(result.mandate.merchant, merchant);
+  assert.equal(result.mandate.maxAmount, 50_000_000n);
   assert.equal(result.mandate.expiry, 4_070_908_800);
-  assert.equal(result.mandate.id.length, 64);
+  assert.equal(result.paymentMandateHash.length, 64);
   assert.equal(result.mandate.idBuffer.length, 32);
-  assert.equal(result.mandate.idBuffer.toString("hex"), result.mandate.id);
 });
 
-test("pins a canonical AP2 hash vector", () => {
-  const result = bind();
-  assert.equal(result.intentHash, "1da97a920afae68979bf01a0b1a01d570494ac046eb9e277d53b0c453f4316c1");
-});
-
-test("provided nonce makes the full binding reproducible across key order", () => {
-  const reordered: Ap2IntentMandate = {
-    intent_expiry: baseIntent.intent_expiry,
-    requires_refundability: false,
-    skus: [],
-    merchants: [merchant],
-    natural_language_description: baseIntent.natural_language_description,
-    user_cart_confirmation_required: false,
-  };
-  const first = bind(baseIntent, "repeatable");
-  const second = bind(reordered, "repeatable");
-  assert.equal(first.canonicalIntent, second.canonicalIntent);
-  assert.equal(first.intentHash, second.intentHash);
+test("canonical constraint order makes input array order irrelevant", () => {
+  const reversed = { ...basePaymentMandate, constraints: [...basePaymentMandate.constraints].reverse() };
+  const first = bind();
+  const second = bind(reversed);
+  assert.equal(first.canonicalPaymentMandate, second.canonicalPaymentMandate);
+  assert.equal(first.paymentMandateHash, second.paymentMandateHash);
   assert.equal(first.mandate.id, second.mandate.id);
 });
 
-test("secure default nonces keep identical intents distinct", () => {
-  const first = bindIntentMandate({
-    intent: baseIntent,
-    stellar: { user, agent, asset: reapp.testnet.nativeSac, maxAmount: "5.00" },
-  });
-  const second = bindIntentMandate({
-    intent: baseIntent,
-    stellar: { user, agent, asset: reapp.testnet.nativeSac, maxAmount: "5.00" },
-  });
-  assert.equal(first.intentHash, second.intentHash);
+test("secure default nonces keep identical mandates distinct", () => {
+  const stellar = { ...baseInput.stellar };
+  delete stellar.nonce;
+  const first = bindPaymentMandate({ paymentMandate: basePaymentMandate, stellar });
+  const second = bindPaymentMandate({ paymentMandate: basePaymentMandate, stellar });
+  assert.equal(first.paymentMandateHash, second.paymentMandateHash);
   assert.notEqual(first.bindingNonce, second.bindingNonce);
   assert.notEqual(first.mandate.id, second.mandate.id);
 });
 
-test("fails closed for AP2 constraints MandateRegistry cannot enforce", () => {
+test("requires the exact v0.2 mandate type and supported constraint set", () => {
   assert.throws(
-    () => bind({ ...baseIntent, user_cart_confirmation_required: true }),
-    /user_cart_confirmation_required=false/,
+    () => bind({ ...basePaymentMandate, vct: "mandate.payment.open.2" as typeof AP2_OPEN_PAYMENT_VCT }),
+    /vct must be mandate\.payment\.open\.1/,
   );
   assert.throws(
-    () => bind({ ...baseIntent, merchants: [] }),
-    /exactly one Stellar merchant/,
+    () => bind({
+      ...basePaymentMandate,
+      constraints: [...basePaymentMandate.constraints, { type: "payment.allowed_pisps", allowed: [] }],
+    }),
+    /unsupported constraint payment\.allowed_pisps/,
   );
   assert.throws(
-    () => bind({ ...baseIntent, merchants: [merchant, user] }),
-    /exactly one Stellar merchant/,
-  );
-  assert.throws(
-    () => bind({ ...baseIntent, skus: ["SKU-1"] }),
-    /does not enforce SKU/,
-  );
-  assert.throws(
-    () => bind({ ...baseIntent, requires_refundability: true }),
-    /does not enforce refundability/,
+    () => bind({
+      ...basePaymentMandate,
+      constraints: basePaymentMandate.constraints.filter(({ type }) => type !== "payment.reference"),
+    }),
+    /requires constraint payment\.reference/,
   );
 });
 
-test("rejects ambiguous expiry and invalid Stellar authorization", () => {
+test("requires exactly one Stellar payee", () => {
+  const constraints = basePaymentMandate.constraints.map((constraint) =>
+    constraint.type === "payment.allowed_payees"
+      ? { ...constraint, allowed: [{ id: merchant, name: "A" }, { id: other, name: "B" }] }
+      : constraint);
+  assert.throws(() => bind({ ...basePaymentMandate, constraints }), /exactly one Stellar merchant/);
+});
+
+test("requires matching amount range and cumulative budget", () => {
+  const constraints = basePaymentMandate.constraints.map((constraint) =>
+    constraint.type === "payment.budget" ? { ...constraint, max: 6 } : constraint);
+  assert.throws(() => bind({ ...basePaymentMandate, constraints }), /must equal payment\.amount_range\.max/);
+});
+
+test("accepts exact decimal budgets without binary floating-point rejection", () => {
+  const constraints = basePaymentMandate.constraints.map((constraint) => {
+    if (constraint.type === "payment.amount_range") return { ...constraint, max: 29 };
+    if (constraint.type === "payment.budget") return { ...constraint, max: 0.29 };
+    return constraint;
+  });
+  const result = bind({ ...basePaymentMandate, constraints });
+  assert.equal(result.mandate.maxAmount, 2_900_000n);
+});
+
+test("rejects unenforceable recurrence, minimum, and start time", () => {
+  const replace = (type: string, replacement: Record<string, unknown>) => ({
+    ...basePaymentMandate,
+    constraints: basePaymentMandate.constraints.map((constraint) =>
+      constraint.type === type ? replacement : constraint),
+  });
   assert.throws(
-    () => bind({ ...baseIntent, intent_expiry: "2099-01-01T00:00:00.001Z" }),
-    /whole-second precision/,
+    () => bind(replace("payment.agent_recurrence", {
+      type: "payment.agent_recurrence",
+      frequency: "DAILY",
+    }) as Ap2OpenPaymentMandate),
+    /must be ON_DEMAND/,
   );
   assert.throws(
-    () => bind({ ...baseIntent, intent_expiry: "2020-01-01T00:00:00Z" }),
-    /future Unix timestamp/,
+    () => bind(replace("payment.amount_range", {
+      type: "payment.amount_range",
+      currency: "USD",
+      min: 100,
+      max: 500,
+    }) as Ap2OpenPaymentMandate),
+    /minimum-payment policy/,
   );
   assert.throws(
-    () =>
-      bindIntentMandate({
-        intent: baseIntent,
-        stellar: { user: "not-an-address", agent, asset: reapp.testnet.nativeSac, maxAmount: "5.00" },
-      }),
-    /stellar.user must be a Stellar G-address/,
-  );
-  assert.throws(
-    () =>
-      bindIntentMandate({
-        intent: baseIntent,
-        stellar: { user, agent, asset: merchant, maxAmount: "5.00" },
-      }),
-    /stellar.asset must be a valid Stellar contract address/,
+    () => bind(replace("payment.execution_date", {
+      type: "payment.execution_date",
+      not_before: "2098-01-01T00:00:00Z",
+      not_after: "2099-01-01T00:00:00Z",
+    }) as Ap2OpenPaymentMandate),
+    /not_before is unsupported/,
   );
 });
 
-test("fails closed on unknown intent and Stellar authorization fields", () => {
+test("requires cnf to bind the Stellar agent's Ed25519 key", () => {
+  const badX = Buffer.from(StrKey.decodeEd25519PublicKey(other)).toString("base64url");
   assert.throws(
-    () => bind({ ...baseIntent, future_constraint: true } as Ap2IntentMandate),
-    /unsupported field "future_constraint"/,
-  );
-  assert.throws(
-    () =>
-      bindIntentMandate({
-        intent: baseIntent,
-        stellar: {
-          user,
-          agent,
-          asset: reapp.testnet.nativeSac,
-          maxAmount: "5.00",
-          nonce: "vector",
-          future_constraint: true,
-        } as StellarMandateAuthorization,
-      }),
-    /unsupported field "future_constraint"/,
+    () => bind({ ...basePaymentMandate, cnf: { jwk: { ...agentJwk, x: badX } } }),
+    /Ed25519 JWK for stellar\.agent/,
   );
 });
 
-test("rejects impossible calendar expiries instead of normalizing them", () => {
+test("requires exp and execution-date expiry to match", () => {
+  assert.throws(() => bind({ ...basePaymentMandate, exp: 4_070_908_799 }), /exp must equal/);
+  const constraints = basePaymentMandate.constraints.map((constraint) =>
+    constraint.type === "payment.execution_date"
+      ? { ...constraint, not_after: "2099-02-30T00:00:00Z" }
+      : constraint);
   assert.throws(
-    () => bind({ ...baseIntent, intent_expiry: "2099-02-30T00:00:00Z" }),
+    () => bind({ ...basePaymentMandate, constraints, exp: 4_076_006_400 }),
     /real calendar timestamp/,
   );
-  assert.throws(
-    () => bind({ ...baseIntent, intent_expiry: "2100-02-29T00:00:00Z" }),
-    /real calendar timestamp/,
-  );
-  assert.doesNotThrow(
-    () => bind({ ...baseIntent, intent_expiry: "2096-02-29T00:00:00Z" }),
-  );
 });
 
-test("signer and validator share the same canonical UTC year range", () => {
+test("rejects unknown top-level and Stellar fields", () => {
   assert.throws(
-    () => bind({ ...baseIntent, intent_expiry: "9999-12-31T23:59:59-01:00" }),
-    /supported four-digit UTC year range/,
+    () => bind({ ...basePaymentMandate, risk_data: {} } as Ap2OpenPaymentMandate),
+    /unsupported field "risk_data"/,
   );
-  const normalized = bind({ ...baseIntent, intent_expiry: "2099-01-01T01:00:00+01:00" });
-  assert.equal(normalized.normalizedIntent.intent_expiry, "2099-01-01T00:00:00Z");
-});
-
-test("signer and validator share the same decimal range", () => {
   assert.throws(
-    () =>
-      bindIntentMandate({
-        intent: baseIntent,
-        stellar: {
-          user,
-          agent,
-          asset: reapp.testnet.nativeSac,
-          maxAmount: "0.1",
-          decimals: 39,
-        },
-      }),
-    /stellar.decimals must be an integer from 0 through 38/,
-  );
-});
-
-test("agent authorization requires an Ed25519 G-address", () => {
-  const contractAgent = StrKey.encodeContract(Buffer.alloc(32, 9));
-  assert.throws(
-    () =>
-      bindIntentMandate({
-        intent: baseIntent,
-        stellar: {
-          user,
-          agent: contractAgent,
-          asset: reapp.testnet.nativeSac,
-          maxAmount: "5.00",
-        },
-      }),
-    /stellar.agent must be a Stellar G-address/,
+    () => bindPaymentMandate({
+      ...baseInput,
+      stellar: { ...baseInput.stellar, future: true } as BindPaymentMandateInput["stellar"],
+    }),
+    /unsupported field "future"/,
   );
 });

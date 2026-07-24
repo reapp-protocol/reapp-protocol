@@ -20,6 +20,7 @@ Current testnet facts:
 |---|---|
 | [`mandate-registry-contract.md`](mandate-registry-contract.md) | Current contracts, controls, methods, errors, releases, and verification. |
 | [`x402-roundtrip.md`](x402-roundtrip.md) | Bound-v2 challenge, proof, chain verification, recovery, and stores. |
+| [`ap2-merchant-extension.md`](ap2-merchant-extension.md) | Implemented AP2 v0.2 open/closed-chain boundary, separate authorization contract, Simple/Composite routes, and deployment status. |
 | [`reapp-sdk-npm.md`](reapp-sdk-npm.md) | Package/version map, typed APIs, publication, and clean-install checks. |
 | [`repo-inventory.md`](repo-inventory.md) | Current repository surfaces and ownership boundaries. |
 | [`live-failure-drills.md`](live-failure-drills.md) | Fresh testnet revocation, downtime recovery, and expiry evidence. |

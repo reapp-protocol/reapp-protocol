@@ -6,7 +6,7 @@ The `@reapp` scope is unavailable to this project, so the packages map one-to-on
 `@reapp/express-middleware` → `@reapp-sdk/express-middleware`.
 
 ```bash
-npm install @reapp-sdk/stellar@0.2.2 @reapp-sdk/ap2@0.3.0 @reapp-sdk/express-middleware@0.2.2
+npm install @reapp-sdk/stellar@0.2.2 @reapp-sdk/ap2@0.4.0 @reapp-sdk/express-middleware@0.2.2
 ```
 
 Each package contains TypeScript declarations, API documentation, and a usage example

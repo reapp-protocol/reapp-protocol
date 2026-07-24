@@ -10,7 +10,7 @@ cannot replace the contract's `execute_payment` checks.
 |---|---:|---|
 | `@reapp-sdk/core` | 0.3.1 | Mandates, payments, bound-v2 `agent.fetch`, receipts, recovery. |
 | `@reapp-sdk/stellar` | 0.2.2 | Typed contract bindings, permanent testnet deployment, network config, signing and token helpers. |
-| `@reapp-sdk/ap2` | 0.3.0 | Signed AP2 profile validation and replay admission. |
+| `@reapp-sdk/ap2` | 0.4.0 | AP2 v0.2 admission, open/closed merchant verification, receipts, and typed contract authorizations. |
 | `@reapp-sdk/express-middleware` | 0.2.2 | Bound-v2 Express payment boundary and chain verifier. |
 | `reapp-protocol-cli` | 0.1.7 | `init`, `setup`, mandate, crash-safe pay/reconcile/acknowledge, and demo commands. |
 
@@ -33,7 +33,7 @@ npm install @reapp-sdk/core@0.3.1 @stellar/stellar-sdk
 T2 SDK packages:
 
 ```bash
-npm install @reapp-sdk/stellar@0.2.2 @reapp-sdk/ap2@0.3.0 @reapp-sdk/express-middleware@0.2.2
+npm install @reapp-sdk/stellar@0.2.2 @reapp-sdk/ap2@0.4.0 @reapp-sdk/express-middleware@0.2.2
 ```
 
 ## Bound-v2 client API
@@ -100,10 +100,13 @@ trusted operator/outbox, after proving the execution owner is dead, may call
 
 ## AP2 API
 
-`createAp2ComplianceValidator` checks strict schema and versions, Stellar
-Ed25519 signature, separately trusted user, merchant scope, amount, expiry,
-binding hash, and atomic replay admission. Its 59-test suite covers valid and
-adversarial cases. Cumulative spending and payment replay remain contract checks.
+`createAp2ComplianceValidator` dispatches exact v0.1 IntentMandate and v0.2 Open
+Payment envelopes to their own strict schema, binding, signature, context, and
+atomic replay rules. `verifyAp2CheckoutAuthorization` and
+`verifyAp2MerchantAuthorization` verify supported open/closed Delegate SD-JWT
+flows against trusted merchant context. Typed authorization helpers bridge
+verified evidence into the separate Simple/Composite extension; the registry
+continues to enforce spending and move funds.
 
 ## Clean-package gate check
 
@@ -130,7 +133,7 @@ Registry proof is a separate external check:
 ```bash
 npm view @reapp-sdk/core@0.3.1 version dist.integrity
 npm view @reapp-sdk/stellar@0.2.2 version dist.integrity
-npm view @reapp-sdk/ap2@0.3.0 version dist.integrity
+npm view @reapp-sdk/ap2@0.4.0 version dist.integrity
 npm view @reapp-sdk/express-middleware@0.2.2 version dist.integrity
 npm view reapp-protocol-cli@0.1.7 version dist.integrity
 ```

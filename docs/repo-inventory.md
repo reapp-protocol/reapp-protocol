@@ -1,4 +1,4 @@
-# Repository inventory — 2026-07-12
+# Repository inventory — 2026-07-23
 
 ## Packages
 
@@ -6,7 +6,7 @@
 |---|---|---|
 | `packages/sdk` | `@reapp-sdk/core@0.3.1` | High-level mandates, contract payments, bound-v2 client, receipts and recovery. |
 | `packages/stellar` | `@reapp-sdk/stellar@0.2.2` | Generated typed bindings, permanent testnet contract config, signer and SEP-41 helpers. |
-| `packages/ap2` | `@reapp-sdk/ap2@0.3.0` | Signed AP2 v0.1 profile validator and replay admission. |
+| `packages/ap2` | `@reapp-sdk/ap2@0.4.0` | v0.1-compatible/v0.2 admission, supported open/closed merchant verification, receipts, and typed extension authorizations. |
 | `packages/express-middleware` | `@reapp-sdk/express-middleware@0.2.2` | Exact-origin GET proof, Stellar verifier, and atomic claim/immutable-result route. |
 | `packages/cli` | `reapp-protocol-cli@0.1.7` | `init`, `setup`, mandate, crash-safe pay/reconcile/acknowledge, and demo flow. |
 
@@ -28,6 +28,10 @@ live in `reapp-protocol-contracts`:
 
 - simple/default `CCHQ5G4Y…CZRM`, release 0.2.3;
 - composite `CCYRF7FK…HEYW`, release 0.3.0.
+
+The contracts repository's `ap2v0.2` source also contains a separate AP2
+authorization extension and an opt-in Composite pool hook. They are not part
+of the deployments above until tagged, deployed, upgraded, and gate checked.
 
 The contract gate covers unauthorized callers, expiry, overspend, replay,
 pause, upgrade authorization/timing, and real same-address replacement.
